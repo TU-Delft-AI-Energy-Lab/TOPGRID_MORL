@@ -28,9 +28,8 @@ class TopoActionReward(BaseReward):
         #reward = env.simulate(action)[1]  # Get the simulated reward
 
         # Penalize the reward if action is taken (negative reward)
-        if action is not None:
-            reward = self.penalty_factor
-
+        nb_mod_objects = env.action_space.from_gym(action).as_dict()['set_bus_vect']['nb_modif_objects']
+        reward = 1 - self.penalty_factor * nb_mod_objects
         return reward
     
 class MaxDistanceReward(BaseReward):
