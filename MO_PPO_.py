@@ -22,8 +22,18 @@ import pandas as pd
 
 class PPOReplayBuffer:
     """Replay buffer for single environment."""
-
+    
     def __init__(self, size: int, obs_shape: tuple, action_shape: tuple, reward_dim: int, device: Union[th.device, str]):
+        """
+        Initializes the replay buffer with the specified size and shapes for observations, actions, and rewards.
+        
+        Args:
+            size (int): The maximum number of samples the buffer can hold.
+            obs_shape (tuple): Shape of the observation space.
+            action_shape (tuple): Shape of the action space.
+            reward_dim (int): Dimension of the reward space.
+            device (Union[th.device, str]): The device to store the tensors on (CPU or GPU).
+        """
         self.size = size
         self.ptr = 0
         self.device = device
@@ -35,6 +45,17 @@ class PPOReplayBuffer:
         self.values = th.zeros((self.size, reward_dim), dtype=th.float32).to(device)
 
     def add(self, obs, actions, logprobs, rewards, dones, values):
+        """
+        Adds a new sample to the buffer.
+        
+        Args:
+            obs (Tensor): Observation.
+            actions (Tensor): Actions taken.
+            logprobs (Tensor): Log probabilities of the actions.
+            rewards (Tensor): Rewards received.
+            dones (Tensor): Done flags indicating episode termination.
+            values (Tensor): Value function estimates.
+        """
         self.obs[self.ptr] = obs
         self.actions[self.ptr] = actions
         self.logprobs[self.ptr] = logprobs
@@ -44,21 +65,66 @@ class PPOReplayBuffer:
         self.ptr = (self.ptr + 1) % self.size
 
     def get(self, step: int):
+        """
+        Retrieves the sample at a specific step in the buffer.
+        
+        Args:
+            step (int): The index of the sample to retrieve.
+        
+        Returns:
+            tuple: The sample consisting of observation, action, log probability, reward, done flag, and value.
+        """
         return (self.obs[step], self.actions[step], self.logprobs[step], self.rewards[step], self.dones[step], self.values[step])
 
     def get_all(self):
+        """
+        Retrieves all samples currently stored in the buffer.
+        
+        Returns:
+            tuple: All stored samples.
+        """
         return (self.obs[:self.ptr], self.actions[:self.ptr], self.logprobs[:self.ptr], self.rewards[:self.ptr,:], self.dones[:self.ptr], self.values[:self.ptr,:])
     
     def get_ptr(self): 
+        """
+        Retrieves the current position pointer in the buffer.
+        
+        Returns:
+            int: The current position pointer.
+        """
         return self.ptr-1
     
     def get_values(self):
+        """
+        Retrieves all value function estimates stored in the buffer.
+        
+        Returns:
+            Tensor: The value function estimates.
+        """
         return self.values[:self.ptr,:]
     
     def get_rewards(self):
+        """
+        Retrieves all rewards stored in the buffer.
+        
+        Returns:
+            Tensor: The rewards.
+        """
         return self.rewards[:self.ptr,:]
 
 def make_env(env_id: str, seed: int, run_name: str, gamma: float) -> gym.Env:
+    """
+    Creates and configures a multi-objective environment.
+    
+    Args:
+        env_id (str): Environment ID.
+        seed (int): Random seed for reproducibility.
+        run_name (str): Run name for logging.
+        gamma (float): Discount factor.
+    
+    Returns:
+        gym.Env: Configured environment.
+    """
     env = mo_gym.make(env_id, render_mode="rgb_array")
     reward_dim = env.reward_space.shape[0]
     env = gym.wrappers.ClipAction(env)
@@ -75,19 +141,46 @@ def make_env(env_id: str, seed: int, run_name: str, gamma: float) -> gym.Env:
 
 
 def _hidden_layer_init(layer: nn.Module) -> None:
+    """
+    Initializes the weights of a hidden layer.
+    
+    Args:
+        layer (nn.Module): The layer to initialize.
+    """
     layer_init(layer, weight_gain=np.sqrt(2), bias_const=0.0)
 
 
 def _critic_init(layer: nn.Module) -> None:
+    """
+    Initializes the weights of a critic layer.
+    
+    Args:
+        layer (nn.Module): The layer to initialize.
+    """
     layer_init(layer, weight_gain=1.0)
 
 
 def _value_init(layer: nn.Module) -> None:
+    """
+    Initializes the weights of a value layer.
+    
+    Args:
+        layer (nn.Module): The layer to initialize.
+    """
     layer_init(layer, weight_gain=0.01)
 
 
 class MOPPONet(nn.Module):
     def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64]) -> None:
+        """
+        Multi-objective Proximal Policy Optimization network.
+        
+        Args:
+            obs_shape (tuple): Shape of the observation space.
+            action_dim (int): Dimension of the action space.
+            reward_dim (int): Dimension of the reward space.
+            net_arch (List[int]): Network architecture for the MLP.
+        """
         super().__init__()
         self.obs_shape = obs_shape
         self.action_dim = action_dim
@@ -103,9 +196,28 @@ class MOPPONet(nn.Module):
         _value_init(list(self.actor.modules())[-1])
 
     def get_value(self, obs: th.Tensor) -> th.Tensor:
+        """
+        Computes the value function for a given observation.
+        
+        Args:
+            obs (th.Tensor): The observation tensor.
+        
+        Returns:
+            th.Tensor: The value function output.
+        """
         return self.critic(obs)
 
     def get_action_and_value(self, obs: th.Tensor, action: Optional[th.Tensor] = None) -> tuple:
+        """
+        Computes the action and its corresponding log probability, entropy, and value function.
+        
+        Args:
+            obs (th.Tensor): The observation tensor.
+            action (Optional[th.Tensor]): The action tensor.
+        
+        Returns:
+            tuple: Action, log probability, entropy, and value function.
+        """
         logits = self.actor(obs)
         probs = Categorical(logits=logits)
         if action is None:
@@ -140,6 +252,34 @@ class MOPPO(MOPolicy):
         seed: int = 42,
         rng: Optional[np.random.Generator] = None,
     ) -> None:
+        """
+        Multi-objective Proximal Policy Optimization algorithm.
+        
+        Args:
+            id (int): Identifier for the agent.
+            networks (MOPPONet): Neural network for the policy and value function.
+            weights (np.ndarray): Weights for the objectives.
+            env (CustomGymEnv): Environment to interact with.
+            log (bool): Whether to log training metrics.
+            steps_per_iteration (int): Number of steps per iteration.
+            num_minibatches (int): Number of minibatches for update.
+            update_epochs (int): Number of epochs for updating the policy.
+            learning_rate (float): Learning rate for the optimizer.
+            gamma (float): Discount factor.
+            anneal_lr (bool): Whether to anneal the learning rate.
+            clip_coef (float): Clipping coefficient for the policy.
+            ent_coef (float): Entropy coefficient.
+            vf_coef (float): Value function coefficient.
+            clip_vloss (bool): Whether to clip the value loss.
+            max_grad_norm (float): Maximum norm for gradient clipping.
+            norm_adv (bool): Whether to normalize advantages.
+            target_kl (Optional[float]): Target KL divergence for early stopping.
+            gae (bool): Whether to use Generalized Advantage Estimation.
+            gae_lambda (float): GAE lambda parameter.
+            device (Union[th.device, str]): Device for computation (CPU or GPU).
+            seed (int): Random seed for reproducibility.
+            rng (Optional[np.random.Generator]): Random number generator.
+        """
         super().__init__(id, device)
         self.id = id
         self.env = env
@@ -176,6 +316,15 @@ class MOPPO(MOPolicy):
         self.batch = PPOReplayBuffer(self.steps_per_iteration, self.networks.obs_shape, (1,), self.networks.reward_dim, self.device)
 
     def __deepcopy__(self, memo):
+        """
+        Creates a deep copy of the MOPPO object.
+        
+        Args:
+            memo (dict): Dictionary to keep track of copied objects.
+        
+        Returns:
+            MOPPO: A deep copy of the MOPPO object.
+        """
         copied_net = deepcopy(self.networks)
         copied = type(self)(
             self.id,
@@ -207,9 +356,24 @@ class MOPPO(MOPolicy):
         return copied
 
     def change_weights(self, new_weights: np.ndarray):
+        """
+        Changes the weights for the objectives.
+        
+        Args:
+            new_weights (np.ndarray): New weights for the objectives.
+        """
         self.weights = th.from_numpy(deepcopy(new_weights)).to(self.device)
 
     def __extend_to_reward_dim(self, tensor: th.Tensor):
+        """
+        Extends a tensor to the reward dimension if necessary.
+        
+        Args:
+            tensor (th.Tensor): The tensor to extend.
+        
+        Returns:
+            th.Tensor: The extended tensor.
+        """
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
@@ -219,20 +383,29 @@ class MOPPO(MOPolicy):
             return tensor
 
     def __collect_samples(self, obs: th.Tensor, done: th.Tensor, max_ep_steps):
+        """
+        Collects samples by interacting with the environment.
+        
+        Args:
+            obs (th.Tensor): The initial observation.
+            done (th.Tensor): The initial done flag.
+            max_ep_steps (int): The maximum number of steps per episode.
+        
+        Returns:
+            tuple: The final observation, done flag, cumulative reward, and list of actions.
+        """
         count_episode = 1
         done = False
         cum_reward = 0
         action_list = []
-        ep_steps = 0 #init
-        #while the environment has not failed yet and the number of steps did not reach the maxmimum 
-        while (done==False) and ep_steps < max_ep_steps:
+        ep_steps = 0
+        while (done == False) and ep_steps < max_ep_steps:
             self.global_step += 1
 
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(obs)
                 value = value.view(self.networks.reward_dim)
 
-            #step function with the compute action regarding the current network
             next_obs, reward, next_done, info = self.env.step(action.cpu().item())
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
             cum_reward += reward
@@ -253,6 +426,16 @@ class MOPPO(MOPolicy):
         return obs, done, cum_reward, action_list
 
     def __compute_advantages(self, next_obs, next_done):
+        """
+        Computes the advantages for the collected samples.
+        
+        Args:
+            next_obs (th.Tensor): The next observation after the final step.
+            next_done (th.Tensor): The done flag after the final step.
+        
+        Returns:
+            tuple: The returns and advantages.
+        """
         with th.no_grad():
             next_value = self.networks.get_value(next_obs).reshape(-1, self.networks.reward_dim)
             if self.gae:
@@ -289,13 +472,23 @@ class MOPPO(MOPolicy):
                 advantages = returns - self.batch.get_values()
         print('vectorized advantaged')
         print(advantages)
-        advantages = advantages @ self.weights.float() #thats the heart of the morl implementation > we compute dot product of advantages and weights 
+        advantages = advantages @ self.weights.float()  # Compute dot product of advantages and weights
         print('scalarized advantages')
         print(advantages)
         return returns, advantages
 
     @override
     def eval(self, obs: np.ndarray, w):
+        """
+        Evaluates the policy given an observation and weights.
+        
+        Args:
+            obs (np.ndarray): The observation array.
+            w (np.ndarray): The weights for the objectives.
+        
+        Returns:
+            np.ndarray: The selected action.
+        """
         obs = th.as_tensor(obs).float().to(self.device).unsqueeze(0)
         with th.no_grad():
             action, _, _, _ = self.networks.get_action_and_value(obs)
@@ -303,9 +496,12 @@ class MOPPO(MOPolicy):
 
     @override
     def update(self):
+        """
+        Updates the policy using the collected samples.
+        """
         obs, actions, logprobs, _, _, values = self.batch.get_all()
         original_batch_size = self.batch_size
-        if self.batch_size > self.batch.get_ptr(): 
+        if self.batch_size > self.batch.get_ptr():
             self.batch_size = self.batch.get_ptr()
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
         b_logprobs = logprobs.reshape(-1)
@@ -313,7 +509,7 @@ class MOPPO(MOPolicy):
         b_advantages = self.advantages.reshape(-1)
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
-       
+
         b_inds = np.arange(obs.shape[0])
         clipfracs = []
 
@@ -361,7 +557,6 @@ class MOPPO(MOPolicy):
             if self.target_kl is not None and approx_kl > self.target_kl:
                 break
 
-                  
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -383,37 +578,47 @@ class MOPPO(MOPolicy):
             )
 
     def save_model(self, path: str):
+        """
+        Saves the model's state dictionary to the specified path.
+        
+        Args:
+            path (str): The path to save the model.
+        """
         th.save(self.networks.state_dict(), path)
 
     def train(self, num_episodes: int, max_ep_steps: int, reward_dim: int, print_every: int = 100, print_flag: bool = True) -> np.ndarray:
+        """
+        Trains the policy for a specified number of episodes.
+        
+        Args:
+            num_episodes (int): Number of episodes to train.
+            max_ep_steps (int): Maximum steps per episode.
+            reward_dim (int): Dimension of the reward space.
+            print_every (int): Frequency of printing training progress.
+            print_flag (bool): Whether to print training progress.
+        
+        Returns:
+            np.ndarray: Matrix of rewards for each episode.
+        """
         reward_matrix = np.zeros((num_episodes, reward_dim))
         actions = []
-        
-        # Loop over the number of episodes
+
         for i_episode in range(num_episodes):
-            # Initial environment reset
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
             done = False
             next_done = done
             episode_reward = th.zeros(reward_dim).to(self.device)
             ep_step = 0
-            action_list_episode = []  # Save actions in actions list
+            action_list_episode = []
 
-            # Interact with environment to collect samples
             next_obs, next_done, episode_reward, action_list_episode = self.__collect_samples(next_obs, next_done, max_ep_steps)
-
-            # Compute the advantages with the collected samples
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
-
-            # Update the neural network by computing the losses from minibatches within the replay buffer
             self.update()
 
-            # Store actions and rewards
             actions.append([action.cpu().numpy() for action in action_list_episode])
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
 
-            # Logging
             if self.log:
                 log_data = {
                     f"charts_{self.id}/episode_reward_sum": episode_reward.sum().item(),
@@ -424,7 +629,6 @@ class MOPPO(MOPolicy):
                     log_data[f"charts_{self.id}/episode_reward_{j}"] = episode_reward[j].item()
                 wandb.log(log_data)
 
-            # Print information every `print_every` episodes if `print_flag` is True
             if print_flag and (i_episode + 1) % print_every == 0:
                 print(f"Episode {i_episode + 1}/{num_episodes}")
                 print(f"  Episode Reward Sum: {episode_reward.sum().item()}")
@@ -434,4 +638,3 @@ class MOPPO(MOPolicy):
 
         print('Training complete')
         return reward_matrix, actions
-
