@@ -6,9 +6,11 @@ import numpy as np
 
 
 class TopoActionReward(BaseReward):
-    def __init__(self, penalty_factor=0.1, logger=None):
+    def __init__(self, penalty_factor=0.1, logger=None): #init
         self.penalty_factor = penalty_factor
         super().__init__(logger)
+        self.reward_min = 0.0
+        self.reward_max = 1.0
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
@@ -24,22 +26,21 @@ class TopoActionReward(BaseReward):
         Returns:
         - reward (float): The computed reward value.
         """
-        reward =1
 
-        action_dict = action.as_dict()
+        reward =1 #default 
+
+        action_dict = action.as_dict() #conversion to dictionary 
 
         if action_dict == {}:
-            print("The dictionary is empty")
-            reward = 1
+            #print("The dictionary is empty") #Do_Nothing Action -> good
+            reward = reward #ob
         else:
-            if list(action_dict.keys())[0] == 'set_bus_vect':
-                #Modification of Topology
-                nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
-                #print("nb_mod_objects")
-                reward = reward - self.penalty_factor * nb_mod_objects
+            if list(action_dict.keys())[0] == 'set_bus_vect':  #Modification of Topology
+                nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects'] #get number of modified busbars
+                reward = reward - self.penalty_factor * nb_mod_objects #penalize regarding the modified items
             else: 
                 #line switching
-                reward = reward - 1 * self.penalty_factor        
+                reward = reward - 1 * self.penalty_factor #penalization of switching actions
         return reward
     
 class MaxDistanceReward(BaseReward):

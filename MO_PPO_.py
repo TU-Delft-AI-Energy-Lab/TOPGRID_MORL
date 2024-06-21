@@ -470,11 +470,11 @@ class MOPPO(MOPolicy):
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
                 advantages = returns - self.batch.get_values()
-        print('vectorized advantaged')
-        print(advantages)
+        #print('vectorized advantaged')
+        #print(advantages)
         advantages = advantages @ self.weights.float()  # Compute dot product of advantages and weights
-        print('scalarized advantages')
-        print(advantages)
+        #print('scalarized advantages')
+        #print(advantages)
         return returns, advantages
 
     @override
@@ -604,6 +604,12 @@ class MOPPO(MOPolicy):
         actions = []
 
         for i_episode in range(num_episodes):
+            if self.anneal_lr:
+                new_lr = self.learning_rate * (1 - i_episode / num_episodes)
+                for param_group in self.optimizer.param_groups:
+                   param_group['lr'] = new_lr
+
+
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
             done = False
