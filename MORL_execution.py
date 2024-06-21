@@ -47,7 +47,7 @@ weight_vectors = [
     [0, 0, 1]
 ]
 weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-num_episodes = 10
+num_episodes = 2000
 max_ep_steps = 50
 results_dir = "training_results"
 
