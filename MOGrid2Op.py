@@ -24,12 +24,17 @@ class TopoActionReward(BaseReward):
         Returns:
         - reward (float): The computed reward value.
         """
-        # Compute reward based on the impact of action
-        #reward = env.simulate(action)[1]  # Get the simulated reward
+        reward =1
 
-        # Penalize the reward if action is taken (negative reward)
-        nb_mod_objects = env.action_space.from_gym(action).as_dict()['set_bus_vect']['nb_modif_objects']
-        reward = 1 - self.penalty_factor * nb_mod_objects
+        action_dict = action.as_dict()
+
+        if action_dict == {}:
+            print("The dictionary is empty")
+            reward = 1
+        else:
+            nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
+            #print("nb_mod_objects")
+            reward = reward - self.penalty_factor * nb_mod_objects
         return reward
     
 class MaxDistanceReward(BaseReward):
