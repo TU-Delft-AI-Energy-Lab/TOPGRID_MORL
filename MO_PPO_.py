@@ -422,8 +422,8 @@ class MOPPO(MOPolicy):
                     global_timestep=self.global_step,
                     id=self.id,
                 )
-
-        return obs, done, cum_reward, action_list
+            ep_steps +=1
+        return obs, done, cum_reward, action_list, ep_steps
 
     def __compute_advantages(self, next_obs, next_done):
         """
@@ -602,7 +602,7 @@ class MOPPO(MOPolicy):
         """
         reward_matrix = np.zeros((num_episodes, reward_dim))
         actions = []
-
+        total_steps = []
         for i_episode in range(num_episodes):
             if self.anneal_lr:
                 new_lr = self.learning_rate * (1 - i_episode / num_episodes)
@@ -615,15 +615,16 @@ class MOPPO(MOPolicy):
             done = False
             next_done = done
             episode_reward = th.zeros(reward_dim).to(self.device)
-            ep_step = 0
+            
             action_list_episode = []
 
-            next_obs, next_done, episode_reward, action_list_episode = self.__collect_samples(next_obs, next_done, max_ep_steps)
+            next_obs, next_done, episode_reward, action_list_episode, ep_steps = self.__collect_samples(next_obs, next_done, max_ep_steps)
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
 
             actions.append([action.cpu().numpy() for action in action_list_episode])
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
+            total_steps.append(ep_steps)
 
             if self.log:
                 log_data = {
@@ -643,4 +644,5 @@ class MOPPO(MOPolicy):
                 print(f"  Actions: {actions[-1]}")
 
         print('Training complete')
-        return reward_matrix, actions
+        print(total_steps)
+        return reward_matrix, actions, total_steps
