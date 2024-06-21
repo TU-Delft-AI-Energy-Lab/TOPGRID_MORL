@@ -47,12 +47,12 @@ weight_vectors = [
     [0, 0, 1]
 ]
 weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-num_episodes = 5
+num_episodes = 1000
 max_ep_steps = 50
 results_dir = "training_results"
 
 
-
+ 
 # Step 5: Train Agent
 train_agent(
     weight_vectors=weight_vectors,
