@@ -32,9 +32,14 @@ class TopoActionReward(BaseReward):
             print("The dictionary is empty")
             reward = 1
         else:
-            nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
-            #print("nb_mod_objects")
-            reward = reward - self.penalty_factor * nb_mod_objects
+            if list(action_dict.keys())[0] == 'set_bus_vect':
+                #Modification of Topology
+                nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
+                #print("nb_mod_objects")
+                reward = reward - self.penalty_factor * nb_mod_objects
+            else: 
+                #line switching
+                reward = reward - 1 * self.penalty_factor        
         return reward
     
 class MaxDistanceReward(BaseReward):
