@@ -20,13 +20,14 @@ class CustomGymEnv(GymEnv):
     def reset(self, *, seed=None, options=None):
         """Reset the environment."""
         g2op_obs = self.init_env.reset()
+        self.steps = 0
         #return g2op_obs #returning grid2op_obs
         return self.observation_space.to_gym(g2op_obs)
 
     def step(self, action):
         """Take a step in the environment."""
         g2op_act = self.action_space.from_gym(action)
-
+        self.steps += 1
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act = g2op_act + line
@@ -43,6 +44,7 @@ class CustomGymEnv(GymEnv):
               action = 0
               do_nothing = self.action_space.from_gym(action)
               g2op_obs, reward, done, info = self.init_env.step(do_nothing)
+              self.steps += 1
               reward = np.array([reward1] + [info['rewards'].get(reward, 0) for reward in self.rewards])
               #self.steps += 1
               cum_reward += reward
@@ -55,6 +57,8 @@ class CustomGymEnv(GymEnv):
             line_id_attacked = np.argwhere(info["opponent_attack_line"]).flatten()[0]
             g2op_act = self.init_env.action_space({"set_line_status": [(line_id_attacked, 1)]})
             self.reconnect_line.append(g2op_act)
+
+        info["steps"] = self.steps
 
         gym_obs = self.observation_space.to_gym(g2op_obs)
         return gym_obs, reward, done, info

@@ -43,7 +43,7 @@ agent_params = {
 # Step 4: Training Parameters
 weight_vectors = [
     [1, 0, 0],
-    [0, 1, 0],
+    [0, 1, 0],  
     [0, 0, 1]
 ]
 weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency

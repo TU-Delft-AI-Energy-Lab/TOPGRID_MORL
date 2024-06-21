@@ -398,8 +398,9 @@ class MOPPO(MOPolicy):
         done = False
         cum_reward = 0
         action_list = []
-        ep_steps = 0
-        while (done == False) and ep_steps < max_ep_steps:
+        gym_steps = 0
+        grid2op_steps = 0
+        while (done == False) and gym_steps < max_ep_steps:
             self.global_step += 1
 
             with th.no_grad():
@@ -411,7 +412,7 @@ class MOPPO(MOPolicy):
             cum_reward += reward
             self.batch.add(obs, action, logprob, reward, done, value)
             action_list.append(action)
-
+            steps_in_gymSteps = info['steps']
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(next_done).float().to(self.device)
 
             if "episode" in info.keys():
@@ -422,8 +423,10 @@ class MOPPO(MOPolicy):
                     global_timestep=self.global_step,
                     id=self.id,
                 )
-            ep_steps +=1
-        return obs, done, cum_reward, action_list, ep_steps
+            
+            gym_steps += 1
+            grid2op_steps += steps_in_gymSteps
+        return obs, done, cum_reward, action_list, grid2op_steps
 
     def __compute_advantages(self, next_obs, next_done):
         """
