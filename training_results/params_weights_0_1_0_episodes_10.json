@@ -5,7 +5,7 @@
         0
     ],
     "num_episodes": 10,
-    "max_ep_steps": 20,
+    "max_ep_steps": 50,
     "reward_dim": 3,
     "model_filepath": "training_results\\model_weights_0_1_0_episodes_10.pth",
     "result_filepath": "training_results\\results_weights_0_1_0_episodes_10.npz"
