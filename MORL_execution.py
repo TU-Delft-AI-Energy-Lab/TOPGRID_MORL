@@ -4,7 +4,9 @@ from MO_PPO_train_utils import initialize_network, train_agent  # Functions for 
 
 # Step 1: Setup Environment
 # Assuming setup_environment() returns gym_env, obs_dim, action_dim, reward_dim
-gym_env, obs_dim, action_dim, reward_dim = setup_environment()
+from grid2op.Reward import L2RPNReward
+from grid2op.Reward import EpisodeDurationReward
+gym_env, obs_dim, action_dim, reward_dim = setup_environment(frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
 
 # Reset the environment to verify dimensions
 gym_env.reset()
@@ -33,7 +35,7 @@ agent_params = {
     "norm_adv": True,
     "target_kl": None,
     "gae": True,
-    "gae_lambda": 0.95,
+    "gae_lambda": 0.95, 
     "device": "cpu",
     "seed": 42,
 }
@@ -41,16 +43,16 @@ agent_params = {
 # Step 4: Training Parameters
 weight_vectors = [
     [1, 0, 0],
-    [0, 1, 0],
+    [0, 1, 0],  
     [0, 0, 1]
 ]
 weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-num_episodes = 10
-max_ep_steps = 20
+num_episodes = 2000
+max_ep_steps = 50
 results_dir = "training_results"
 
 
-
+ 
 # Step 5: Train Agent
 train_agent(
     weight_vectors=weight_vectors,
