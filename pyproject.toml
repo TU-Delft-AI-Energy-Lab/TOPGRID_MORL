@@ -1,0 +1,172 @@
+# BUILD METADATA
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# PROJECT METADATA
+
+[project]
+
+# Package name
+
+name = <FILL IN NAME OF PACKAGE>
+version = "0.1.0"
+
+# Authors
+
+authors = [
+    <YOUR NAME>
+    {name = "Davide Barbieri", email = "davide.barbieri@tennet.eu"},
+    {name = "Jan Viebahn", email = "jan.viebhan@tennet.eu"},
+]
+
+# Package info
+
+description = <ONE LINE DESC>
+readme = "README.md"
+
+keywords = ["rl", "grid2op"] <ADD SOME KEYWORDS>
+
+license = {text = "BSD-3-Clause"} <REMEMBER TO CHECK LICENSE WITH DAVIDE>
+
+classifiers = [
+    "License :: OSI Approved :: BSD License", <REMEMBER TO CHECK LICENSE WITH DAVIDE>
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12"
+]
+
+# Requirements and dependencies
+
+requires-python = ">=3.12"
+
+dependencies = [
+  "Grid2Op==1.9.*",
+]
+
+[project.optional-dependencies]
+dev = [
+  "black==23.3.*",
+  "flake8==6.0.*",
+  "pylint==2.17.*",
+  "autoflake==2.1.*",
+  "mypy==1.2.*",
+  "hypothesis==6.75.*",
+  "pytest==7.3.*",
+  "pytest-cov==4.0.*",
+  "tox==3.28.*",
+  "pre-commit==3.3.*",
+  "pre-commit-hooks==4.4.*",
+  "jupyterlab==4.0.*",
+  "pylint-print==1.0.*",
+  "ruff=0.4.*",
+  "flake8-junit-report",
+  "flake8-print",
+  "flake8-pyproject",
+  "isort",
+  "pep8-naming",
+  "pytest-dotenv",
+  "pytest-mock",
+  "typeguard",
+]
+
+# Tools settings
+
+# Coverage
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["gridmind"]
+
+[tool.coverage.report]
+fail_under = 90
+precision = 0
+show_missing = true
+skip_covered = false
+skip_empty = false
+sort = "Cover"
+
+[tool.coverage.paths]
+source = [
+   "src",
+   ".tox/*/lib/site-packages/src",
+   ".tox/*/lib/python*/site-packages/src",
+   ".tox/pypy*/site-packages/src",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage-report.xml"
+
+# Flake8
+
+[tool.flake8]
+max-complexity = 10
+max-line-length = 125
+extend-ignore=["E203", "C901"]
+
+# Isort
+
+[tool.isort]
+profile = "black"
+src_paths = ["src", "test"]
+
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+
+# Pylint
+
+[tool.pylint.'MESSAGES CONTROL']
+
+disable= [
+  "fixme",
+  "too-few-public-methods",
+  "chained-comparison",
+  "duplicate-code",
+  "too-many-ancestors",
+  "logging-fstring-interpolation",
+  "too-many-arguments",
+  "protected-access",
+  "unused-argument",
+  "assignment-from-no-return",
+  "too-many-instance-attributes",
+  "too-many-locals",
+  "too-many-statements",
+]
+
+max-line-length=125
+max-args = 9
+max-attributes = 9
+load-plugins=["pylint_print"]
+
+# Pytest
+
+[tool.pytest.ini_options]
+addopts = [
+  "--durations=5",
+  "--junit-xml=test-report.xml",
+  "--new-first",
+  "--show-capture=all",
+  "--verbosity=4",
+]
+junit_family = "legacy"
+testpaths = ["tests"]
+
+[tool.mypy]
+
+follow_imports = "skip"
+strict = true
+ignore_missing_imports = true
+install_types = true
+non_interactive = true
+allow_subclassing_any = true
+allow_untyped_calls = true
+warn_unused_ignores = false
+explicit_package_bases = true
