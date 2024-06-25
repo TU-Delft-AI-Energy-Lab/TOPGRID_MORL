@@ -35,7 +35,15 @@ def setup_environment(env_name="l2rpn_case14_sandbox", frist_reward = L2RPNRewar
     # Modify observation space if needed
     obs_attributes_to_keep = ["rho", "topo_vect", "gen_p", "gen_q", "gen_v", "gen_theta",
                               "load_p", "load_q", "load_v", "load_theta", "p_or", "q_or", "v_or", "a_or", "theta_or"]
-    gym_env.observation_space = BoxGymObsSpace(env.observation_space, attr_to_keep=obs_attributes_to_keep)
+    obs_TenneT = ["rho",
+                "gen_p",
+                "load_p",
+                "topo_vect",
+                "p_or",
+                "p_ex",
+                "timestep_overflow",]
+
+    gym_env.observation_space = BoxGymObsSpace(env.observation_space, attr_to_keep=obs_TenneT)
 
     # Action space setup
     #gym_env.action_space = BoxGymActSpace(env.action_space, attr_to_keep=["set_bus", "set_line_status"])
