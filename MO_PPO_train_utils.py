@@ -32,6 +32,7 @@ def load_saved_data(weights, num_episodes, results_dir):
     data = np.load(result_filepath)
     reward_matrix = data['reward_matrix']
     actions = data['actions']
+    total_steps = data['total_steps']
     
     # Load the model
     model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
@@ -46,7 +47,7 @@ def load_saved_data(weights, num_episodes, results_dir):
     print(f"Loaded model from {model_filepath}")
     print(f"Loaded parameters from {params_filepath}")
     
-    return reward_matrix, actions, params
+    return reward_matrix, actions, total_steps, params
 
 
 # Function to train the agent using MO-PPO
@@ -57,14 +58,14 @@ def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, env, ob
         agent = initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params)
         agent.weights = th.tensor(weights).float().to(agent.device)
         
-        reward_matrix, actions = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
+        reward_matrix, actions, total_steps = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
         actions = pad_list(actions)
         
         weights_str = "_".join(map(str, weights))
         filename_base = f"weights_{weights_str}_episodes_{num_episodes}"
         
         result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
-        np.savez(result_filepath, reward_matrix=reward_matrix, actions=actions, weights=weights, num_episodes=num_episodes)
+        np.savez(result_filepath, reward_matrix=reward_matrix, actions=actions, total_steps=total_steps, weights=weights, num_episodes=num_episodes)
         
         model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
         th.save(agent.networks.state_dict(), model_filepath)
