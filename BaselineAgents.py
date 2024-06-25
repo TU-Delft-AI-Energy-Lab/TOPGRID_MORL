@@ -65,20 +65,19 @@ class DoNothingAgent(BaseAgent):
             np.ndarray: Matrix of rewards for each episode.
         """
         reward_matrix = np.zeros((num_episodes, reward_dim))
-        
+        total_steps= []
         for i_episode in range(num_episodes):
             state = self.env.reset()
             episode_reward = th.zeros(reward_dim).to(self.device)
             done = False
             cum_reward = 0
-            total_steps= []
             gym_steps = 0
             grid2op_steps = 0
             while (done == False) and gym_steps < max_ep_steps:
                 next_obs, reward, done, info = self.env.step(0)
                 episode_reward += reward
                 
-                steps_in_gymSteps = info['steps']
+                grid2op_steps = info['steps']
 
                 if "episode" in info.keys():
                     log_episode_info(
@@ -90,7 +89,7 @@ class DoNothingAgent(BaseAgent):
                     )
                 
                 gym_steps += 1
-                grid2op_steps += steps_in_gymSteps
+        
             
             
             reward_matrix[i_episode] = episode_reward.cpu().numpy()

@@ -47,7 +47,7 @@ weight_vectors = [
     [0, 0, 1]
 ]
 weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-num_episodes = 2000
+num_episodes = 25
 max_ep_steps = 50
 results_dir = "training_results"
 
@@ -65,3 +65,8 @@ train_agent(
     reward_dim=reward_dim,
     **agent_params
 )
+
+# Step 6: DoNothing Benchmark
+from MO_PPO_train_utils import train_and_save_donothing_agent
+reward_dim= 3
+train_and_save_donothing_agent(action_space=219, gym_env=gym_env, num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim, save_dir=results_dir)
