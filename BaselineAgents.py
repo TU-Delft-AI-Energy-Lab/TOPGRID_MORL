@@ -83,7 +83,7 @@ class DoNothingAgent(BaseAgent):
                     log_episode_info(
                         info["episode"],
                         scalarization=np.dot,
-                        weights=self.weights,
+                        weights=self.weights, 
                         global_timestep=self.global_step,
                         id=self.id,
                     )
