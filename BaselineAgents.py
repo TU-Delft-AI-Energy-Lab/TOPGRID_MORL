@@ -2,6 +2,8 @@ from grid2op.Agent.baseAgent import BaseAgent
 import numpy as np
 import torch as th
 from morl_baselines.common.evaluation import log_episode_info
+from typing import List, Optional, Union
+
 
 
 class DoNothingAgent(BaseAgent):
@@ -13,8 +15,11 @@ class DoNothingAgent(BaseAgent):
 
     """
 
-    def __init__(self, action_space):
-        BaseAgent.__init__(self, action_space)
+    def __init__(self, action_space, gymenv, device: Union[th.device, str] = "cpu"):
+        BaseAgent.__init__(self, 
+                           action_space)
+        self.env = gymenv
+        self.device = device
 
     def act(self, observation, reward, done=False):
         """
@@ -60,32 +65,20 @@ class DoNothingAgent(BaseAgent):
             np.ndarray: Matrix of rewards for each episode.
         """
         reward_matrix = np.zeros((num_episodes, reward_dim))
-        actions = []
-        total_steps = []
+        
         for i_episode in range(num_episodes):
             state = self.env.reset()
-            next_obs = th.Tensor(state).to(self.device)
             episode_reward = th.zeros(reward_dim).to(self.device)
-            action_list_episode = []     
             done = False
             cum_reward = 0
-            action_list = []
+            total_steps= []
             gym_steps = 0
             grid2op_steps = 0
             while (done == False) and gym_steps < max_ep_steps:
-                self.global_step += 1
-
-                with th.no_grad():
-                    action, logprob, _, value = self.networks.get_action_and_value(obs)
-                    value = value.view(self.networks.reward_dim)
-
-                next_obs, reward, next_done, info = self.env.step(action.cpu().item())
-                reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
-                cum_reward += reward
-                self.batch.add(obs, action, logprob, reward, done, value)
-                action_list.append(action)
+                next_obs, reward, done, info = self.env.step(0)
+                episode_reward += reward
+                
                 steps_in_gymSteps = info['steps']
-                obs, done = th.Tensor(next_obs).to(self.device), th.tensor(next_done).float().to(self.device)
 
                 if "episode" in info.keys():
                     log_episode_info(
@@ -100,18 +93,9 @@ class DoNothingAgent(BaseAgent):
                 grid2op_steps += steps_in_gymSteps
             
             
-            actions.append([action.cpu().numpy() for action in action_list_episode])
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
             total_steps.append(grid2op_steps)
 
-
-            if print_flag and (i_episode + 1) % print_every == 0:
-                print(f"Episode {i_episode + 1}/{num_episodes}")
-                print(f"  Episode Reward Sum: {episode_reward.sum().item()}")
-                for j in range(reward_dim):
-                    print(f"  Episode Reward {j}: {episode_reward[j].item()}")
-                    print(f"  Actions: {actions[-1]}")
-
         print('Training complete')
         print(total_steps)
-        return reward_matrix, actions, total_steps
+        return reward_matrix, total_steps

@@ -10,6 +10,7 @@ from lightsim2grid import LightSimBackend
 # Assuming setup_environment() returns gym_env, obs_dim, action_dim, reward_dim
 from grid2op.Reward import L2RPNReward
 from grid2op.Reward import EpisodeDurationReward
+from BaselineAgents import DoNothingAgent
 gym_env, obs_dim, action_dim, reward_dim = setup_environment(frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
 
 # Reset the environment to verify dimensions
@@ -17,18 +18,15 @@ gym_env.reset()
 print(f"Action dimension: {action_dim}")
 print(f"Observation dimension: {obs_dim}")
 
-DoNothingAgent.train_agent(
-    weight_vectors=weight_vectors,
-    num_episodes=num_episodes,
-    max_ep_steps=max_ep_steps,
-    results_dir=results_dir,
-    env=gym_env,
-    obs_dim=obs_dim,
-    action_dim=action_dim,
-    reward_dim=reward_dim,
-    **agent_params
-)
+num_episodes=10
+max_ep_steps = 50
+reward_dim=3
+agent = DoNothingAgent(action_space=219, gymenv=gym_env)
+reward_matrix, total_steps = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
+
+
+print(reward_matrix)
+
+
 
 #Step 6: Do Nothing Agent Benchmark
-from grid2op.Agent import DoNothingAgent
-initial_obs = gym_env.reset()
