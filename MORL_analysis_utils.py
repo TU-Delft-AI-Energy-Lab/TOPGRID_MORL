@@ -116,10 +116,12 @@ def generate_variable_name(base_name, num_episodes, weights):
     return f"{base_name}_episodes_{num_episodes}_weights_{weights_str}"
 
 def scale_columns_independently(reward_matrix):
+    print(f"Input reward_matrix shape: {reward_matrix.shape}")  # Debugging print
+
     scaler = MinMaxScaler()
     scaled_matrix = np.zeros_like(reward_matrix)  # Initialize the scaled matrix with the same shape
-
+    
     for col in range(reward_matrix.shape[1]):
         scaled_matrix[:, col] = scaler.fit_transform(reward_matrix[:, col].reshape(-1, 1)).flatten()
-
+    
     return scaled_matrix
