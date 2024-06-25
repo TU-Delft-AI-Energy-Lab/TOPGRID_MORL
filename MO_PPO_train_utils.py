@@ -24,10 +24,10 @@ def pad_list(actions):
     return np.array(padded_list)
 
 # Function to load a specific file based on weights and episodes
-def load_saved_data(weights, num_episodes, results_dir, donothing_prefix="DoNothing"):
+def load_saved_data(weights, num_episodes, seed, results_dir, donothing_prefix="DoNothing"):
     weights_str = "_".join(map(str, weights))
-    filename_base = f"weights_{weights_str}_episodes_{num_episodes}"
-    
+    filename_base = f"weights_{weights_str}_episodes_{num_episodes}_seed_{seed}"
+
     # Load the results
     result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
     data = np.load(result_filepath)
@@ -35,21 +35,21 @@ def load_saved_data(weights, num_episodes, results_dir, donothing_prefix="DoNoth
     actions = data['actions']
     total_steps = data['total_steps']
     
-    # Load the model
+    # Load the model (example, adjust as needed)
     model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
-    #agent.networks.load_state_dict(th.load(model_filepath))
+    # agent.networks.load_state_dict(th.load(model_filepath))
     
-    # Load the parameters
+    # Load the parameters (example, adjust as needed)
     params_filepath = os.path.join(results_dir, f"params_{filename_base}.json")
     with open(params_filepath, 'r') as json_file:
         params = json.load(json_file)
     
     # Load DoNothing results
-    donothing_filename = f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes.npy"
+    donothing_filename = f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy"
     donothing_filepath = os.path.join(results_dir, donothing_filename)
     donothing_reward_matrix = np.load(donothing_filepath)
 
-    donothing_total_steps_filename = f"{donothing_prefix}_total_steps_{num_episodes}_episodes.npy"
+    donothing_total_steps_filename = f"{donothing_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy"
     donothing_total_steps_filepath = os.path.join(results_dir, donothing_total_steps_filename)
     donothing_total_steps = np.load(donothing_total_steps_filepath)
     

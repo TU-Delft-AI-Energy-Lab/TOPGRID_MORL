@@ -111,9 +111,9 @@ def plot_total_sums(reward_matrices, labels):
     plt.show()
 
 # Function to generate a variable name based on the specifications
-def generate_variable_name(base_name, num_episodes, weights):
+def generate_variable_name(base_name, num_episodes, weights, seed):
     weights_str = "_".join(map(str, weights))
-    return f"{base_name}_episodes_{num_episodes}_weights_{weights_str}"
+    return f"{base_name}_episodes_{num_episodes}_weights_{weights_str}_seed_{seed}"
 
 def scale_columns_independently(reward_matrix):
     print(f"Input reward_matrix shape: {reward_matrix.shape}")  # Debugging print
