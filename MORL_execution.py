@@ -10,6 +10,7 @@ from grid2op.Reward import L2RPNReward
 from grid2op.Reward import EpisodeDurationReward
 
 env_name = "rte_case5_example"
+results_dir = "training_results_5bus"
 
 num_seeds = 10
 for seed in range(num_seeds):
@@ -53,10 +54,11 @@ for seed in range(num_seeds):
         [0, 1, 0],  
         [0, 0, 1]
     ]
+    
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
     num_episodes = 5
     max_ep_steps = 5
-    results_dir = "training_results_5bus"
+   
 
 
     
