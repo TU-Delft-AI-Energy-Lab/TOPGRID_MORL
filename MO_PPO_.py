@@ -398,8 +398,11 @@ class MOPPO(MOPolicy):
         done = False
         cum_reward = 0
         action_list = []
-        ep_steps = 0
-        while (done == False) and ep_steps < max_ep_steps:
+        #create observation list that will save the observations taken during one gym step
+        
+        gym_steps = 0
+        grid2op_steps = 0
+        while (done == False) and gym_steps < max_ep_steps:
             self.global_step += 1
 
             with th.no_grad():
@@ -411,7 +414,7 @@ class MOPPO(MOPolicy):
             cum_reward += reward
             self.batch.add(obs, action, logprob, reward, done, value)
             action_list.append(action)
-
+            steps_in_gymSteps = info['steps']
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(next_done).float().to(self.device)
 
             if "episode" in info.keys():
@@ -422,8 +425,10 @@ class MOPPO(MOPolicy):
                     global_timestep=self.global_step,
                     id=self.id,
                 )
-
-        return obs, done, cum_reward, action_list
+            
+            gym_steps += 1
+            grid2op_steps += steps_in_gymSteps
+        return obs, done, cum_reward, action_list, grid2op_steps
 
     def __compute_advantages(self, next_obs, next_done):
         """
@@ -470,11 +475,11 @@ class MOPPO(MOPolicy):
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
                 advantages = returns - self.batch.get_values()
-        print('vectorized advantaged')
-        print(advantages)
+        #print('vectorized advantaged')
+        #print(advantages)
         advantages = advantages @ self.weights.float()  # Compute dot product of advantages and weights
-        print('scalarized advantages')
-        print(advantages)
+        #print('scalarized advantages')
+        #print(advantages)
         return returns, advantages
 
     @override
@@ -602,22 +607,29 @@ class MOPPO(MOPolicy):
         """
         reward_matrix = np.zeros((num_episodes, reward_dim))
         actions = []
-
+        total_steps = []
         for i_episode in range(num_episodes):
+            if self.anneal_lr:
+                new_lr = self.learning_rate * (1 - i_episode / num_episodes)
+                for param_group in self.optimizer.param_groups:
+                   param_group['lr'] = new_lr
+
+
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
             done = False
             next_done = done
             episode_reward = th.zeros(reward_dim).to(self.device)
-            ep_step = 0
+            
             action_list_episode = []
 
-            next_obs, next_done, episode_reward, action_list_episode = self.__collect_samples(next_obs, next_done, max_ep_steps)
+            next_obs, next_done, episode_reward, action_list_episode, ep_steps = self.__collect_samples(next_obs, next_done, max_ep_steps)
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
 
             actions.append([action.cpu().numpy() for action in action_list_episode])
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
+            total_steps.append(ep_steps)
 
             if self.log:
                 log_data = {
@@ -637,4 +649,5 @@ class MOPPO(MOPolicy):
                 print(f"  Actions: {actions[-1]}")
 
         print('Training complete')
-        return reward_matrix, actions
+        print(total_steps)
+        return reward_matrix, actions, total_steps

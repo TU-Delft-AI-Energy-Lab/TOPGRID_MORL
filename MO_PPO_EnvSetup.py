@@ -8,7 +8,7 @@ from CustomGymEnv import CustomGymEnv  # Import your custom environment if neces
 
 from MOGrid2Op import TopoActionReward, MaxDistanceReward
 
-def setup_environment(env_name="l2rpn_case14_sandbox", frist_reward = L2RPNReward, rewards_list=["LinesCapacity", "TopoAction"]):
+def setup_environment(env_name="l2rpn_case14_sandbox", test = False, action_space=219, seed=0, frist_reward = L2RPNReward, rewards_list=["LinesCapacity", "TopoAction"]):
     """
     Sets up the Grid2Op environment with the specified rewards and returns the Gym-compatible environment and reward dimension.
 
@@ -23,9 +23,12 @@ def setup_environment(env_name="l2rpn_case14_sandbox", frist_reward = L2RPNRewar
     """
 
     # Create environment
-    env = grid2op.make(env_name, backend=LightSimBackend(), reward_class=frist_reward,
-                       other_rewards={reward_name: globals()[reward_name + 'Reward'] for reward_name in rewards_list})
+   
+    env = grid2op.make(env_name, test=test, backend=LightSimBackend(), reward_class=frist_reward,
+                    other_rewards={reward_name: globals()[reward_name + 'Reward'] for reward_name in rewards_list})
 
+    env.seed(seed=seed)
+    env.reset()
     # Use custom Gym environment if provided
     gym_env = CustomGymEnv(env)
 
@@ -35,15 +38,24 @@ def setup_environment(env_name="l2rpn_case14_sandbox", frist_reward = L2RPNRewar
     # Modify observation space if needed
     obs_attributes_to_keep = ["rho", "topo_vect", "gen_p", "gen_q", "gen_v", "gen_theta",
                               "load_p", "load_q", "load_v", "load_theta", "p_or", "q_or", "v_or", "a_or", "theta_or"]
-    gym_env.observation_space = BoxGymObsSpace(env.observation_space, attr_to_keep=obs_attributes_to_keep)
+    obs_TenneT = ["rho",
+                "gen_p",
+                "load_p",
+                "topo_vect",
+                "p_or",
+                "p_ex",
+                "timestep_overflow",]
+
+    gym_env.observation_space = BoxGymObsSpace(env.observation_space, attr_to_keep=obs_TenneT)
 
     # Action space setup
     #gym_env.action_space = BoxGymActSpace(env.action_space, attr_to_keep=["set_bus", "set_line_status"])
-    action_dim = 219
+    action_dim = action_space
     gym_env.action_space = DiscreteActSpace(env.action_space,
                                         attr_to_keep=["set_bus" , "set_line_status"])
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
+    print(gym_env.action_space)
 
     print(f"Environment setup completed for {env_name} with Gym compatibility.")
 
