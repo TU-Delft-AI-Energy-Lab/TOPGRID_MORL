@@ -56,12 +56,9 @@ for seed in range(num_seeds):
     ]
     
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    num_episodes = 1000
-    max_ep_steps = 50
+    num_episodes = 5
+    max_ep_steps = 5
    
-
-
-    
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
