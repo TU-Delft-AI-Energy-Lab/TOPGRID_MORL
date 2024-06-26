@@ -12,7 +12,7 @@ from grid2op.Reward import EpisodeDurationReward
 env_name = "rte_case5_example"
 results_dir = "training_results_5bus"
 
-num_seeds = 10
+num_seeds = 5
 for seed in range(num_seeds):
 
     gym_env, obs_dim, action_dim, reward_dim = setup_environment(env_name=env_name, test=True, seed=0, action_space=99, frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
@@ -59,9 +59,6 @@ for seed in range(num_seeds):
     num_episodes = 5
     max_ep_steps = 5
    
-
-
-    
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,

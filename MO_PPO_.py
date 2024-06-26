@@ -398,6 +398,8 @@ class MOPPO(MOPolicy):
         done = False
         cum_reward = 0
         action_list = []
+        #create observation list that will save the observations taken during one gym step
+        
         gym_steps = 0
         grid2op_steps = 0
         while (done == False) and gym_steps < max_ep_steps:
