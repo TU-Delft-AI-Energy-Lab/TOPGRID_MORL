@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from mpl_toolkits.mplot3d import Axes3D
+import seaborn as sns
 
 def plot_multiple_subplots(reward_matrices, summed_episodes):
     num_matrices = len(reward_matrices)
@@ -125,3 +126,144 @@ def scale_columns_independently(reward_matrix):
         scaled_matrix[:, col] = scaler.fit_transform(reward_matrix[:, col].reshape(-1, 1)).flatten()
     
     return scaled_matrix
+
+def plot_3d_mean_std(returns_dict):
+    # Create a 3D scatter plot
+    fig = plt.figure(figsize=(14, 12))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot data for each weight setting
+    for weight_setting, returns in returns_dict.items():
+        # Calculate the sum of rewards across episodes for each seed
+        sum_across_episodes = np.sum(returns, axis=1)  # Shape: [num_seeds, reward_dim]
+
+        # Calculate the mean and standard deviation across seeds for each reward type
+        means = np.mean(sum_across_episodes, axis=0)
+        std_devs = np.std(sum_across_episodes, axis=0)
+
+        # Plot the mean point
+        ax.scatter(means[0], means[1], means[2], s=100, label=f'Mean {weight_setting}', marker='o')
+
+        # Annotate the mean point
+        ax.text(means[0], means[1], means[2], 
+                f'Mean: ({means[0]:.2f}, {means[1]:.2f}, {means[2]:.2f})', 
+                fontsize=9, color='black')
+
+        # Plot error bars for standard deviation
+        ax.errorbar(means[0], means[1], means[2], 
+                    xerr=std_devs[0], yerr=std_devs[1], zerr=std_devs[2], 
+                    fmt='o', capsize=5, label=f'Std Dev {weight_setting}')
+
+    # Adding labels and title
+    ax.set_xlabel('Total Reward 1', fontsize=12)
+    ax.set_ylabel('Total Reward 2', fontsize=12)
+    ax.set_zlabel('Total Reward 3', fontsize=12)
+    ax.set_title('Total Sums of Rewards with Mean and Std Deviation', fontsize=14)
+    ax.legend()
+
+    #plt.show()
+    
+def plot_mean_std_rewards(returns_dict, reward_dim):
+    
+    # Define color palette
+    colors = sns.color_palette("husl", len(returns_dict))  # Different colors for each weight setting
+    
+    reward_dim = reward_dim  # Number of reward dimensions
+
+    # Create subplots for each reward dimension
+    fig, axes = plt.subplots(1, reward_dim, figsize=(18, 6), sharex=True, sharey=True)
+
+    if reward_dim == 1:
+        axes = [axes]  # Ensure axes is iterable if there's only one reward dimension
+
+    for reward_idx in range(reward_dim):
+        ax = axes[reward_idx]
+        for (weight_setting, reward_matrix), color in zip(returns_dict.items(), colors):
+            # Calculate mean and standard deviation across seeds for each episode
+            mean_rewards = np.mean(reward_matrix, axis=0)[:, reward_idx]
+            std_rewards = np.std(reward_matrix, axis=0)[:, reward_idx]
+            
+            num_episodes = mean_rewards.shape[0]
+
+            # Plotting
+            ax.errorbar(
+                range(num_episodes),
+                mean_rewards,
+                yerr=std_rewards,
+                label=f'Weights {weight_setting}',
+                capsize=5,
+                marker='o',
+                linestyle='--',
+                color=color
+            )
+
+        ax.set_title(f'Reward {reward_idx + 1}', fontsize=16)
+        ax.set_xlabel('Episodes', fontsize=14)
+        ax.set_ylabel('Rewards', fontsize=14)
+        ax.legend(fontsize=12)
+        ax.grid(True)
+        sns.despine(trim=True)
+
+    plt.tight_layout()
+    #plt.show()
+
+
+def plot_mean_std_total_steps(total_steps_dict, num_episodes):
+    # Set the overall style of the plots
+
+    # Define color palette
+    colors = sns.color_palette("husl", len(total_steps_dict))  # Different colors for each weight setting
+    
+    # Determine the number of episodes based on the first entry in total_steps_dict
+    num_episodes = num_episodes
+
+    # Create subplots for each reward dimension
+    fig, axes = plt.subplots(1, len(total_steps_dict), figsize=(18, 6), sharex=True, sharey=True)
+
+    if len(total_steps_dict) == 1:
+        axes = [axes]  # Ensure axes is iterable if there's only one weight setting
+
+    for idx, (weight_setting, total_steps) in enumerate(total_steps_dict.items()):
+        ax = axes[idx]
+
+        # Calculate mean and standard deviation across seeds for each episode
+        mean_total_steps = np.mean(total_steps, axis=0)
+        std_total_steps = np.std(total_steps, axis=0)
+
+        # Plotting
+        ax.errorbar(
+            range(num_episodes),
+            mean_total_steps,
+            yerr=std_total_steps,
+            label=f'Weights {weight_setting}',
+            capsize=5,
+            marker='o',
+            linestyle='--',
+            color=colors[idx]
+        )
+
+        ax.set_title(f'Weights {weight_setting}', fontsize=16)
+        ax.set_xlabel('Episodes', fontsize=14)
+        ax.set_ylabel('Total Steps', fontsize=14)
+        ax.legend(fontsize=12)
+        ax.grid(True)
+        sns.despine(trim=True)
+
+    plt.tight_layout()
+    #plt.show()
+    
+    
+def normalize_reward_matrix(reward_matrix,total_steps,num_seeds, EpisodeDur: bool=True):#EpisodeDuration: bool = True)
+    normalized_reward_matrix = np.zeros_like(reward_matrix)
+    for seed in range(num_seeds): 
+        normalized_reward_matrix[seed] = reward_matrix[seed] / total_steps[seed][:, np.newaxis]
+        if EpisodeDur==True: 
+            normalized_reward_matrix[seed][:,0] = reward_matrix[seed][:,0]
+    return normalized_reward_matrix
+
+def get_returns(reward_matrices, num_seeds, num_episodes, reward_dim): 
+    return_matrix = np.zeros((num_seeds, reward_dim))
+    for seed in range(num_seeds): 
+        return_matrix[seed] = reward_matrices[seed].sum(axis=0)
+    print(return_matrix)    
+    return return_matrix
