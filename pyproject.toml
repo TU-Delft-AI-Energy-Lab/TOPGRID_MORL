@@ -10,23 +10,23 @@ build-backend = "setuptools.build_meta"
 
 # Package name
 
-name = <FILL IN NAME OF PACKAGE>
+name = TOPGrid_MORL
 version = "0.1.0"
 
 # Authors
 
 authors = [
-    <YOUR NAME>
+    {name = Thomas René Lautenbacher, email = "t.lautenbacher@campus.tu-berlin.de"}
     {name = "Davide Barbieri", email = "davide.barbieri@tennet.eu"},
     {name = "Jan Viebahn", email = "jan.viebhan@tennet.eu"},
 ]
 
 # Package info
 
-description = <ONE LINE DESC>
+description = Multi-Objective Reinforcement Learning for Topology Optimization of the Power Grid 
 readme = "README.md"
 
-keywords = ["rl", "grid2op"] <ADD SOME KEYWORDS>
+keywords = ["rl", "grid2op", "MORL"] 
 
 license = {text = "BSD-3-Clause"} <REMEMBER TO CHECK LICENSE WITH DAVIDE>
 
@@ -41,7 +41,8 @@ classifiers = [
 requires-python = ">=3.12"
 
 dependencies = [
-  "Grid2Op==1.9.*",
+  "Grid2Op==1.10.*",
+  
 ]
 
 [project.optional-dependencies]
