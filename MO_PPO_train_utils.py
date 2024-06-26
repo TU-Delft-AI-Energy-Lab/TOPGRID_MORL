@@ -24,10 +24,10 @@ def pad_list(actions):
     return np.array(padded_list)
 
 # Function to load a specific file based on weights and episodes
-def load_saved_data(weights, num_episodes, results_dir, donothing_prefix="DoNothing"):
+def load_saved_data(weights, num_episodes, seed, results_dir, donothing_prefix="DoNothing"):
     weights_str = "_".join(map(str, weights))
-    filename_base = f"weights_{weights_str}_episodes_{num_episodes}"
-    
+    filename_base = f"weights_{weights_str}_episodes_{num_episodes}_seed_{seed}"
+
     # Load the results
     result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
     data = np.load(result_filepath)
@@ -35,21 +35,21 @@ def load_saved_data(weights, num_episodes, results_dir, donothing_prefix="DoNoth
     actions = data['actions']
     total_steps = data['total_steps']
     
-    # Load the model
+    # Load the model (example, adjust as needed)
     model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
-    #agent.networks.load_state_dict(th.load(model_filepath))
+    # agent.networks.load_state_dict(th.load(model_filepath))
     
-    # Load the parameters
+    # Load the parameters (example, adjust as needed)
     params_filepath = os.path.join(results_dir, f"params_{filename_base}.json")
     with open(params_filepath, 'r') as json_file:
         params = json.load(json_file)
     
     # Load DoNothing results
-    donothing_filename = f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes.npy"
+    donothing_filename = f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy"
     donothing_filepath = os.path.join(results_dir, donothing_filename)
     donothing_reward_matrix = np.load(donothing_filepath)
 
-    donothing_total_steps_filename = f"{donothing_prefix}_total_steps_{num_episodes}_episodes.npy"
+    donothing_total_steps_filename = f"{donothing_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy"
     donothing_total_steps_filepath = os.path.join(results_dir, donothing_total_steps_filename)
     donothing_total_steps = np.load(donothing_total_steps_filepath)
     
@@ -63,7 +63,7 @@ def load_saved_data(weights, num_episodes, results_dir, donothing_prefix="DoNoth
 
 
 # Function to train the agent using MO-PPO
-def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, env, obs_dim, action_dim, reward_dim, **agent_params):
+def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, seed, env, obs_dim, action_dim, reward_dim, **agent_params):
     os.makedirs(results_dir, exist_ok=True)
     
     for weights in weight_vectors:
@@ -74,7 +74,7 @@ def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, env, ob
         actions = pad_list(actions)
         
         weights_str = "_".join(map(str, weights))
-        filename_base = f"weights_{weights_str}_episodes_{num_episodes}"
+        filename_base = f"weights_{weights_str}_episodes_{num_episodes}_seed_{seed}"
         
         result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
         np.savez(result_filepath, reward_matrix=reward_matrix, actions=actions, total_steps=total_steps, weights=weights, num_episodes=num_episodes)
@@ -85,6 +85,7 @@ def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, env, ob
         params = {
             "weights": weights.tolist(),
             "num_episodes": num_episodes,
+            "seed": seed,
             "max_ep_steps": max_ep_steps,
             "reward_dim": reward_dim,
             "model_filepath": model_filepath,
@@ -99,7 +100,7 @@ def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, env, ob
         print(f"Saved parameters for weights {weights} to {params_filepath}")
         
 
-def train_and_save_donothing_agent( action_space, gym_env, num_episodes, max_ep_steps, reward_dim, save_dir="results", file_prefix="DoNothing"):
+def train_and_save_donothing_agent( action_space, gym_env, num_episodes, max_ep_steps, seed, reward_dim, save_dir="results", file_prefix="DoNothing"):
     """
     Trains a DoNothing agent and saves the reward matrix to a file.
 
@@ -123,8 +124,8 @@ def train_and_save_donothing_agent( action_space, gym_env, num_episodes, max_ep_
     os.makedirs(save_dir, exist_ok=True)
 
     # Define the filename
-    file_path_reward = os.path.join(save_dir, f"{file_prefix}_reward_matrix_{num_episodes}_episodes.npy")
-    file_path_steps = os.path.join(save_dir, f"{file_prefix}_total_steps_{num_episodes}_episodes.npy")
+    file_path_reward = os.path.join(save_dir, f"{file_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy")
+    file_path_steps = os.path.join(save_dir, f"{file_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy")
     # Save the reward matrix
     np.save(file_path_reward, reward_matrix)
     np.save(file_path_steps, total_steps)
