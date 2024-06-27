@@ -42,7 +42,24 @@ requires-python = ">=3.12"
 
 dependencies = [
   "Grid2Op==1.10.*",
-  
+  "gymnasium==0.29.*",
+  "ipykernel==6.29.*", 
+  "lightSim2Grid==0.8.*", 
+  "mo-gymnasium==1.1.*",
+  "morl-baselines==1.0.*",
+  "numpy==1.26.*", 
+  "pandapower==2.24.*", 
+  "pandas==2.2.*", 
+  "pip==24.*", 
+  "scikit-lean==1.4.*", 
+  "scipy==1.13.*",
+  "seaborn==0.13.*",
+  "torch==2.3*.", 
+  "tqdm==4.66.*", 
+  "typing=3.7.*" 
+  "wandb==0.17.*",
+
+
 ]
 
 [project.optional-dependencies]
