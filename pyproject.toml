@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 
 # Package name
 
-name = TOPGrid_MORL
+name = "TOPGrid_MORL"
 version = "0.1.0"
 
 # Authors
@@ -55,10 +55,8 @@ dependencies = [
   "seaborn==0.13.*",
   "torch==2.3.*", 
   "tqdm==4.66.*", 
-  "typing=3.7.*" 
-  "wandb==0.17.*",
-
-
+  "typing=3.7.*", 
+  "wandb==0.17.*"
 ]
 
 [project.optional-dependencies]
