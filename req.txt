@@ -1,0 +1,16 @@
+Grid2Op==1.10.*
+gymnasium==0.29.*
+ipykernel==6.29.*
+lightSim2Grid==0.8.*
+mo-gymnasium==1.1.*
+morl-baselines==1.0.
+numpy==1.26.*
+pandapower==2.14.*
+pandas==2.2.*
+scikit-learn==1.4.*
+scipy==1.13.*
+seaborn==0.13.*
+torch==2.3.*pip
+tqdm==4.66.*
+typing==3.7.* 
+wandb==0.17.*
