@@ -1,5 +1,5 @@
 import numpy as np
-from topgrid_morl.env.EnvSetup import setup_environment  # Assuming this function sets up environment variables
+from topgrid_morl.envs.EnvSetup import setup_environment  # Assuming this function sets up environment variables
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_network, train_agent, train_and_save_donothing_agent  # Functions for network initialization and training
 
 

@@ -94,7 +94,7 @@ dev = [
 [tool.coverage.run]
 branch = true
 parallel = true
-source = ["gridmind"]
+source = ["topgrid_morl"]
 
 [tool.coverage.report]
 fail_under = 90
