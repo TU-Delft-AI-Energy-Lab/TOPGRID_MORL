@@ -3,10 +3,10 @@ from grid2op.gym_compat import BoxGymObsSpace, BoxGymActSpace, GymEnv
 from grid2op.gym_compat import DiscreteActSpace
 from lightsim2grid import LightSimBackend
 from grid2op.Reward import L2RPNReward, LinesCapacityReward, DistanceReward
-from envs.GridRewards import TopoActionReward
+from topgrid_morl.envs.GridRewards import TopoActionReward
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv  # Import your custom environment if necessary
 
-from envs.GridRewards import TopoActionReward, MaxDistanceReward
+from topgrid_morl.envs.GridRewards import TopoActionReward, MaxDistanceReward
 
 def setup_environment(env_name="l2rpn_case14_sandbox", test = False, action_space=219, seed=0, frist_reward = L2RPNReward, rewards_list=["LinesCapacity", "TopoAction"]):
     """
