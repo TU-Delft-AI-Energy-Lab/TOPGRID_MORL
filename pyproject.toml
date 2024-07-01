@@ -16,14 +16,14 @@ version = "0.1.0"
 # Authors
 
 authors = [
-    {name = Thomas René Lautenbacher, email = "t.lautenbacher@campus.tu-berlin.de"}
+    {name = "Thomas Lautenbacher", email = "t.lautenbacher@campus.tu-berlin.de"},
     {name = "Davide Barbieri", email = "davide.barbieri@tennet.eu"},
-    {name = "Jan Viebahn", email = "jan.viebhan@tennet.eu"},
+    {name = "Jan Viebahn", email = "jan.viebhan@tennet.eu"}
 ]
 
 # Package info
 
-description = Multi-Objective Reinforcement Learning for Topology Optimization of the Power Grid 
+description = "Multi-Objective Reinforcement Learning for Topology Optimization of the Power Grid"
 readme = "README.md"
 
 keywords = ["rl", "grid2op", "MORL"] 
@@ -55,7 +55,7 @@ dependencies = [
   "seaborn==0.13.*",
   "torch==2.3.*", 
   "tqdm==4.66.*", 
-  "typing=3.7.*", 
+  "typing==3.7.*", 
   "wandb==0.17.*"
 ]
 
@@ -74,7 +74,7 @@ dev = [
   "pre-commit-hooks==4.4.*",
   "jupyterlab==4.0.*",
   "pylint-print==1.0.*",
-  "ruff=0.4.*",
+  "ruff==0.4.*",
   "flake8-junit-report",
   "flake8-print",
   "flake8-pyproject",
