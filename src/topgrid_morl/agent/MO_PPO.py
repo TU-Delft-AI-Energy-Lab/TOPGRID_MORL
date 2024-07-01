@@ -248,7 +248,7 @@ class MOPPO(MOPolicy):
         target_kl: Optional[float] = None,
         gae: bool = True,
         gae_lambda: float = 0.95,
-        device: Union[th.device, str] = "cpu",
+        device: Union[th.device, str] = "cuda",
         seed: int = 42,
         rng: Optional[np.random.Generator] = None,
     ) -> None:
@@ -329,7 +329,7 @@ class MOPPO(MOPolicy):
         copied = type(self)(
             self.id,
             copied_net,
-            self.weights.detach().cpu().numpy(),
+            self.weights.detach().device().numpy(),
             self.env,
             self.log,
             self.steps_per_iteration,
@@ -408,8 +408,8 @@ class MOPPO(MOPolicy):
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(obs)
                 value = value.view(self.networks.reward_dim)
-
-            next_obs, reward, next_done, info = self.env.step(action.cpu().item())
+            
+            next_obs, reward, next_done, info = self.env.step(action.to(self.device).item())
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
             cum_reward += reward
             self.batch.add(obs, action, logprob, reward, done, value)
@@ -565,8 +565,8 @@ class MOPPO(MOPolicy):
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-
         self.batch_size = original_batch_size 
+        print(v_loss)
         if self.log:
             wandb.log(
                 {
