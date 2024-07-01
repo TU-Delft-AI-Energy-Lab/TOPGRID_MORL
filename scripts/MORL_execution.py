@@ -1,7 +1,7 @@
 import numpy as np
 from topgrid_morl.envs.EnvSetup import setup_environment  # Assuming this function sets up environment variables
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_network, train_agent, train_and_save_donothing_agent  # Functions for network initialization and training
-
+import wandb
 
 
 # Step 1: Setup Environment
@@ -12,7 +12,7 @@ from grid2op.Reward import EpisodeDurationReward
 env_name = "rte_case5_example"
 results_dir = "training_results_5bus"
 
-num_seeds = 5
+num_seeds = 2
 for seed in range(num_seeds):
 
     gym_env, obs_dim, action_dim, reward_dim = setup_environment(env_name=env_name, test=True, seed=0, action_space=99, frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
@@ -29,7 +29,7 @@ for seed in range(num_seeds):
     # Step 3: Define Agent Parameters
     agent_params = {
         "id": 1,
-        "log": False,
+        "log": True,
         "steps_per_iteration": 2048,
         "num_minibatches": 32,
         "update_epochs": 10,
@@ -56,9 +56,9 @@ for seed in range(num_seeds):
     ]
     
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    num_episodes = 5
+    num_episodes = 1
     max_ep_steps = 5
-   
+    wandb.init(group="Group1")
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
@@ -72,6 +72,6 @@ for seed in range(num_seeds):
         reward_dim=reward_dim,
         **agent_params
     )
-
+    wandb.finish()
     # Step 6: DoNothing Benchmark
     train_and_save_donothing_agent(action_space=99, gym_env=gym_env, num_episodes=num_episodes, seed=seed, max_ep_steps=max_ep_steps, reward_dim=reward_dim, save_dir=results_dir)
