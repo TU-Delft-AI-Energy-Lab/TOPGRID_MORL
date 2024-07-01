@@ -13,7 +13,7 @@ def initialize_network(obs_dim, action_dim, reward_dim, net_arch = [64, 64]):
 
 def initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params):
     networks = initialize_network(obs_dim, action_dim, reward_dim)
-    agent = MOPPO(env=env, weights=weights, networks=networks, **agent_params)
+    agent = MOPPO(env=env, weights=weights, networks=networks,  **agent_params)
     env.reset()
     return agent
 
