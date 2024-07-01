@@ -565,7 +565,6 @@ class MOPPO(MOPolicy):
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-
         self.batch_size = original_batch_size 
         if self.log:
             wandb.log(
