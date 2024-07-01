@@ -45,7 +45,7 @@ for seed in range(num_seeds):
         "target_kl": None,
         "gae": True,
         "gae_lambda": 0.95, 
-        "device": "cpu"
+        "device": "cuda"
     }
 
     # Step 4: Training Parameters
@@ -58,7 +58,7 @@ for seed in range(num_seeds):
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
     num_episodes = 1
     max_ep_steps = 5
-    wandb.init(group="Group1")
+    #wandb.init(group="Group1")
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
@@ -72,6 +72,6 @@ for seed in range(num_seeds):
         reward_dim=reward_dim,
         **agent_params
     )
-    wandb.finish()
+    #wandb.finish()
     # Step 6: DoNothing Benchmark
     train_and_save_donothing_agent(action_space=99, gym_env=gym_env, num_episodes=num_episodes, seed=seed, max_ep_steps=max_ep_steps, reward_dim=reward_dim, save_dir=results_dir)
