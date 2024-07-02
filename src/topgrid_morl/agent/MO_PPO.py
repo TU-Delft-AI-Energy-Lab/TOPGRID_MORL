@@ -100,12 +100,13 @@ def _value_init(layer: nn.Module) -> None:
 class MOPPONet(nn.Module):
     """Multi-Objective PPO Network."""
     
-    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64]) -> None:
+    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64], device: Union[th.device, str] = "cpu") -> None:
         super().__init__()
         self.obs_shape = obs_shape
         self.action_dim = action_dim
         self.reward_dim = reward_dim
         self.net_arch = net_arch
+        self.device = device
 
         self.critic = mlp(input_dim=np.prod(self.obs_shape), output_dim=self.reward_dim, net_arch=net_arch, activation_fn=nn.Tanh)
         self.critic.apply(_hidden_layer_init)
@@ -114,6 +115,8 @@ class MOPPONet(nn.Module):
         self.actor = mlp(input_dim=np.prod(self.obs_shape), output_dim=self.action_dim, net_arch=net_arch, activation_fn=nn.Tanh)
         self.actor.apply(_hidden_layer_init)
         _value_init(list(self.actor.modules())[-1])
+
+        self.to(self.device)
 
     def get_value(self, obs: th.Tensor) -> th.Tensor:
         """Get value prediction."""
@@ -462,3 +465,5 @@ class MOPPO(MOPolicy):
         print(total_steps)
         return reward_matrix, actions, total_steps
 
+# Test: Check the type of v_loss and make sure it is a tensor
+# Add logging to see if the issue persists
