@@ -229,7 +229,7 @@ class MOPPO(MOPolicy):
             self.global_step += 1
 
             with th.no_grad():
-                action, logprob, _, value = self.networks.get_action_and_value(obs)
+                action, logprob, _, value = self.networks.get_action_and_value(obs.to(self.device))
                 value = value.view(self.networks.reward_dim)
             
             next_obs, reward, next_done, info = self.env.step(action.item())
@@ -328,7 +328,7 @@ class MOPPO(MOPolicy):
                     end = start + self.minibatch_size
                     mb_inds = b_inds[start:end]
 
-                    _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                    _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(b_obs[mb_inds].to(self.device), b_actions[mb_inds].to(self.device))
                     logratio = newlogprob - b_logprobs[mb_inds]
                     ratio = logratio.exp()
 
