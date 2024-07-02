@@ -35,6 +35,7 @@ class PPOReplayBuffer:
         self.values = th.zeros((self.size, reward_dim), dtype=th.float32).to(device)
 
     def add(self, obs, actions, logprobs, rewards, dones, values):
+        """Add experience to the buffer."""
         self.obs[self.ptr] = obs
         self.actions[self.ptr] = actions
         self.logprobs[self.ptr] = logprobs
@@ -44,21 +45,28 @@ class PPOReplayBuffer:
         self.ptr = (self.ptr + 1) % self.size
 
     def get(self, step: int):
+        """Get experience from a specific step."""
         return (self.obs[step], self.actions[step], self.logprobs[step], self.rewards[step], self.dones[step], self.values[step])
 
     def get_all(self):
-        return (self.obs[:self.ptr], self.actions[:self.ptr], self.logprobs[:self.ptr], self.rewards[:self.ptr,:], self.dones[:self.ptr], self.values[:self.ptr,:])
+        """Get all experiences in the buffer."""
+        return (self.obs[:self.ptr], self.actions[:self.ptr], self.logprobs[:self.ptr], self.rewards[:self.ptr, :], self.dones[:self.ptr], self.values[:self.ptr, :])
     
     def get_ptr(self): 
-        return self.ptr-1
+        """Get current pointer of the buffer."""
+        return self.ptr - 1
     
     def get_values(self):
-        return self.values[:self.ptr,:]
+        """Get all value predictions."""
+        return self.values[:self.ptr, :]
     
     def get_rewards(self):
-        return self.rewards[:self.ptr,:]
+        """Get all rewards."""
+        return self.rewards[:self.ptr, :]
+
 
 def make_env(env_id: str, seed: int, run_name: str, gamma: float) -> gym.Env:
+    """Create and configure a new environment instance."""
     env = mo_gym.make(env_id, render_mode="rgb_array")
     reward_dim = env.reward_space.shape[0]
     env = gym.wrappers.ClipAction(env)
@@ -75,18 +83,23 @@ def make_env(env_id: str, seed: int, run_name: str, gamma: float) -> gym.Env:
 
 
 def _hidden_layer_init(layer: nn.Module) -> None:
+    """Initialize hidden layer weights."""
     layer_init(layer, weight_gain=np.sqrt(2), bias_const=0.0)
 
 
 def _critic_init(layer: nn.Module) -> None:
+    """Initialize critic network weights."""
     layer_init(layer, weight_gain=1.0)
 
 
 def _value_init(layer: nn.Module) -> None:
+    """Initialize value network weights."""
     layer_init(layer, weight_gain=0.01)
 
 
 class MOPPONet(nn.Module):
+    """Multi-Objective PPO Network."""
+    
     def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64]) -> None:
         super().__init__()
         self.obs_shape = obs_shape
@@ -103,9 +116,12 @@ class MOPPONet(nn.Module):
         _value_init(list(self.actor.modules())[-1])
 
     def get_value(self, obs: th.Tensor) -> th.Tensor:
-        return self.critic(obs)
+        """Get value prediction."""
+        return self.critic(obs.to(self.device))
 
     def get_action_and_value(self, obs: th.Tensor, action: Optional[th.Tensor] = None) -> tuple:
+        """Get action, log probability, entropy, and value."""
+        obs = obs.to(self.device)
         logits = self.actor(obs)
         probs = Categorical(logits=logits)
         if action is None:
@@ -114,6 +130,8 @@ class MOPPONet(nn.Module):
 
 
 class MOPPO(MOPolicy):
+    """Multi-Objective PPO Algorithm."""
+    
     def __init__(
         self,
         id: int,
@@ -143,7 +161,7 @@ class MOPPO(MOPolicy):
         super().__init__(id, device)
         self.id = id
         self.env = env
-        self.networks = networks
+        self.networks = networks.to(device)
         self.device = device
         self.seed = seed
         if rng is not None:
@@ -176,6 +194,7 @@ class MOPPO(MOPolicy):
         self.batch = PPOReplayBuffer(self.steps_per_iteration, self.networks.obs_shape, (1,), self.networks.reward_dim, self.device)
 
     def __deepcopy__(self, memo):
+        """Deepcopy method for the MOPPO class."""
         copied_net = deepcopy(self.networks)
         copied = type(self)(
             self.id,
@@ -207,9 +226,11 @@ class MOPPO(MOPolicy):
         return copied
 
     def change_weights(self, new_weights: np.ndarray):
+        """Change the weights used for reward aggregation."""
         self.weights = th.from_numpy(deepcopy(new_weights)).to(self.device)
 
     def __extend_to_reward_dim(self, tensor: th.Tensor):
+        """Extend tensor dimensions to match reward dimensions."""
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
@@ -219,6 +240,7 @@ class MOPPO(MOPolicy):
             return tensor
 
     def __collect_samples(self, obs: th.Tensor, done: th.Tensor, max_ep_steps):
+        """Collect samples by interacting with the environment."""
         count_episode = 1
         done = False
         cum_reward = 0
@@ -254,6 +276,7 @@ class MOPPO(MOPolicy):
         return obs, done, cum_reward, action_list, grid2op_steps
 
     def __compute_advantages(self, next_obs, next_done):
+        """Compute advantages for the collected samples."""
         with th.no_grad():
             next_value = self.networks.get_value(next_obs).reshape(-1, self.networks.reward_dim)
             if self.gae:
@@ -293,6 +316,7 @@ class MOPPO(MOPolicy):
 
     @override
     def eval(self, obs: np.ndarray, w):
+        """Evaluate the policy."""
         obs = th.as_tensor(obs).float().to(self.device).unsqueeze(0)
         with th.no_grad():
             action, _, _, _ = self.networks.get_action_and_value(obs)
@@ -300,35 +324,35 @@ class MOPPO(MOPolicy):
 
     @override
     def update(self):
+        """Update the policy using the collected samples."""
         obs, actions, logprobs, _, _, values = self.batch.get_all()
         original_batch_size = self.batch_size
         if self.batch_size > self.batch.get_ptr():
             self.batch_size = self.batch.get_ptr()
-        b_obs = obs.reshape((-1,) + self.networks.obs_shape)
-        b_logprobs = logprobs.reshape(-1)
-        b_actions = actions.reshape(-1)
-        b_advantages = self.advantages.reshape(-1)
-        b_returns = self.returns.reshape(-1, self.networks.reward_dim)
-        b_values = values.reshape(-1, self.networks.reward_dim)
+        b_obs = obs.reshape((-1,) + self.networks.obs_shape).to(self.device)
+        b_logprobs = logprobs.reshape(-1).to(self.device)
+        b_actions = actions.reshape(-1).to(self.device)
+        b_advantages = self.advantages.reshape(-1).to(self.device)
+        b_returns = self.returns.reshape(-1, self.networks.reward_dim).to(self.device)
+        b_values = values.reshape(-1, self.networks.reward_dim).to(self.device)
 
         b_inds = np.arange(obs.shape[0])
         clipfracs = []
         v_loss = None
         pg_loss = None
-        entropy_loss=None
-        old_approx_kl=None
-        approx_kl=None
+        entropy_loss = None
+        old_approx_kl = None
+        approx_kl = None
         
         for epoch in range(self.update_epochs):
             self.np_random.shuffle(b_inds)
-            print("in epoch")
-            if self.batch_size >0: 
+            
+            if self.batch_size > 0: 
                 for start in range(0, self.batch_size, self.minibatch_size):
-                    print("in mini batch update")
                     end = start + self.minibatch_size
                     mb_inds = b_inds[start:end]
 
-                    _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(b_obs[mb_inds].to(self.device), b_actions[mb_inds].to(self.device))
+                    _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
                     logratio = newlogprob - b_logprobs[mb_inds]
                     ratio = logratio.exp()
 
@@ -371,29 +395,27 @@ class MOPPO(MOPolicy):
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
         self.batch_size = original_batch_size 
         
-
-     
-        
         if self.log:
             wandb.log(
-                {   f"losses_{self.id}/value_loss": v_loss.item() if v_loss!=None else float('nan'),
+                {   
+                    f"losses_{self.id}/value_loss": v_loss.item() if v_loss is not None else float('nan'),
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0]["lr"],
-                    f"losses_{self.id}/policy_loss": pg_loss.item() if pg_loss!=None else float('nan'),
-                    f"losses_{self.id}/entropy": entropy_loss.item() if entropy_loss!=None else float('nan'),
-                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item() if old_approx_kl!=None else float('nan'),
-                    f"losses_{self.id}/approx_kl": approx_kl.item()if approx_kl!=None else float('nan'),
+                    f"losses_{self.id}/policy_loss": pg_loss.item() if pg_loss is not None else float('nan'),
+                    f"losses_{self.id}/entropy": entropy_loss.item() if entropy_loss is not None else float('nan'),
+                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item() if old_approx_kl is not None else float('nan'),
+                    f"losses_{self.id}/approx_kl": approx_kl.item() if approx_kl is not None else float('nan'),
                     f"losses_{self.id}/clipfrac": np.mean(clipfracs),
                     f"losses_{self.id}/explained_variance": explained_var,
                     "global_step": self.global_step,
                 }
             )
-            
-                        
 
     def save_model(self, path: str):
+        """Save the model parameters to the specified path."""
         th.save(self.networks.state_dict(), path)
 
     def train(self, num_episodes: int, max_ep_steps: int, reward_dim: int, print_every: int = 100, print_flag: bool = True) -> np.ndarray:
+        """Train the policy."""
         reward_matrix = np.zeros((num_episodes, reward_dim))
         actions = []
         total_steps = []
@@ -401,8 +423,7 @@ class MOPPO(MOPolicy):
             if self.anneal_lr:
                 new_lr = self.learning_rate * (1 - i_episode / num_episodes)
                 for param_group in self.optimizer.param_groups:
-                   param_group['lr'] = new_lr
-
+                    param_group['lr'] = new_lr
 
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
@@ -441,5 +462,3 @@ class MOPPO(MOPolicy):
         print(total_steps)
         return reward_matrix, actions, total_steps
 
-# Test: Check the type of v_loss and make sure it is a tensor
-# Add logging to see if the issue persists
