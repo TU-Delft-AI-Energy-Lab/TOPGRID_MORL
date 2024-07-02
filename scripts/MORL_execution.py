@@ -24,7 +24,7 @@ for seed in range(num_seeds):
 
     # Step 2: Initialize Neural Networks
     # Example network architecture [64, 64]
-    networks = initialize_network(obs_dim=obs_dim, action_dim=action_dim, reward_dim=reward_dim, net_arch=[64, 64])
+    networks = initialize_network(obs_dim=obs_dim, action_dim=action_dim, reward_dim=reward_dim, device="cpu", net_arch=[64, 64], )
 
     # Step 3: Define Agent Parameters
     agent_params = {

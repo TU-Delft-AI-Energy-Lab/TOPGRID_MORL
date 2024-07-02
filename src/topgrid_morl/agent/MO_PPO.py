@@ -100,7 +100,7 @@ def _value_init(layer: nn.Module) -> None:
 class MOPPONet(nn.Module):
     """Multi-Objective PPO Network."""
     
-    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64], device: Union[th.device, str] = "cpu") -> None:
+    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, device: Union[th.device, str] = "cpu", net_arch: List[int] = [64, 64]) -> None:
         super().__init__()
         self.obs_shape = obs_shape
         self.action_dim = action_dim

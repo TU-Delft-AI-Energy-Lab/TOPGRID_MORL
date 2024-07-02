@@ -9,9 +9,9 @@ import json
 import wandb
 
 # Function to initialize the neural network
-def initialize_network(obs_dim, action_dim, reward_dim, net_arch = [64, 64]):
+def initialize_network(obs_dim, action_dim, reward_dim, device="cpu", net_arch = [64, 64]):
     # Example architecture (adjust as needed)
-    return MOPPONet(obs_dim, action_dim, reward_dim, net_arch=net_arch)
+    return MOPPONet(obs_dim, action_dim, reward_dim, device=device, net_arch=net_arch)
 
 def initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params):
     networks = initialize_network(obs_dim, action_dim, reward_dim)
