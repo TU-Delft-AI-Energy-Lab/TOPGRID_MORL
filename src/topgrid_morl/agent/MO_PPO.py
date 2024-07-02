@@ -393,7 +393,7 @@ class MOPPO(MOPolicy):
                 if self.target_kl is not None and approx_kl > self.target_kl:
                     break
 
-        y_pred, y_true = b_values.to(self.device).numpy(), b_returns.to(self.device).numpy()
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
         self.batch_size = original_batch_size 
@@ -414,7 +414,7 @@ class MOPPO(MOPolicy):
             )
 
     def save_model(self, path: str):
-        """Save the model parameters to the specified path."""
+        """Save the model parameters to the spefified path."""
         th.save(self.networks.state_dict(), path)
 
     def train(self, num_episodes: int, max_ep_steps: int, reward_dim: int, print_every: int = 100, print_flag: bool = True) -> np.ndarray:
@@ -440,8 +440,8 @@ class MOPPO(MOPolicy):
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
 
-            actions.append([action.to(self.device).numpy() for action in action_list_episode])
-            reward_matrix[i_episode] = episode_reward.to(self.device).numpy()
+            actions.append([action.cpu().numpy() for action in action_list_episode])
+            reward_matrix[i_episode] = episode_reward.cpu().numpy()
             total_steps.append(ep_steps)
 
             if self.log:
@@ -465,5 +465,3 @@ class MOPPO(MOPolicy):
         print(total_steps)
         return reward_matrix, actions, total_steps
 
-# Test: Check the type of v_loss and make sure it is a tensor
-# Add logging to see if the issue persists

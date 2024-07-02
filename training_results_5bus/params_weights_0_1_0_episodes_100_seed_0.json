@@ -1,0 +1,13 @@
+{
+    "weights": [
+        0,
+        1,
+        0
+    ],
+    "num_episodes": 100,
+    "seed": 0,
+    "max_ep_steps": 5,
+    "reward_dim": 3,
+    "model_filepath": "training_results_5bus\\model_weights_0_1_0_episodes_100_seed_0.pth",
+    "result_filepath": "training_results_5bus\\results_weights_0_1_0_episodes_100_seed_0.npz"
+}

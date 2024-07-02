@@ -6,8 +6,14 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gpus-per-task=1
-#SBATCH --mem-per-cpu=1GB
+#SBATCH --mem-per-cpu=2GB
 #SBATCH --account=research-eemcs-ese
+
+# Measure GPU usage of your job (initialization)
+previous=$(nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/tail -n '+2')
+
+# Use this simple command to check that your sbatch settings are working (it should show the GPU that you requested)
+nvidia-smi
 
 # Load modules:
 module load 2023r1
@@ -26,3 +32,6 @@ conda activate top
 srun python /scratch/tlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py > morl.log
 
 conda deactivate
+
+# Measure GPU usage of your job (result)
+nvidia-smi --query-accounted-apps='gpu_utilization,mem_utilization,max_memory_usage,time' --format='csv' | /usr/bin/grep -v -F "$previous"
