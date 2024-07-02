@@ -9,13 +9,13 @@ import json
 import wandb
 
 # Function to initialize the neural network
-def initialize_network(obs_dim, action_dim, reward_dim, device="cpu", net_arch = [64, 64]):
+def initialize_network(obs_dim, action_dim, reward_dim, device="cuda", net_arch = [64, 64]):
     # Example architecture (adjust as needed)
     return MOPPONet(obs_dim, action_dim, reward_dim, device=device, net_arch=net_arch)
 
-def initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params):
-    networks = initialize_network(obs_dim, action_dim, reward_dim)
-    agent = MOPPO(env=env, weights=weights, networks=networks,  **agent_params)
+def initialize_agent(env, weights, obs_dim, action_dim, reward_dim, device="cuda", **agent_params):
+    networks = initialize_network(obs_dim, action_dim, reward_dim, device=device, net_arch = [64, 64])
+    agent = MOPPO(env=env, weights=weights, networks=networks,  device=device, **agent_params)
     env.reset()
     return agent
 
@@ -65,11 +65,11 @@ def load_saved_data(weights, num_episodes, seed, results_dir, donothing_prefix="
 
 
 # Function to train the agent using MO-PPO
-def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, seed, env, obs_dim, action_dim, reward_dim, run_name,**agent_params):
+def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, seed, env, obs_dim, action_dim, reward_dim, run_name,device, **agent_params):
     os.makedirs(results_dir, exist_ok=True)
     
     for weights in weight_vectors:
-        agent = initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params)
+        agent = initialize_agent(env, weights, obs_dim, action_dim, reward_dim, device=device, **agent_params)
         agent.weights = th.tensor(weights).float().to(agent.device)
         run = wandb.init( 
             project="TOPGrid_MORL", 

@@ -44,8 +44,7 @@ for seed in range(num_seeds):
         "norm_adv": True,
         "target_kl": None,
         "gae": True,
-        "gae_lambda": 0.95, 
-        "device": "cpu"
+        "gae_lambda": 0.95
     }
 
     # Step 4: Training Parameters
@@ -71,6 +70,7 @@ for seed in range(num_seeds):
         action_dim=action_dim,
         reward_dim=reward_dim,
         run_name="Run",
+        device="cpu",
         **agent_params
     )
     #wandb.finish()
