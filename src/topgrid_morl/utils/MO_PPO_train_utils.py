@@ -4,7 +4,9 @@ import numpy as np
 import torch as th
 from topgrid_morl.agent.MO_PPO import MOPPONet, MOPPO
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent
+from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
 import json
+import wandb
 
 # Function to initialize the neural network
 def initialize_network(obs_dim, action_dim, reward_dim, net_arch = [64, 64]):
@@ -63,14 +65,18 @@ def load_saved_data(weights, num_episodes, seed, results_dir, donothing_prefix="
 
 
 # Function to train the agent using MO-PPO
-def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, seed, env, obs_dim, action_dim, reward_dim, **agent_params):
+def train_agent(weight_vectors, num_episodes, max_ep_steps, results_dir, seed, env, obs_dim, action_dim, reward_dim, run_name,**agent_params):
     os.makedirs(results_dir, exist_ok=True)
     
     for weights in weight_vectors:
         agent = initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params)
         agent.weights = th.tensor(weights).float().to(agent.device)
-        
+        run = wandb.init( 
+            project="TOPGrid_MORL", 
+            name=generate_variable_name(base_name=run_name,num_episodes=num_episodes, weights=weights, seed=seed)
+        )           
         reward_matrix, actions, total_steps = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
+        run.finish()
         actions = pad_list(actions)
         
         weights_str = "_".join(map(str, weights))

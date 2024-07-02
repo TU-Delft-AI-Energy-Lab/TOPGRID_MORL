@@ -15,7 +15,7 @@ results_dir = "training_results_5bus"
 num_seeds = 2
 for seed in range(num_seeds):
 
-    gym_env, obs_dim, action_dim, reward_dim = setup_environment(env_name=env_name, test=True, seed=0, action_space=99, frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
+    gym_env, obs_dim, action_dim, reward_dim = setup_environment(env_name=env_name, test=True, seed=seed, action_space=99, frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
 
     # Reset the environment to verify dimensions
     gym_env.reset()
@@ -58,7 +58,7 @@ for seed in range(num_seeds):
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
     num_episodes = 1
     max_ep_steps = 5
-    wandb.init(group="Group1")
+
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
@@ -70,8 +70,9 @@ for seed in range(num_seeds):
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
+        run_name="Run",
         **agent_params
     )
-    wandb.finish()
+    #wandb.finish()
     # Step 6: DoNothing Benchmark
     train_and_save_donothing_agent(action_space=99, gym_env=gym_env, num_episodes=num_episodes, seed=seed, max_ep_steps=max_ep_steps, reward_dim=reward_dim, save_dir=results_dir)
