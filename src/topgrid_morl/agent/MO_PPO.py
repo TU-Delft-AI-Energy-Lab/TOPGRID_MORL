@@ -100,7 +100,7 @@ def _value_init(layer: nn.Module) -> None:
 class MOPPONet(nn.Module):
     """Multi-Objective PPO Network."""
     
-    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, device: Union[th.device, str] = "cpu", net_arch: List[int] = [64, 64]) -> None:
+    def __init__(self, obs_shape: tuple, action_dim: int, reward_dim: int, device: Union[th.device, str] = "cuda", net_arch: List[int] = [64, 64]) -> None:
         super().__init__()
         self.obs_shape = obs_shape
         self.action_dim = action_dim
@@ -202,7 +202,7 @@ class MOPPO(MOPolicy):
         copied = type(self)(
             self.id,
             copied_net,
-            self.weights.detach().cpu().numpy(),
+            self.weights.detach().to(self.device).numpy(),
             self.env,
             self.log,
             self.steps_per_iteration,
@@ -323,7 +323,7 @@ class MOPPO(MOPolicy):
         obs = th.as_tensor(obs).float().to(self.device).unsqueeze(0)
         with th.no_grad():
             action, _, _, _ = self.networks.get_action_and_value(obs)
-        return action[0].detach().cpu().numpy()
+        return action[0].detach().to(self.device).numpy()
 
     @override
     def update(self):
@@ -393,7 +393,7 @@ class MOPPO(MOPolicy):
                 if self.target_kl is not None and approx_kl > self.target_kl:
                     break
 
-        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        y_pred, y_true = b_values..to(self.device).numpy(), b_returns..to(self.device).numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
         self.batch_size = original_batch_size 
@@ -440,8 +440,8 @@ class MOPPO(MOPolicy):
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
 
-            actions.append([action.cpu().numpy() for action in action_list_episode])
-            reward_matrix[i_episode] = episode_reward.cpu().numpy()
+            actions.append([action..to(self.device).numpy() for action in action_list_episode])
+            reward_matrix[i_episode] = episode_reward..to(self.device).numpy()
             total_steps.append(ep_steps)
 
             if self.log:
