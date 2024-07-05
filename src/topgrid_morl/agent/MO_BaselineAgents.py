@@ -1,8 +1,11 @@
-from grid2op.Agent.baseAgent import BaseAgent
+from typing import List, Tuple, Union
+
+import grid2op
 import numpy as np
 import torch as th
+from grid2op.Agent.baseAgent import BaseAgent
 from morl_baselines.common.evaluation import log_episode_info
-from typing import List, Optional, Union, Tuple
+
 
 class DoNothingAgent(BaseAgent):
     """
@@ -12,7 +15,9 @@ class DoNothingAgent(BaseAgent):
     the best solution.
     """
 
-    def __init__(self, action_space, gymenv, device: Union[th.device, str] = "cpu") -> None:
+    def __init__(
+        self, action_space, gymenv, device: Union[th.device, str] = "cpu"
+    ) -> None:
         """
         Initialize the DoNothingAgent.
 
@@ -25,7 +30,9 @@ class DoNothingAgent(BaseAgent):
         self.env = gymenv
         self.device = device
 
-    def act(self, observation, reward: float, done: bool = False) -> 'grid2op.Action.Action':
+    def act(
+        self, observation, reward: float, done: bool = False
+    ) -> "grid2op.Action.Action":
         """
         The preferred way to make an object of type action is to call grid2op.BaseAction.ActionSpace.__call__
         with the dictionary representing the action. In this case, the action is "do nothing" and it is represented by
@@ -41,8 +48,15 @@ class DoNothingAgent(BaseAgent):
         """
         res = self.action_space({})
         return res
-    
-    def train(self, num_episodes: int, max_ep_steps: int, reward_dim: int, print_every: int = 100, print_flag: bool = True) -> Tuple[np.ndarray, List[int]]:
+
+    def train(
+        self,
+        num_episodes: int,
+        max_ep_steps: int,
+        reward_dim: int,
+        print_every: int = 100,
+        print_flag: bool = True,
+    ) -> Tuple[np.ndarray, List[int]]:
         """
         Trains the policy for a specified number of episodes.
 
@@ -60,7 +74,7 @@ class DoNothingAgent(BaseAgent):
         total_steps = []
 
         for i_episode in range(num_episodes):
-            state = self.env.reset()
+            self.env.reset()
             episode_reward = th.zeros(reward_dim).to(self.device)
             done = False
             gym_steps = 0
@@ -69,24 +83,24 @@ class DoNothingAgent(BaseAgent):
             while not done and gym_steps < max_ep_steps:
                 next_obs, reward, done, info = self.env.step(0)
                 episode_reward += reward
-                grid2op_steps = info['steps']
+                grid2op_steps = info["steps"]
 
                 if "episode" in info.keys():
                     log_episode_info(
                         info["episode"],
                         scalarization=np.dot,
-                        weights=self.weights, 
+                        weights=self.weights,
                         global_timestep=self.global_step,
                         id=self.id,
                     )
-                
+
                 gym_steps += 1
 
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
             total_steps.append(grid2op_steps)
-
+        """
         if print_flag:
-            print('Training complete')
+            print("Training complete")
             print(total_steps)
-            
+        """
         return reward_matrix, total_steps

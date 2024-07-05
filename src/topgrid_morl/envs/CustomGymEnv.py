@@ -1,7 +1,9 @@
-from grid2op.gym_compat import GymEnv
-from grid2op.Environment import BaseEnv
-import numpy as np
 from typing import List, Tuple, Union
+
+import numpy as np
+from grid2op.Environment import BaseEnv
+from grid2op.gym_compat import GymEnv
+
 
 class CustomGymEnv(GymEnv):
     """Implements a grid2op environment in gym."""
@@ -19,7 +21,7 @@ class CustomGymEnv(GymEnv):
         self.reconnect_line = []
         self.rho_threshold = safe_max_rho
         self.steps = 0
-    
+
     def set_rewards(self, rewards_list: List[str]) -> None:
         """
         Set the list of rewards to be used in the environment.
@@ -30,7 +32,9 @@ class CustomGymEnv(GymEnv):
         self.rewards = rewards_list
         self.reward_dim = len(self.rewards) + 1
 
-    def reset(self, *, seed: Union[int, None] = None, options: Union[dict, None] = None) -> np.ndarray:
+    def reset(
+        self, *, seed: Union[int, None] = None, options: Union[dict, None] = None
+    ) -> np.ndarray:
         """
         Reset the environment.
 
@@ -67,27 +71,33 @@ class CustomGymEnv(GymEnv):
 
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         self.steps += 1
-        
+
         # Create reward array
-        reward = np.array([reward1] + [info['rewards'].get(reward, 0) for reward in self.rewards])
-        
+        reward = np.array(
+            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards]
+        )
+
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
             action = 0
             do_nothing = self.action_space.from_gym(action)
             g2op_obs, reward1, done, info = self.init_env.step(do_nothing)
-            reward = np.array([reward1] + [info['rewards'].get(reward, 0) for reward in self.rewards])
+            reward = np.array(
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards]
+            )
             self.steps += 1
             cum_reward += reward
-        
+
         reward += cum_reward  # Accumulate the rewards
 
         info["steps"] = self.steps
-        
+
         # Handle opponent attack
         if info.get("opponent_attack_duration", 0) == 1:
             line_id_attacked = np.argwhere(info["opponent_attack_line"]).flatten()[0]
-            g2op_act = self.init_env.action_space({"set_line_status": [(line_id_attacked, 1)]})
+            g2op_act = self.init_env.action_space(
+                {"set_line_status": [(line_id_attacked, 1)]}
+            )
             self.reconnect_line.append(g2op_act)
 
         gym_obs = self.observation_space.to_gym(g2op_obs)

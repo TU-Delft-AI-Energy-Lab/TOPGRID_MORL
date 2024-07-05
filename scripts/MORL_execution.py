@@ -1,8 +1,15 @@
 import numpy as np
-from topgrid_morl.envs.EnvSetup import setup_environment  # Assuming this function sets up environment variables
-from topgrid_morl.utils.MO_PPO_train_utils import initialize_network, train_agent, train_and_save_donothing_agent  # Functions for network initialization and training
 import wandb
-from grid2op.Reward import L2RPNReward, EpisodeDurationReward
+from grid2op.Reward import EpisodeDurationReward
+
+from topgrid_morl.envs.EnvSetup import (  # Assuming this function sets up environment variables
+    setup_environment,
+)
+from topgrid_morl.utils.MO_PPO_train_utils import (  # Functions for network initialization and training
+    train_agent,
+    train_and_save_donothing_agent,
+)
+
 
 def main():
     """
@@ -16,18 +23,18 @@ def main():
 
     for seed in range(num_seeds):
         gym_env, obs_dim, action_dim, reward_dim = setup_environment(
-            env_name=env_name, test=True, seed=seed, action_space=99, frist_reward=EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"]
+            env_name=env_name,
+            test=True,
+            seed=seed,
+            action_space=99,
+            frist_reward=EpisodeDurationReward,
+            rewards_list=["LinesCapacity", "TopoAction"],
         )
 
         # Reset the environment to verify dimensions
         gym_env.reset()
-        print(f"Action dimension: {action_dim}")
-        print(f"Observation dimension: {obs_dim}")
-
-        # Step 2: Initialize Neural Networks
-        networks = initialize_network(
-            obs_dim=obs_dim, action_dim=action_dim, reward_dim=reward_dim, net_arch=[64, 64]
-        )
+        wandb.log({"Action dimension": action_dim})
+        wandb.log({"Observation dimension": obs_dim})
 
         # Step 3: Define Agent Parameters
         agent_params = {
@@ -48,16 +55,15 @@ def main():
             "target_kl": None,
             "gae": True,
             "gae_lambda": 0.95,
-            "device": "cpu"
+            "device": "cpu",
         }
 
         # Step 4: Training Parameters
-        weight_vectors = np.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
-        ])
+        weight_vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
+        weight_vectors = np.array(
+            weight_vectors
+        )  # Convert to numpy array for consistency
         num_episodes = 1
         max_ep_steps = 5
 
@@ -84,8 +90,9 @@ def main():
             seed=seed,
             max_ep_steps=max_ep_steps,
             reward_dim=reward_dim,
-            save_dir=results_dir
+            save_dir=results_dir,
         )
+
 
 if __name__ == "__main__":
     main()

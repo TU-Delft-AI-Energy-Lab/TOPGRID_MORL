@@ -1,8 +1,10 @@
-from grid2op.Reward import BaseReward
+from typing import Optional
+
+import numpy as np
 from grid2op.Action import BaseAction
 from grid2op.Environment import BaseEnv
-import numpy as np
-from typing import Optional
+from grid2op.Reward import BaseReward
+
 
 class TopoActionReward(BaseReward):
     """
@@ -10,7 +12,9 @@ class TopoActionReward(BaseReward):
     Penalizes the agent for taking any action to encourage minimal intervention.
     """
 
-    def __init__(self, penalty_factor: float = 0.1, logger: Optional[object] = None) -> None:
+    def __init__(
+        self, penalty_factor: float = 0.1, logger: Optional[object] = None
+    ) -> None:
         """
         Initialize the TopoActionReward.
 
@@ -21,7 +25,15 @@ class TopoActionReward(BaseReward):
         self.penalty_factor = penalty_factor
         super().__init__(logger)
 
-    def __call__(self, action: BaseAction, env: BaseEnv, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env: BaseEnv,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Compute the reward for the given action in the environment.
 
@@ -64,7 +76,15 @@ class MaxDistanceReward(BaseReward):
         self.reward_max = 1.0
         self.max_deviation = 0.0  # Initialize the maximum deviation to zero
 
-    def __call__(self, action: BaseAction, env: BaseEnv, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env: BaseEnv,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Compute the reward based on the maximum topological deviation.
 

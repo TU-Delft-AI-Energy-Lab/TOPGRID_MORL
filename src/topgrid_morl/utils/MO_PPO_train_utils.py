@@ -1,14 +1,22 @@
+import json
 import os
+from typing import Dict, List, Tuple
+
 import numpy as np
 import torch as th
-from topgrid_morl.agent.MO_PPO import MOPPONet, MOPPO
-from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent
-from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
-import json
 import wandb
-from typing import List, Tuple, Dict
 
-def initialize_network(obs_dim: Tuple[int], action_dim: int, reward_dim: int, net_arch: List[int] = [64, 64]) -> MOPPONet:
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent
+from topgrid_morl.agent.MO_PPO import MOPPO, MOPPONet
+from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
+
+
+def initialize_network(
+    obs_dim: Tuple[int],
+    action_dim: int,
+    reward_dim: int,
+    net_arch: List[int] = [64, 64],
+) -> MOPPONet:
     """
     Initialize the neural network for the MO-PPO agent.
 
@@ -23,7 +31,15 @@ def initialize_network(obs_dim: Tuple[int], action_dim: int, reward_dim: int, ne
     """
     return MOPPONet(obs_dim, action_dim, reward_dim, net_arch=net_arch)
 
-def initialize_agent(env, weights: np.ndarray, obs_dim: Tuple[int], action_dim: int, reward_dim: int, **agent_params) -> MOPPO:
+
+def initialize_agent(
+    env,
+    weights: np.ndarray,
+    obs_dim: Tuple[int],
+    action_dim: int,
+    reward_dim: int,
+    **agent_params,
+) -> MOPPO:
     """
     Initialize the MO-PPO agent.
 
@@ -43,6 +59,7 @@ def initialize_agent(env, weights: np.ndarray, obs_dim: Tuple[int], action_dim: 
     env.reset()
     return agent
 
+
 def pad_list(actions: List[List[int]]) -> np.ndarray:
     """
     Pad the actions list to have the same length for all sublists.
@@ -57,7 +74,14 @@ def pad_list(actions: List[List[int]]) -> np.ndarray:
     padded_list = [sublist + [0] * (max_length - len(sublist)) for sublist in actions]
     return np.array(padded_list)
 
-def load_saved_data(weights: List[float], num_episodes: int, seed: int, results_dir: str, donothing_prefix: str = "DoNothing") -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict, np.ndarray, np.ndarray]:
+
+def load_saved_data(
+    weights: List[float],
+    num_episodes: int,
+    seed: int,
+    results_dir: str,
+    donothing_prefix: str = "DoNothing",
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict, np.ndarray, np.ndarray]:
     """
     Load saved data based on weights and episodes.
 
@@ -76,23 +100,29 @@ def load_saved_data(weights: List[float], num_episodes: int, seed: int, results_
 
     result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
     data = np.load(result_filepath)
-    reward_matrix = data['reward_matrix']
-    actions = data['actions']
-    total_steps = data['total_steps']
+    reward_matrix = data["reward_matrix"]
+    actions = data["actions"]
+    total_steps = data["total_steps"]
 
     model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
     # agent.networks.load_state_dict(th.load(model_filepath))
 
     params_filepath = os.path.join(results_dir, f"params_{filename_base}.json")
-    with open(params_filepath, 'r') as json_file:
+    with open(params_filepath, "r") as json_file:
         params = json.load(json_file)
 
-    donothing_filename = f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy"
+    donothing_filename = (
+        f"{donothing_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy"
+    )
     donothing_filepath = os.path.join(results_dir, donothing_filename)
     donothing_reward_matrix = np.load(donothing_filepath)
 
-    donothing_total_steps_filename = f"{donothing_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy"
-    donothing_total_steps_filepath = os.path.join(results_dir, donothing_total_steps_filename)
+    donothing_total_steps_filename = (
+        f"{donothing_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy"
+    )
+    donothing_total_steps_filepath = os.path.join(
+        results_dir, donothing_total_steps_filename
+    )
     donothing_total_steps = np.load(donothing_total_steps_filepath)
 
     print(f"Loaded results from {result_filepath}")
@@ -101,9 +131,29 @@ def load_saved_data(weights: List[float], num_episodes: int, seed: int, results_
     print(f"Loaded DoNothing reward matrix from {donothing_filepath}")
     print(f"Loaded DoNothing total steps from {donothing_total_steps_filepath}")
 
-    return reward_matrix, actions, total_steps, params, donothing_reward_matrix, donothing_total_steps
+    return (
+        reward_matrix,
+        actions,
+        total_steps,
+        params,
+        donothing_reward_matrix,
+        donothing_total_steps,
+    )
 
-def train_agent(weight_vectors: List[np.ndarray], num_episodes: int, max_ep_steps: int, results_dir: str, seed: int, env, obs_dim: Tuple[int], action_dim: int, reward_dim: int, run_name: str, **agent_params) -> None:
+
+def train_agent(
+    weight_vectors: List[np.ndarray],
+    num_episodes: int,
+    max_ep_steps: int,
+    results_dir: str,
+    seed: int,
+    env,
+    obs_dim: Tuple[int],
+    action_dim: int,
+    reward_dim: int,
+    run_name: str,
+    **agent_params,
+) -> None:
     """
     Train the agent using MO-PPO.
 
@@ -123,13 +173,22 @@ def train_agent(weight_vectors: List[np.ndarray], num_episodes: int, max_ep_step
     os.makedirs(results_dir, exist_ok=True)
 
     for weights in weight_vectors:
-        agent = initialize_agent(env, weights, obs_dim, action_dim, reward_dim, **agent_params)
+        agent = initialize_agent(
+            env, weights, obs_dim, action_dim, reward_dim, **agent_params
+        )
         agent.weights = th.tensor(weights).float().to(agent.device)
         run = wandb.init(
             project="TOPGrid_MORL",
-            name=generate_variable_name(base_name=run_name, num_episodes=num_episodes, weights=weights, seed=seed)
+            name=generate_variable_name(
+                base_name=run_name,
+                num_episodes=num_episodes,
+                weights=weights,
+                seed=seed,
+            ),
         )
-        reward_matrix, actions, total_steps = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
+        reward_matrix, actions, total_steps = agent.train(
+            num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim
+        )
         run.finish()
         actions = pad_list(actions)
 
@@ -137,7 +196,14 @@ def train_agent(weight_vectors: List[np.ndarray], num_episodes: int, max_ep_step
         filename_base = f"weights_{weights_str}_episodes_{num_episodes}_seed_{seed}"
 
         result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
-        np.savez(result_filepath, reward_matrix=reward_matrix, actions=actions, total_steps=total_steps, weights=weights, num_episodes=num_episodes)
+        np.savez(
+            result_filepath,
+            reward_matrix=reward_matrix,
+            actions=actions,
+            total_steps=total_steps,
+            weights=weights,
+            num_episodes=num_episodes,
+        )
 
         model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
         th.save(agent.networks.state_dict(), model_filepath)
@@ -149,17 +215,27 @@ def train_agent(weight_vectors: List[np.ndarray], num_episodes: int, max_ep_step
             "max_ep_steps": max_ep_steps,
             "reward_dim": reward_dim,
             "model_filepath": model_filepath,
-            "result_filepath": result_filepath
+            "result_filepath": result_filepath,
         }
         params_filepath = os.path.join(results_dir, f"params_{filename_base}.json")
-        with open(params_filepath, 'w') as json_file:
+        with open(params_filepath, "w") as json_file:
             json.dump(params, json_file, indent=4)
 
         print(f"Saved results for weights {weights} to {result_filepath}")
         print(f"Saved model for weights {weights} to {model_filepath}")
         print(f"Saved parameters for weights {weights} to {params_filepath}")
 
-def train_and_save_donothing_agent(action_space, gym_env, num_episodes: int, max_ep_steps: int, seed: int, reward_dim: int, save_dir: str = "results", file_prefix: str = "DoNothing") -> None:
+
+def train_and_save_donothing_agent(
+    action_space,
+    gym_env,
+    num_episodes: int,
+    max_ep_steps: int,
+    seed: int,
+    reward_dim: int,
+    save_dir: str = "results",
+    file_prefix: str = "DoNothing",
+) -> None:
     """
     Trains a DoNothing agent and saves the reward matrix to a file.
 
@@ -177,15 +253,21 @@ def train_and_save_donothing_agent(action_space, gym_env, num_episodes: int, max
     agent = DoNothingAgent(action_space=action_space, gymenv=gym_env)
 
     # Train the agent
-    reward_matrix, total_steps = agent.train(num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim)
+    reward_matrix, total_steps = agent.train(
+        num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim
+    )
 
     # Ensure the save directory exists
     os.makedirs(save_dir, exist_ok=True)
 
     # Define the filenames
-    file_path_reward = os.path.join(save_dir, f"{file_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy")
-    file_path_steps = os.path.join(save_dir, f"{file_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy")
-    
+    file_path_reward = os.path.join(
+        save_dir, f"{file_prefix}_reward_matrix_{num_episodes}_episodes_{seed}.npy"
+    )
+    file_path_steps = os.path.join(
+        save_dir, f"{file_prefix}_total_steps_{num_episodes}_episodes_{seed}.npy"
+    )
+
     # Save the reward matrix and total steps
     np.save(file_path_reward, reward_matrix)
     np.save(file_path_steps, total_steps)
