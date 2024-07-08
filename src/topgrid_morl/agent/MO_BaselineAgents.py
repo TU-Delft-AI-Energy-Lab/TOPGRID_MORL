@@ -2,6 +2,7 @@ from typing import List, Tuple, Union
 
 import grid2op
 import numpy as np
+import numpy.typing as npt
 import torch as th
 from grid2op.Agent.baseAgent import BaseAgent
 from morl_baselines.common.evaluation import log_episode_info
@@ -16,14 +17,17 @@ class DoNothingAgent(BaseAgent):
     """
 
     def __init__(
-        self, action_space, gymenv, device: Union[th.device, str] = "cpu"
+        self,
+        action_space: grid2op.Action.ActionSpace,
+        gymenv: grid2op.Environment,
+        device: Union[th.device, str] = "cpu",
     ) -> None:
         """
         Initialize the DoNothingAgent.
 
         Args:
-            action_space: The action space of the environment.
-            gymenv: The gym environment.
+            action_space (grid2op.Action.ActionSpace): The action space of the environment.
+            gymenv (grid2op.Environment): The gym environment.
             device (Union[th.device, str]): The device to run the agent on (CPU or GPU).
         """
         super().__init__(action_space)
@@ -31,8 +35,11 @@ class DoNothingAgent(BaseAgent):
         self.device = device
 
     def act(
-        self, observation, reward: float, done: bool = False
-    ) -> "grid2op.Action.Action":
+        self,
+        observation: grid2op.Observation.Observation,
+        reward: float,
+        done: bool = False,
+    ) -> grid2op.Action.Action:
         """
         The preferred way to make an object of type action is to call grid2op.BaseAction.ActionSpace.__call__
         with the dictionary representing the action. In this case, the action is "do nothing" and it is represented by
@@ -56,7 +63,7 @@ class DoNothingAgent(BaseAgent):
         reward_dim: int,
         print_every: int = 100,
         print_flag: bool = True,
-    ) -> Tuple[np.ndarray, List[int]]:
+    ) -> Tuple[npt.NDArray[np.float64], List[int]]:
         """
         Trains the policy for a specified number of episodes.
 
@@ -68,10 +75,12 @@ class DoNothingAgent(BaseAgent):
             print_flag (bool): Whether to print training progress.
 
         Returns:
-            Tuple[np.ndarray, List[int]]: Matrix of rewards for each episode and total steps per episode.
+            Tuple[npt.NDArray[np.float64], List[int]]: Matrix of rewards for each episode and total steps per episode.
         """
-        reward_matrix = np.zeros((num_episodes, reward_dim))
-        total_steps = []
+        reward_matrix: npt.NDArray[np.float64] = np.zeros(
+            (num_episodes, reward_dim), dtype=np.float64
+        )
+        total_steps: List[int] = []
 
         for i_episode in range(num_episodes):
             self.env.reset()
@@ -98,6 +107,7 @@ class DoNothingAgent(BaseAgent):
 
             reward_matrix[i_episode] = episode_reward.cpu().numpy()
             total_steps.append(grid2op_steps)
+
         """
         if print_flag:
             print("Training complete")

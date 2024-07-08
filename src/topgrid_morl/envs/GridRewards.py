@@ -126,10 +126,12 @@ class MaxDistanceReward(BaseReward):
             self.max_deviation = diff
 
         # Compute the reward based on the maximum deviation recorded
-        r = np.interp(
-            self.max_deviation,
-            [0.0, len(topo) * 1.0],
-            [self.reward_max, self.reward_min],
+        r = float(
+            np.interp(
+                self.max_deviation,
+                [0.0, len(topo) * 1.0],
+                [self.reward_max, self.reward_min],
+            )
         )
 
         return r

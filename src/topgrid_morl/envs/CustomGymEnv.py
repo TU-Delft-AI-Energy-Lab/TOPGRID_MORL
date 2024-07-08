@@ -1,6 +1,7 @@
-from typing import List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 from grid2op.Environment import BaseEnv
 from grid2op.gym_compat import GymEnv
 
@@ -17,10 +18,10 @@ class CustomGymEnv(GymEnv):
             safe_max_rho (float): Safety threshold for the line loadings.
         """
         super().__init__(env)
-        self.idx = 0
-        self.reconnect_line = []
-        self.rho_threshold = safe_max_rho
-        self.steps = 0
+        self.idx: int = 0
+        self.reconnect_line: List[Any] = []
+        self.rho_threshold: float = safe_max_rho
+        self.steps: int = 0
 
     def set_rewards(self, rewards_list: List[str]) -> None:
         """
@@ -33,8 +34,11 @@ class CustomGymEnv(GymEnv):
         self.reward_dim = len(self.rewards) + 1
 
     def reset(
-        self, *, seed: Union[int, None] = None, options: Union[dict, None] = None
-    ) -> np.ndarray:
+        self,
+        *,
+        seed: Union[int, None] = None,
+        options: Union[Dict[str, Any], None] = None
+    ) -> npt.NDArray[np.float64]:
         """
         Reset the environment.
 
@@ -43,13 +47,15 @@ class CustomGymEnv(GymEnv):
             options (Union[dict, None]): Additional options for reset.
 
         Returns:
-            np.ndarray: The initial observation of the environment.
+            npt.NDArray[np.float64]: The initial observation of the environment.
         """
         g2op_obs = self.init_env.reset()
         self.steps = 0
         return self.observation_space.to_gym(g2op_obs)
 
-    def step(self, action: int) -> Tuple[np.ndarray, np.ndarray, bool, dict]:
+    def step(
+        self, action: int
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
         """
         Take a step in the environment.
 
@@ -57,7 +63,8 @@ class CustomGymEnv(GymEnv):
             action (int): The action to take in the environment.
 
         Returns:
-            Tuple[np.ndarray, np.ndarray, bool, dict]: Observation, reward, done flag, and additional info.
+            Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
+            Observation, reward, done flag, and additional info.
         """
         g2op_act = self.action_space.from_gym(action)
 
@@ -74,7 +81,8 @@ class CustomGymEnv(GymEnv):
 
         # Create reward array
         reward = np.array(
-            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards]
+            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+            dtype=np.float64,
         )
 
         # Handle line loadings and ensure safety threshold is maintained
@@ -83,7 +91,8 @@ class CustomGymEnv(GymEnv):
             do_nothing = self.action_space.from_gym(action)
             g2op_obs, reward1, done, info = self.init_env.step(do_nothing)
             reward = np.array(
-                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards]
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                dtype=np.float64,
             )
             self.steps += 1
             cum_reward += reward

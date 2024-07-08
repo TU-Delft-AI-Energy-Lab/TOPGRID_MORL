@@ -2,18 +2,19 @@ from typing import Dict, List
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 
 
 def plot_multiple_subplots(
-    reward_matrices: List[np.ndarray], summed_episodes: int
+    reward_matrices: List[npt.NDArray[np.float64]], summed_episodes: int
 ) -> None:
     """
     Plot multiple subplots of grouped bar plots for the provided reward matrices.
 
     Args:
-        reward_matrices (List[np.ndarray]): List of reward matrices.
+        reward_matrices (List[npt.NDArray[np.float64]]): List of reward matrices.
         summed_episodes (int): Number of episodes to sum together for each bar.
     """
     num_matrices = len(reward_matrices)
@@ -31,14 +32,14 @@ def plot_multiple_subplots(
 
 
 def plot_grouped_bar_plot(
-    ax: plt.Axes, reward_matrix: np.ndarray, summed_episodes: int
+    ax: plt.Axes, reward_matrix: npt.NDArray[np.float64], summed_episodes: int
 ) -> None:
     """
     Plot a grouped bar plot for the given reward matrix.
 
     Args:
         ax (plt.Axes): Matplotlib axis to plot on.
-        reward_matrix (np.ndarray): Reward matrix to plot.
+        reward_matrix (npt.NDArray[np.float64]): Reward matrix to plot.
         summed_episodes (int): Number of episodes to sum together for each bar.
     """
     num_rows, num_cols = reward_matrix.shape
@@ -76,28 +77,16 @@ def plot_grouped_bar_plot(
     ax.grid(True, linestyle="--", linewidth=0.5)
 
 
-def calculate_correlation(reward_matrix: np.ndarray) -> None:
+def calculate_correlation(reward_matrix: npt.NDArray[np.float64]) -> None:
     """
     Calculate and plot the Pearson correlation coefficient between different reward columns.
 
     Args:
-        reward_matrix (np.ndarray): Reward matrix to analyze.
+        reward_matrix (npt.NDArray[np.float64]): Reward matrix to analyze.
     """
     l2rpn = reward_matrix[:, 0]
     lines = reward_matrix[:, 1]
-    distance = reward_matrix[:, 2]
-    """
-    corr_l2rpn_lines, _ = pearsonr(l2rpn, lines)
-    corr_l2rpn_distance, _ = pearsonr(l2rpn, distance)
-    """
-    """
-    print(
-        f"Pearson correlation coefficient between L2RPN and Lines: {corr_l2rpn_lines:.4f}"
-    )
-    print(
-        f"Pearson correlation coefficient between L2RPN and Distance: {corr_l2rpn_distance:.4f}"
-    )
-    """
+
     plt.figure(figsize=(8, 6))
     plt.scatter(l2rpn, lines, color="blue", label="Episode Rewards")
     plt.title("Scatter Plot of L2RPN Reward against Lines Reward")
@@ -108,12 +97,14 @@ def calculate_correlation(reward_matrix: np.ndarray) -> None:
     plt.show()
 
 
-def plot_total_sums(reward_matrices: List[np.ndarray], labels: List[str]) -> None:
+def plot_total_sums(
+    reward_matrices: List[npt.NDArray[np.float64]], labels: List[str]
+) -> None:
     """
     Plot the total sums of rewards in a 3D scatter plot.
 
     Args:
-        reward_matrices (List[np.ndarray]): List of reward matrices.
+        reward_matrices (List[npt.NDArray[np.float64]]): List of reward matrices.
         labels (List[str]): List of labels for the reward matrices.
     """
     fig = plt.figure(figsize=(10, 8))
@@ -138,7 +129,6 @@ def plot_total_sums(reward_matrices: List[np.ndarray], labels: List[str]) -> Non
             fontsize=10,
             color="blue",
         )
-        # print(total_reward_1, total_reward_2, total_reward_3)
 
     ax.set_xlabel("Total Reward 1", fontsize=12)
     ax.set_ylabel("Total Reward 2", fontsize=12)
@@ -168,18 +158,18 @@ def generate_variable_name(
     return f"{base_name}_episodes_{num_episodes}_weights_{weights_str}_seed_{seed}"
 
 
-def scale_columns_independently(reward_matrix: np.ndarray) -> np.ndarray:
+def scale_columns_independently(
+    reward_matrix: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
     """
     Scale the columns of the reward matrix independently to the range [0, 1].
 
     Args:
-        reward_matrix (np.ndarray): Reward matrix to scale.
+        reward_matrix (npt.NDArray[np.float64]): Reward matrix to scale.
 
     Returns:
-        np.ndarray: Scaled reward matrix.
+        npt.NDArray[np.float64]: Scaled reward matrix.
     """
-    # print(f"Input reward_matrix shape: {reward_matrix.shape}")
-
     scaler = MinMaxScaler()
     scaled_matrix = np.zeros_like(reward_matrix)
 
@@ -191,12 +181,12 @@ def scale_columns_independently(reward_matrix: np.ndarray) -> np.ndarray:
     return scaled_matrix
 
 
-def plot_3d_mean_std(returns_dict: Dict[str, np.ndarray]) -> None:
+def plot_3d_mean_std(returns_dict: Dict[str, npt.NDArray[np.float64]]) -> None:
     """
     Plot a 3D scatter plot with mean and standard deviation of the rewards.
 
     Args:
-        returns_dict (Dict[str, np.ndarray]): Dictionary containing returns for different weight settings.
+        returns_dict (Dict[str, npt.NDArray[np.float64]]): Dictionary containing returns for different weight settings.
     """
     fig = plt.figure(figsize=(14, 12))
     ax = fig.add_subplot(111, projection="3d")
@@ -219,8 +209,6 @@ def plot_3d_mean_std(returns_dict: Dict[str, np.ndarray]) -> None:
             means[1],
             means[2],
             f"Mean: ({means[0]: .2f}, {means[1]: .2f}, {means[2]: .2f})",
-            fontsize=9,
-            color="black",
         )
         ax.errorbar(
             means[0],
@@ -243,12 +231,14 @@ def plot_3d_mean_std(returns_dict: Dict[str, np.ndarray]) -> None:
     plt.show()
 
 
-def plot_mean_std_rewards(returns_dict: Dict[str, np.ndarray], reward_dim: int) -> None:
+def plot_mean_std_rewards(
+    returns_dict: Dict[str, npt.NDArray[np.float64]], reward_dim: int
+) -> None:
     """
     Plot mean and standard deviation of rewards across episodes.
 
     Args:
-        returns_dict (Dict[str, np.ndarray]): Dictionary containing returns for different weight settings.
+        returns_dict (Dict[str, npt.NDArray[np.float64]]): Dictionary containing returns for different weight settings.
         reward_dim (int): Number of reward dimensions.
     """
     colors = sns.color_palette("husl", len(returns_dict))
@@ -287,13 +277,14 @@ def plot_mean_std_rewards(returns_dict: Dict[str, np.ndarray], reward_dim: int) 
 
 
 def plot_mean_std_total_steps(
-    total_steps_dict: Dict[str, np.ndarray], num_episodes: int
+    total_steps_dict: Dict[str, npt.NDArray[np.float64]], num_episodes: int
 ) -> None:
     """
     Plot mean and standard deviation of total steps across episodes.
 
     Args:
-        total_steps_dict (Dict[str, np.ndarray]): Dictionary containing total steps for different weight settings.
+        total_steps_dict (Dict[str, npt.NDArray[np.float64]]):
+        Dictionary containing total steps for different weight settings.
         num_episodes (int): Number of episodes.
     """
     colors = sns.color_palette("husl", len(total_steps_dict))
@@ -332,22 +323,22 @@ def plot_mean_std_total_steps(
 
 
 def normalize_reward_matrix(
-    reward_matrix: np.ndarray,
-    total_steps: np.ndarray,
+    reward_matrix: npt.NDArray[np.float64],
+    total_steps: npt.NDArray[np.float64],
     num_seeds: int,
     episode_dur: bool = True,
-) -> np.ndarray:
+) -> npt.NDArray[np.float64]:
     """
     Normalize the reward matrix by total steps.
 
     Args:
-        reward_matrix (np.ndarray): Reward matrix to normalize.
-        total_steps (np.ndarray): Total steps for normalization.
+        reward_matrix (npt.NDArray[np.float64]): Reward matrix to normalize.
+        total_steps (npt.NDArray[np.float64]): Total steps for normalization.
         num_seeds (int): Number of seeds.
         episode_dur (bool): Whether to include episode duration in normalization.
 
     Returns:
-        np.ndarray: Normalized reward matrix.
+        npt.NDArray[np.float64]: Normalized reward matrix.
     """
     normalized_reward_matrix = np.zeros_like(reward_matrix)
     for seed in range(num_seeds):
@@ -360,21 +351,20 @@ def normalize_reward_matrix(
 
 
 def get_returns(
-    reward_matrices: List[np.ndarray], num_seeds: int, reward_dim: int
-) -> np.ndarray:
+    reward_matrices: List[npt.NDArray[np.float64]], num_seeds: int, reward_dim: int
+) -> npt.NDArray[np.float64]:
     """
     Get the returns from the reward matrices.
 
     Args:
-        reward_matrices (List[np.ndarray]): List of reward matrices.
+        reward_matrices (List[npt.NDArray[np.float64]]): List of reward matrices.
         num_seeds (int): Number of seeds.
         reward_dim (int): Number of reward dimensions.
 
     Returns:
-        np.ndarray: Returns matrix.
+        npt.NDArray[np.float64]: Returns matrix.
     """
-    return_matrix = np.zeros((num_seeds, reward_dim))
+    return_matrix = np.zeros((num_seeds, reward_dim), dtype=np.float64)
     for seed in range(num_seeds):
         return_matrix[seed] = reward_matrices[seed].sum(axis=0)
-    # print(return_matrix)
     return return_matrix

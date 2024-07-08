@@ -13,7 +13,7 @@ from topgrid_morl.utils.MORL_analysis_utils import (
 )
 
 
-def main():
+def main() -> None:
     """
     Main function to load saved data, normalize rewards, and plot the results.
     """

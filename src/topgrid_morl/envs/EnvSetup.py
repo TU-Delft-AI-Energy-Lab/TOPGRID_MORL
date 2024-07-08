@@ -1,3 +1,4 @@
+import logging
 from typing import List, Tuple
 
 import grid2op
@@ -8,6 +9,12 @@ from lightsim2grid import LightSimBackend
 from topgrid_morl.envs.CustomGymEnv import (  # Import your custom environment if necessary
     CustomGymEnv,
 )
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 def setup_environment(
@@ -78,33 +85,7 @@ def setup_environment(
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
 
-    # print(gym_env.action_space)
-    # print(f"Environment setup completed for {env_name} with Gym compatibility.")
+    logger.info(gym_env.action_space)
+    logger.info(f"Environment setup completed for {env_name} with Gym compatibility.")
 
     return gym_env, gym_env.observation_space.shape, action_space, reward_dim
-
-
-def get_observation_dimension(env: GymEnv) -> Tuple[int]:
-    """
-    Get the observation dimension of the environment.
-
-    Args:
-        env (GymEnv): The gym environment.
-
-    Returns:
-        Tuple[int]: The shape of the observation space.
-    """
-    return env.observation_space.shape
-
-
-def get_action_dimension(env: GymEnv) -> int:
-    """
-    Get the action dimension of the environment.
-
-    Args:
-        env (GymEnv): The gym environment.
-
-    Returns:
-        int: The dimension of the action space.
-    """
-    return env.action_space.shape[0]

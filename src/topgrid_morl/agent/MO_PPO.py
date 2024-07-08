@@ -1,9 +1,10 @@
 from copy import deepcopy
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gymnasium as gym
 import mo_gymnasium as mo_gym
 import numpy as np
+import numpy.typing as npt
 import torch as th
 import wandb
 from mo_gymnasium import MORecordEpisodeStatistics
@@ -23,18 +24,18 @@ class PPOReplayBuffer:
     def __init__(
         self,
         size: int,
-        obs_shape: tuple,
-        action_shape: tuple,
+        obs_shape: Tuple[int, ...],
+        action_shape: Tuple[int, ...],
         reward_dim: int,
         device: Union[th.device, str],
-    ):
+    ) -> None:
         """
         Initialize the replay buffer.
 
         Args:
             size (int): Maximum size of the buffer.
-            obs_shape (tuple): Shape of the observations.
-            action_shape (tuple): Shape of the actions.
+            obs_shape (Tuple[int, ...]): Shape of the observations.
+            action_shape (Tuple[int, ...]): Shape of the actions.
             reward_dim (int): Dimension of the rewards.
             device (Union[th.device, str]): Device to store the buffer.
         """
@@ -209,7 +210,7 @@ class MOPPONet(nn.Module):
 
     def __init__(
         self,
-        obs_shape: tuple,
+        obs_shape: Tuple[int, ...],
         action_dim: int,
         reward_dim: int,
         net_arch: List[int] = [64, 64],
@@ -218,7 +219,7 @@ class MOPPONet(nn.Module):
         Initialize the neural network.
 
         Args:
-            obs_shape (tuple): Shape of the observations.
+            obs_shape (Tuple[int, ...]): Shape of the observations.
             action_dim (int): Dimension of the action space.
             reward_dim (int): Dimension of the reward space.
             net_arch (List[int]): Architecture of the neural network.
@@ -270,7 +271,8 @@ class MOPPONet(nn.Module):
             action (Optional[th.Tensor]): Action.
 
         Returns:
-            tuple: Action, log probability, entropy, and value of the observation.
+            Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+            Action, log probability, entropy, and value of the observation.
         """
         logits = self.actor(obs)
         probs = Categorical(logits=logits)
@@ -286,7 +288,7 @@ class MOPPO(MOPolicy):
         self,
         id: int,
         networks: MOPPONet,
-        weights: np.ndarray,
+        weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
         log: bool = False,
         steps_per_iteration: int = 2048,
@@ -314,7 +316,7 @@ class MOPPO(MOPolicy):
         Args:
             id (int): Identifier for the agent.
             networks (MOPPONet): Neural network for the agent.
-            weights (np.ndarray): Weights for the objectives.
+            weights (npt.NDArray[np.float64]): Weights for the objectives.
             env (CustomGymEnv): Custom gym environment.
             log (bool): Whether to log the training process.
             steps_per_iteration (int): Steps per iteration.
@@ -375,12 +377,12 @@ class MOPPO(MOPolicy):
             self.device,
         )
 
-    def __deepcopy__(self, memo: dict) -> "MOPPO":
+    def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
         Create a deep copy of the agent.
 
         Args:
-            memo (dict): Memoization dictionary.
+            memo (Dict[int, Any]): Memoization dictionary.
 
         Returns:
             MOPPO: Deep copied agent.
@@ -417,12 +419,12 @@ class MOPPO(MOPolicy):
         copied.batch = deepcopy(self.batch)
         return copied
 
-    def change_weights(self, new_weights: np.ndarray) -> None:
+    def change_weights(self, new_weights: npt.NDArray[np.float64]) -> None:
         """
         Change the weights for the objectives.
 
         Args:
-            new_weights (np.ndarray): New weights for the objectives.
+            new_weights (npt.NDArray[np.float64]): New weights for the objectives.
         """
         self.weights = th.from_numpy(deepcopy(new_weights)).to(self.device)
 
@@ -461,7 +463,7 @@ class MOPPO(MOPolicy):
         """
         done = False
         cum_reward = 0
-        action_list = []
+        action_list: List[th.Tensor] = []
         gym_steps = 0
         grid2op_steps = 0
         while not done and gym_steps < max_ep_steps:
@@ -507,7 +509,7 @@ class MOPPO(MOPolicy):
             next_done (bool): Whether the next state is done.
 
         Returns:
-            Tuple containing returns and advantages.
+            Tuple[th.Tensor, th.Tensor]: Returns and advantages.
         """
         with th.no_grad():
             next_value = self.networks.get_value(next_obs).reshape(
@@ -556,16 +558,18 @@ class MOPPO(MOPolicy):
         return returns, advantages
 
     @override
-    def eval(self, obs: np.ndarray, w: np.ndarray) -> np.ndarray:
+    def eval(
+        self, obs: npt.NDArray[np.float64], w: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
         """
         Evaluate the policy for a given observation and weights.
 
         Args:
-            obs (np.ndarray): Observation.
-            w (np.ndarray): Weights.
+            obs (npt.NDArray[np.float64]): Observation.
+            w (npt.NDArray[np.float64]): Weights.
 
         Returns:
-            np.ndarray: Action.
+            npt.NDArray[np.float64]: Action.
         """
         obs = th.as_tensor(obs).float().to(self.device).unsqueeze(0)
         with th.no_grad():
@@ -660,7 +664,11 @@ class MOPPO(MOPolicy):
                     )
                     self.optimizer.step()
 
-                if self.target_kl is not None and approx_kl > self.target_kl:
+                if (
+                    self.target_kl is not None
+                    and approx_kl is not None
+                    and approx_kl > self.target_kl
+                ):
                     break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -711,7 +719,7 @@ class MOPPO(MOPolicy):
         reward_dim: int,
         print_every: int = 100,
         print_flag: bool = True,
-    ) -> Tuple[np.ndarray, List[np.ndarray], List[int]]:
+    ) -> Tuple[npt.NDArray[np.float64], List[npt.NDArray[np.float64]], List[int]]:
         """
         Train the agent.
 
@@ -723,11 +731,12 @@ class MOPPO(MOPolicy):
             print_flag (bool): Whether to print training progress.
 
         Returns:
-            Tuple containing reward matrix, actions, and total steps.
+            Tuple[npt.NDArray[np.float64], List[npt.NDArray[np.float64]], List[int]]:
+            Reward matrix, actions, and total steps.
         """
-        reward_matrix = np.zeros((num_episodes, reward_dim))
-        actions = []
-        total_steps = []
+        reward_matrix = np.zeros((num_episodes, reward_dim), dtype=np.float64)
+        actions: List[npt.NDArray[np.float64]] = []
+        total_steps: List[int] = []
         for i_episode in range(num_episodes):
             if self.anneal_lr:
                 new_lr = self.learning_rate * (1 - i_episode / num_episodes)
@@ -740,7 +749,7 @@ class MOPPO(MOPolicy):
             next_done = done
             episode_reward = th.zeros(reward_dim).to(self.device)
 
-            action_list_episode = []
+            action_list_episode: List[npt.NDArray[np.float64]] = []
 
             (
                 next_obs,
