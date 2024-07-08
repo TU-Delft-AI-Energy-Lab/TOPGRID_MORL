@@ -160,8 +160,7 @@ def load_saved_data(
 
 def train_agent(
     weight_vectors: List[npt.NDArray[np.float64]],
-    num_episodes: int,
-    max_ep_steps: int,
+    max_gym_steps: int,
     results_dir: str,
     seed: int,
     env: Any,
@@ -194,53 +193,11 @@ def train_agent(
             env, weights, obs_dim, action_dim, reward_dim, **agent_params
         )
         agent.weights = th.tensor(weights).float().to(agent.device)
-        run = wandb.init(
-            project="TOPGrid_MORL",
-            name=generate_variable_name(
-                base_name=run_name,
-                num_episodes=num_episodes,
-                weights=weights,
-                seed=seed,
-            ),
+       
+        agent.train(
+            max_gym_steps=max_gym_steps, reward_dim=reward_dim
         )
-        reward_matrix, actions, total_steps = agent.train(
-            num_episodes=num_episodes, max_ep_steps=max_ep_steps, reward_dim=reward_dim
-        )
-        run.finish()
-        actions = pad_list(actions)
-
-        weights_str = "_".join(map(str, weights))
-        filename_base = f"weights_{weights_str}_episodes_{num_episodes}_seed_{seed}"
-
-        result_filepath = os.path.join(results_dir, f"results_{filename_base}.npz")
-        np.savez(
-            result_filepath,
-            reward_matrix=reward_matrix,
-            actions=actions,
-            total_steps=total_steps,
-            weights=weights,
-            num_episodes=num_episodes,
-        )
-
-        model_filepath = os.path.join(results_dir, f"model_{filename_base}.pth")
-        th.save(agent.networks.state_dict(), model_filepath)
-
-        params = {
-            "weights": weights.tolist(),
-            "num_episodes": num_episodes,
-            "seed": seed,
-            "max_ep_steps": max_ep_steps,
-            "reward_dim": reward_dim,
-            "model_filepath": model_filepath,
-            "result_filepath": result_filepath,
-        }
-        params_filepath = os.path.join(results_dir, f"params_{filename_base}.json")
-        with open(params_filepath, "w") as json_file:
-            json.dump(params, json_file, indent=4)
-
-        logger.info(f"Saved results for weights {weights} to {result_filepath}")
-        logger.info(f"Saved model for weights {weights} to {model_filepath}")
-        logger.info(f"Saved parameters for weights {weights} to {params_filepath}")
+        
 
 
 def train_and_save_donothing_agent(
