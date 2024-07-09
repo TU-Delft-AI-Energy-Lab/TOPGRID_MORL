@@ -108,12 +108,12 @@ class PPOReplayBuffer:
             rewards, dones, and values up to the current pointer.
         """
         return (
-            self.obs[: self.ptr],
-            self.actions[: self.ptr],
-            self.logprobs[: self.ptr],
-            self.rewards[: self.ptr, :],
-            self.dones[: self.ptr],
-            self.values[: self.ptr, :],
+            self.obs,
+            self.actions,
+            self.logprobs,
+            self.rewards,
+            self.dones,
+            self.values,
         )
 
     def get_ptr(self) -> int:
@@ -471,6 +471,7 @@ class MOPPO(MOPolicy):
 
             next_obs, reward, next_done, info = self.env.step(action.item())
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
+
             self.batch.add(obs, action, logprob, reward, done, value)
             steps_in_gymstep = info["steps"]
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
@@ -498,7 +499,7 @@ class MOPPO(MOPolicy):
                 -1, self.networks.reward_dim
             )
             if self.gae:
-                advantages = th.zeros_like(self.batch.get_rewards()).to(self.device)
+                advantages = th.zeros_like(self.batch.rewards).to(self.device)
                 lastgaelam = 0
                 for t in reversed(range(self.batch.get_ptr())):
                     if t == self.steps_per_iteration - 1:
@@ -518,7 +519,7 @@ class MOPPO(MOPolicy):
                         delta
                         + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
                     )
-                returns = advantages + self.batch.get_values()
+                returns = advantages + self.batch.values
             else:
                 returns = th.zeros_like(self.batch.get_rewards()).to(self.device)
                 for t in reversed(range(self.steps_per_iteration)):
@@ -533,10 +534,12 @@ class MOPPO(MOPolicy):
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
-                advantages = returns - self.batch.get_values()
+                advantages = returns - self.batch.values()
         advantages = (
             advantages @ self.weights.float()
         )  # Compute dot product of advantages and weights
+        
+        
         return returns, advantages
 
     @override
@@ -564,13 +567,17 @@ class MOPPO(MOPolicy):
         Update the policy and value function.
         """
         obs, actions, logprobs, _, _, values = self.batch.get_all()
-        print(obs)
+
+
+        # Flatten the batch (b == batch)
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
         b_logprobs = logprobs.reshape(-1)
-        b_actions = actions.reshape((-1,) + (self.networks.action_dim,))
+        b_actions = actions.reshape(-1)
         b_advantages = self.advantages.reshape(-1)
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
+
+
 
         # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
@@ -588,8 +595,6 @@ class MOPPO(MOPolicy):
             for start in range(0, self.batch_size, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_inds = b_inds[start:end]
-                print(mb_inds)
-                print(b_obs)
                 _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(
                     b_obs[mb_inds], b_actions[mb_inds]
                 )
@@ -709,6 +714,7 @@ class MOPPO(MOPolicy):
             next_obs, done, grid2op_steps_from_training = self.__collect_samples(
                 next_obs, done, grid2op_steps=grid2op_steps
             )
+            
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
