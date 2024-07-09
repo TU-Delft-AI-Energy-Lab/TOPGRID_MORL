@@ -458,7 +458,9 @@ class MOPPO(MOPolicy):
             Tuple containing the next observation, whether the episode is
             done, cumulative reward, list of actions, and total steps.
         """
+        
         for gym_step in range(self.batch_size):
+            
             # fill batch
             if done:
                 self.env.reset()
@@ -470,6 +472,7 @@ class MOPPO(MOPolicy):
                 value = value.view(self.networks.reward_dim)
 
             next_obs, reward, next_done, info = self.env.step(action.item())
+            self.global_step += 1
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
 
             self.batch.add(obs, action, logprob, reward, done, value)
@@ -582,13 +585,6 @@ class MOPPO(MOPolicy):
         # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
         clipfracs = []
-        v_loss, pg_loss, entropy_loss, old_approx_kl, approx_kl = (
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
 
         for epoch in range(self.update_epochs):
             self.np_random.shuffle(b_inds)
@@ -659,28 +655,30 @@ class MOPPO(MOPolicy):
             wandb.log(
                 {
                     f"losses_{self.id}/value_loss": v_loss.item()
-                    if v_loss is not None
-                    else float("nan"),
+                    ,
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
                     f"losses_{self.id}/policy_loss": pg_loss.item()
-                    if pg_loss is not None
-                    else float("nan"),
+    
+                   ,
                     f"losses_{self.id}/entropy": entropy_loss.item()
-                    if entropy_loss is not None
-                    else float("nan"),
+                    ,
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item()
-                    if old_approx_kl is not None
-                    else float("nan"),
+                    ,
                     f"losses_{self.id}/approx_kl": approx_kl.item()
-                    if approx_kl is not None
-                    else float("nan"),
+                    ,
                     f"losses_{self.id}/clipfrac": np.mean(clipfracs),
                     f"losses_{self.id}/explained_variance": explained_var,
                     "global_step": self.global_step,
                 }
             )
+            log_data = {
+                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
+            }
+            for j in range(self.networks.reward_dim):
+                log_data[f"charts_{self.id}/episode_reward_{j}"] = self.batch.rewards[:, j].sum().item()
+                wandb.log(log_data)
 
     def save_model(self, path: str) -> None:
         """
@@ -705,7 +703,7 @@ class MOPPO(MOPolicy):
         """
         grid2op_steps = 0
         num_trainings = int(max_gym_steps / self.batch_size)
-
+        self.global_step = 0 
         for trainings in range(num_trainings):
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)

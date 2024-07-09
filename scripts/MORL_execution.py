@@ -40,7 +40,7 @@ def main() -> None:
             "id": 1,
             "log": True,
             "steps_per_iteration": 16,
-            "num_minibatches": 4,
+            "num_minibatches": 1,
             "update_epochs": 2,
             "learning_rate": 3e-4,
             "gamma": 0.995,
@@ -63,7 +63,7 @@ def main() -> None:
         weight_vectors = np.array(
             weight_vectors
         )  # Convert to numpy array for consistency
-        max_gym_steps = 64
+        max_gym_steps = 32
 
         # Step 5: Train Agent
         train_agent(
