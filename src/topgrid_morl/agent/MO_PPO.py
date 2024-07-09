@@ -8,7 +8,6 @@ import numpy.typing as npt
 import torch as th
 import wandb
 from mo_gymnasium import MORecordEpisodeStatistics
-from morl_baselines.common.evaluation import log_episode_info
 from morl_baselines.common.morl_algorithm import MOPolicy
 from morl_baselines.common.networks import layer_init, mlp
 from torch import nn, optim
@@ -73,9 +72,7 @@ class PPOReplayBuffer:
         self.actions[self.ptr] = actions
         self.logprobs[self.ptr] = logprobs
         self.rewards[self.ptr] = rewards
-        self.dones[self.ptr] = (
-            th.tensor(dones, dtype=th.float32).to(self.device).clone().detach()
-        )
+        self.dones[self.ptr] = dones
         self.values[self.ptr] = values
         self.ptr = (self.ptr + 1) % self.size
 
@@ -111,12 +108,12 @@ class PPOReplayBuffer:
             rewards, dones, and values up to the current pointer.
         """
         return (
-            self.obs[: self.ptr],
-            self.actions[: self.ptr],
-            self.logprobs[: self.ptr],
-            self.rewards[: self.ptr, :],
-            self.dones[: self.ptr],
-            self.values[: self.ptr, :],
+            self.obs,
+            self.actions,
+            self.logprobs,
+            self.rewards,
+            self.dones,
+            self.values,
         )
 
     def get_ptr(self) -> int:
@@ -126,7 +123,7 @@ class PPOReplayBuffer:
         Returns:
             int: Current pointer.
         """
-        return self.ptr - 1
+        return self.ptr
 
     def get_values(self) -> th.Tensor:
         """
@@ -447,8 +444,8 @@ class MOPPO(MOPolicy):
             return tensor
 
     def __collect_samples(
-        self, obs: th.Tensor, done: bool, max_ep_steps: int
-    ) -> Tuple[th.Tensor, bool, th.Tensor, List[th.Tensor], int]:
+        self, obs: th.Tensor, done: bool, grid2op_steps: int
+    ) -> Tuple[th.Tensor, bool, int, int]:
         """
         Collect samples by interacting with the environment.
 
@@ -459,15 +456,13 @@ class MOPPO(MOPolicy):
 
         Returns:
             Tuple containing the next observation, whether the episode is
-            done, cumulative reward, list of actions, and total steps.
+            done, cumulative reward, and total steps.
         """
-        done = False
-        cum_reward = 0
-        action_list: List[th.Tensor] = []
-        gym_steps = 0
-        grid2op_steps = 0
-        while not done and gym_steps < max_ep_steps:
-            self.global_step += 1
+
+        for gym_step in range(self.batch_size):
+            # fill batch
+            if done:
+                self.env.reset()
 
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(
@@ -476,27 +471,26 @@ class MOPPO(MOPolicy):
                 value = value.view(self.networks.reward_dim)
 
             next_obs, reward, next_done, info = self.env.step(action.item())
+            self.global_step += 1
+
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
-            cum_reward += reward
+
             self.batch.add(obs, action, logprob, reward, done, value)
-            action_list.append(action)
-            steps_in_gymsteps = info["steps"]
+            steps_in_gymstep = info["steps"]
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
-
-            if "episode" in info.keys():
-                log_episode_info(
-                    info["episode"],
-                    scalarization=np.dot,
-                    weights=self.weights,
-                    global_timestep=self.global_step,
-                    id=self.id,
+            grid2op_steps += steps_in_gymstep
+            log_data = {
+                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
+            }
+            for j in range(self.networks.reward_dim):
+                log_data[f"charts_{self.id}/episode_reward_{j}"] = (
+                    self.batch.rewards[:, j].sum().item()
                 )
+                wandb.log(log_data)
 
-            gym_steps += 1
-            grid2op_steps += steps_in_gymsteps
-        return obs, done, cum_reward, action_list, grid2op_steps
+        return obs, done, self.batch.rewards.sum().item(), grid2op_steps
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
@@ -511,14 +505,18 @@ class MOPPO(MOPolicy):
         Returns:
             Tuple[th.Tensor, th.Tensor]: Returns and advantages.
         """
+        returns: th.Tensor
         with th.no_grad():
             next_value = self.networks.get_value(next_obs).reshape(
                 -1, self.networks.reward_dim
             )
             if self.gae:
-                advantages = th.zeros_like(self.batch.get_rewards()).to(self.device)
+                advantages: th.Tensor = th.zeros_like(self.batch.rewards).to(
+                    self.device
+                )
                 lastgaelam = 0
-                for t in reversed(range(self.batch.get_ptr())):
+
+                for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
                         nextnonterminal = 1.0 - next_done
                         nextvalues = next_value
@@ -536,7 +534,9 @@ class MOPPO(MOPolicy):
                         delta
                         + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
                     )
-                returns = advantages + self.batch.get_values()
+
+                returns = advantages + self.batch.values
+
             else:
                 returns = th.zeros_like(self.batch.get_rewards()).to(self.device)
                 for t in reversed(range(self.steps_per_iteration)):
@@ -551,10 +551,12 @@ class MOPPO(MOPolicy):
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
-                advantages = returns - self.batch.get_values()
+                advantages = returns - self.batch.values()
+
         advantages = (
             advantages @ self.weights.float()
         )  # Compute dot product of advantages and weights
+
         return returns, advantages
 
     @override
@@ -582,9 +584,8 @@ class MOPPO(MOPolicy):
         Update the policy and value function.
         """
         obs, actions, logprobs, _, _, values = self.batch.get_all()
-        original_batch_size = self.batch_size
-        if self.batch_size > self.batch.get_ptr():
-            self.batch_size = self.batch.get_ptr()
+
+        # Flatten the batch (b == batch)
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape(-1)
@@ -592,116 +593,98 @@ class MOPPO(MOPolicy):
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
 
-        b_inds = np.arange(obs.shape[0])
+        # Optimizing the policy and value network
+        b_inds = np.arange(self.batch_size)
         clipfracs = []
-        v_loss = None
-        pg_loss = None
-        entropy_loss = None
-        old_approx_kl = None
-        approx_kl = None
 
         for epoch in range(self.update_epochs):
             self.np_random.shuffle(b_inds)
-            if self.batch_size > 0:
-                for start in range(0, self.batch_size, self.minibatch_size):
-                    end = start + self.minibatch_size
-                    mb_inds = b_inds[start:end]
+            for start in range(0, self.batch_size, self.minibatch_size):
+                end = start + self.minibatch_size
+                mb_inds = b_inds[start:end]
 
-                    (
-                        _,
-                        newlogprob,
-                        entropy,
-                        newvalue,
-                    ) = self.networks.get_action_and_value(
-                        b_obs[mb_inds].to(self.device),
-                        b_actions[mb_inds].to(self.device),
-                    )
-                    logratio = newlogprob - b_logprobs[mb_inds]
-                    ratio = logratio.exp()
+                _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
+                logratio = newlogprob - b_logprobs[mb_inds]
+                ratio = logratio.exp()
 
-                    with th.no_grad():
-                        old_approx_kl = (-logratio).mean()
-                        approx_kl = ((ratio - 1) - logratio).mean()
-                        clipfracs += [
-                            ((ratio - 1.0).abs() > self.clip_coef).float().mean().item()
-                        ]
+                with th.no_grad():
+                    old_approx_kl = (-logratio).mean()
+                    approx_kl = ((ratio - 1) - logratio).mean()
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > self.clip_coef).float().mean().item()
+                    ]
 
-                    mb_advantages = b_advantages[mb_inds]
-                    if self.norm_adv:
-                        mb_advantages = (mb_advantages - mb_advantages.mean()) / (
-                            mb_advantages.std() + 1e-8
-                        )
-
-                    pg_loss1 = -mb_advantages * ratio
-                    pg_loss2 = -mb_advantages * th.clamp(
-                        ratio, 1 - self.clip_coef, 1 + self.clip_coef
-                    )
-                    pg_loss = th.max(pg_loss1, pg_loss2).mean()
-
-                    newvalue = newvalue.view(-1, self.networks.reward_dim)
-                    if self.clip_vloss:
-                        v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
-                        v_clipped = b_values[mb_inds] + th.clamp(
-                            newvalue - b_values[mb_inds],
-                            -self.clip_coef,
-                            self.clip_coef,
-                        )
-                        v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                        v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
-                        v_loss = 0.5 * v_loss_max.mean()
-                    else:
-                        v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
-
-                    entropy_loss = entropy.mean()
-                    loss = (
-                        pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
+                mb_advantages = b_advantages[mb_inds]
+                if self.norm_adv:
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
                     )
 
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    nn.utils.clip_grad_norm_(
-                        self.networks.parameters(), self.max_grad_norm
-                    )
-                    self.optimizer.step()
+                # Policy loss
+                pg_loss1 = -mb_advantages * ratio
+                pg_loss2 = -mb_advantages * th.clamp(
+                    ratio, 1 - self.clip_coef, 1 + self.clip_coef
+                )
+                pg_loss = th.max(pg_loss1, pg_loss2).mean()
 
-                if (
-                    self.target_kl is not None
-                    and approx_kl is not None
-                    and approx_kl > self.target_kl
-                ):
-                    break
+                # Value loss
+                newvalue = newvalue.view(-1, self.networks.reward_dim)
+                if self.clip_vloss:
+                    v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
+                    v_clipped = b_values[mb_inds] + th.clamp(
+                        newvalue - b_values[mb_inds],
+                        -self.clip_coef,
+                        self.clip_coef,
+                    )
+                    v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+                    v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
+                    v_loss = 0.5 * v_loss_max.mean()
+                else:
+                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+
+                entropy_loss = entropy.mean()
+                loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
+
+                self.optimizer.zero_grad()
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
+                self.optimizer.step()
+
+            if (
+                self.target_kl is not None
+                and approx_kl is not None
+                and approx_kl > self.target_kl
+            ):
+                break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-        self.batch_size = original_batch_size
 
         if self.log:
             wandb.log(
                 {
-                    f"losses_{self.id}/value_loss": v_loss.item()
-                    if v_loss is not None
-                    else float("nan"),
+                    f"losses_{self.id}/value_loss": v_loss.item(),
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
-                    f"losses_{self.id}/policy_loss": pg_loss.item()
-                    if pg_loss is not None
-                    else float("nan"),
-                    f"losses_{self.id}/entropy": entropy_loss.item()
-                    if entropy_loss is not None
-                    else float("nan"),
-                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item()
-                    if old_approx_kl is not None
-                    else float("nan"),
-                    f"losses_{self.id}/approx_kl": approx_kl.item()
-                    if approx_kl is not None
-                    else float("nan"),
+                    f"losses_{self.id}/policy_loss": pg_loss.item(),
+                    f"losses_{self.id}/entropy": entropy_loss.item(),
+                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
+                    f"losses_{self.id}/approx_kl": approx_kl.item(),
                     f"losses_{self.id}/clipfrac": np.mean(clipfracs),
                     f"losses_{self.id}/explained_variance": explained_var,
                     "global_step": self.global_step,
                 }
             )
+        # Anneal the learning rate
+        if self.anneal_lr:
+            frac = 1.0 - (self.global_step / self.max_gym_steps)
+            new_lr = self.learning_rate * frac
+            for param_group in self.optimizer.param_groups:
+                param_group["lr"] = new_lr
 
     def save_model(self, path: str) -> None:
         """
@@ -714,80 +697,29 @@ class MOPPO(MOPolicy):
 
     def train(
         self,
-        num_episodes: int,
-        max_ep_steps: int,
+        max_gym_steps: int,
         reward_dim: int,
-        print_every: int = 100,
-        print_flag: bool = True,
-    ) -> Tuple[npt.NDArray[np.float64], List[npt.NDArray[np.float64]], List[int]]:
+    ) -> None:
         """
         Train the agent.
 
         Args:
-            num_episodes (int): Number of episodes to train.
-            max_ep_steps (int): Maximum steps per episode.
+            max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
-            print_every (int): Print interval.
-            print_flag (bool): Whether to print training progress.
-
-        Returns:
-            Tuple[npt.NDArray[np.float64], List[npt.NDArray[np.float64]], List[int]]:
-            Reward matrix, actions, and total steps.
         """
-        reward_matrix = np.zeros((num_episodes, reward_dim), dtype=np.float64)
-        actions: List[npt.NDArray[np.float64]] = []
-        total_steps: List[int] = []
-        for i_episode in range(num_episodes):
-            if self.anneal_lr:
-                new_lr = self.learning_rate * (1 - i_episode / num_episodes)
-                for param_group in self.optimizer.param_groups:
-                    param_group["lr"] = new_lr
+        grid2op_steps = 0
+        num_trainings = int(max_gym_steps / self.batch_size)
 
+        self.global_step = 0
+        for trainings in range(num_trainings):
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
             done = False
-            next_done = done
-            episode_reward = th.zeros(reward_dim).to(self.device)
 
-            action_list_episode: List[npt.NDArray[np.float64]] = []
-
-            (
-                next_obs,
-                next_done,
-                episode_reward,
-                action_list_episode,
-                ep_steps,
-            ) = self.__collect_samples(next_obs, next_done, max_ep_steps)
-            self.returns, self.advantages = self.__compute_advantages(
-                next_obs, next_done
+            next_obs, done, _, grid2op_steps_from_training = self.__collect_samples(
+                next_obs, done, grid2op_steps=grid2op_steps
             )
+
+            grid2op_steps += grid2op_steps_from_training
+            self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
-
-            actions.append([action.cpu().numpy() for action in action_list_episode])
-            reward_matrix[i_episode] = episode_reward.cpu().numpy()
-            total_steps.append(ep_steps)
-
-            if self.log:
-                log_data = {
-                    f"charts_{self.id}/episode_reward_sum": episode_reward.sum().item(),
-                    f"charts_{self.id}/episode": i_episode,
-                    "global_step": self.global_step,
-                }
-                for j in range(reward_dim):
-                    log_data[f"charts_{self.id}/episode_reward_{j}"] = episode_reward[
-                        j
-                    ].item()
-                wandb.log(log_data)
-        """
-            if print_flag and (i_episode + 1) % print_every == 0:
-                print(f"Episode {i_episode + 1}/{num_episodes}")
-                print(f"  Episode Reward Sum: {episode_reward.sum().item()}")
-                for j in range(reward_dim):
-                    print(f"  Episode Reward {j}: {episode_reward[j].item()}")
-                print(f"  Actions: {actions[-1]}")
-        """
-        """
-        print("Training complete")
-        print(total_steps)
-        """
-        return reward_matrix, actions, total_steps

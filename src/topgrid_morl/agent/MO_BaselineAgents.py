@@ -1,6 +1,8 @@
 from typing import List, Tuple, Union
 
 import grid2op
+import grid2op.Action
+import grid2op.Observation
 import numpy as np
 import numpy.typing as npt
 import torch as th
@@ -36,10 +38,10 @@ class DoNothingAgent(BaseAgent):
 
     def act(
         self,
-        observation: grid2op.Observation.Observation,
+        observation: grid2op.Observation.BaseObservation,
         reward: float,
         done: bool = False,
-    ) -> grid2op.Action.Action:
+    ) -> grid2op.Action.BaseAction:
         """
         The preferred way to make an object of type action is to call grid2op.BaseAction.ActionSpace.__call__
         with the dictionary representing the action. In this case, the action is "do nothing" and it is represented by

@@ -2,19 +2,28 @@ import logging
 from typing import List, Tuple
 
 import grid2op
+import grid2op.Reward
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
-from grid2op.Reward import L2RPNReward
+from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import (  # Import your custom environment if necessary
     CustomGymEnv,
 )
+from topgrid_morl.envs.GridRewards import TopoActionReward
+
+reward1 = EpisodeDurationReward
+reward2 = LinesCapacityReward
+reward3 = TopoActionReward
+
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+# Log the rewards using % formatting
+logger.info("The rewards are %s, %s, %s", reward1, reward2, reward3)
 
 
 def setup_environment(
@@ -22,7 +31,7 @@ def setup_environment(
     test: bool = False,
     action_space: int = 219,
     seed: int = 0,
-    frist_reward: L2RPNReward = L2RPNReward,
+    frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
     rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
