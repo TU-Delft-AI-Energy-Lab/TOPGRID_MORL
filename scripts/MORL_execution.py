@@ -6,7 +6,7 @@ from topgrid_morl.envs.EnvSetup import (  # Assuming this function sets up envir
     setup_environment,
 )
 from topgrid_morl.utils.MO_PPO_train_utils import (  # Functions for network initialization and training
-    train_agent
+    train_agent,
 )
 
 
@@ -64,7 +64,6 @@ def main() -> None:
             weight_vectors
         )  # Convert to numpy array for consistency
         max_gym_steps = 256
-        steps_per_iteration = 128
 
         # Step 5: Train Agent
         train_agent(

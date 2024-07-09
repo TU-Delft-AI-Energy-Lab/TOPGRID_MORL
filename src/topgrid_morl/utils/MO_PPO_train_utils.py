@@ -6,11 +6,9 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import numpy.typing as npt
 import torch as th
-import wandb
 
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent
 from topgrid_morl.agent.MO_PPO import MOPPO, MOPPONet
-from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
 
 # Configure logging
 logging.basicConfig(
@@ -193,11 +191,8 @@ def train_agent(
             env, weights, obs_dim, action_dim, reward_dim, **agent_params
         )
         agent.weights = th.tensor(weights).float().to(agent.device)
-       
-        agent.train(
-            max_gym_steps=max_gym_steps, reward_dim=reward_dim
-        )
-        
+
+        agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
 
 
 def train_and_save_donothing_agent(

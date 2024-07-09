@@ -8,7 +8,6 @@ import numpy.typing as npt
 import torch as th
 import wandb
 from mo_gymnasium import MORecordEpisodeStatistics
-from morl_baselines.common.evaluation import log_episode_info
 from morl_baselines.common.morl_algorithm import MOPolicy
 from morl_baselines.common.networks import layer_init, mlp
 from torch import nn, optim
@@ -459,10 +458,11 @@ class MOPPO(MOPolicy):
             Tuple containing the next observation, whether the episode is
             done, cumulative reward, list of actions, and total steps.
         """
-        for gym_step in range(self.batch_size): 
-            #fill batch
-            if done: self.env.reset()
-            
+        for gym_step in range(self.batch_size):
+            # fill batch
+            if done:
+                self.env.reset()
+
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(
                     obs.to(self.device)
@@ -575,9 +575,14 @@ class MOPPO(MOPolicy):
         # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
         clipfracs = []
-        v_loss, pg_loss, entropy_loss, old_approx_kl, approx_kl = None, None, None, None, None
-        
-        
+        v_loss, pg_loss, entropy_loss, old_approx_kl, approx_kl = (
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+
         for epoch in range(self.update_epochs):
             self.np_random.shuffle(b_inds)
             for start in range(0, self.batch_size, self.minibatch_size):
@@ -585,22 +590,30 @@ class MOPPO(MOPolicy):
                 mb_inds = b_inds[start:end]
                 print(mb_inds)
                 print(b_obs)
-                _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(b_obs[mb_inds], b_actions[mb_inds])
+                _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(
+                    b_obs[mb_inds], b_actions[mb_inds]
+                )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
                 with th.no_grad():
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > self.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > self.clip_coef).float().mean().item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if self.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
+                    )
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * th.clamp(ratio, 1 - self.clip_coef, 1 + self.clip_coef)
+                pg_loss2 = -mb_advantages * th.clamp(
+                    ratio, 1 - self.clip_coef, 1 + self.clip_coef
+                )
                 pg_loss = th.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
@@ -626,7 +639,11 @@ class MOPPO(MOPolicy):
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
-            if self.target_kl is not None and approx_kl is not None and approx_kl > self.target_kl:
+            if (
+                self.target_kl is not None
+                and approx_kl is not None
+                and approx_kl > self.target_kl
+            ):
                 break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -636,12 +653,24 @@ class MOPPO(MOPolicy):
         if self.log:
             wandb.log(
                 {
-                    f"losses_{self.id}/value_loss": v_loss.item() if v_loss is not None else float("nan"),
-                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0]["lr"],
-                    f"losses_{self.id}/policy_loss": pg_loss.item() if pg_loss is not None else float("nan"),
-                    f"losses_{self.id}/entropy": entropy_loss.item() if entropy_loss is not None else float("nan"),
-                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item() if old_approx_kl is not None else float("nan"),
-                    f"losses_{self.id}/approx_kl": approx_kl.item() if approx_kl is not None else float("nan"),
+                    f"losses_{self.id}/value_loss": v_loss.item()
+                    if v_loss is not None
+                    else float("nan"),
+                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
+                        "lr"
+                    ],
+                    f"losses_{self.id}/policy_loss": pg_loss.item()
+                    if pg_loss is not None
+                    else float("nan"),
+                    f"losses_{self.id}/entropy": entropy_loss.item()
+                    if entropy_loss is not None
+                    else float("nan"),
+                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item()
+                    if old_approx_kl is not None
+                    else float("nan"),
+                    f"losses_{self.id}/approx_kl": approx_kl.item()
+                    if approx_kl is not None
+                    else float("nan"),
                     f"losses_{self.id}/clipfrac": np.mean(clipfracs),
                     f"losses_{self.id}/explained_variance": explained_var,
                     "global_step": self.global_step,
@@ -677,7 +706,9 @@ class MOPPO(MOPolicy):
             next_obs = th.Tensor(state).to(self.device)
             done = False
 
-            next_obs, done, grid2op_steps_from_training = self.__collect_samples(next_obs, done, grid2op_steps=grid2op_steps)
+            next_obs, done, grid2op_steps_from_training = self.__collect_samples(
+                next_obs, done, grid2op_steps=grid2op_steps
+            )
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()

@@ -3,10 +3,10 @@ from typing import List, Tuple
 
 import grid2op
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
-from grid2op.Reward import L2RPNReward
+from grid2op.Reward import (
+    L2RPNReward,
+)
 from lightsim2grid import LightSimBackend
-from grid2op.Reward import LinesCapacityReward, EpisodeDurationReward, DistanceReward
-from topgrid_morl.envs.GridRewards import TopoActionReward
 
 from topgrid_morl.envs.CustomGymEnv import (  # Import your custom environment if necessary
     CustomGymEnv,
