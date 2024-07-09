@@ -1,10 +1,7 @@
 import numpy as np
-import wandb
 from grid2op.Reward import EpisodeDurationReward
 
-from topgrid_morl.envs.EnvSetup import (  # Assuming this function sets up environment variables
-    setup_environment,
-)
+from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import (  # Functions for network initialization and training
     train_agent,
 )
@@ -29,19 +26,16 @@ def main() -> None:
             frist_reward=EpisodeDurationReward,
             rewards_list=["LinesCapacity", "TopoAction"],
         )
-        wandb.init()
+
         # Reset the environment to verify dimensions
         gym_env.reset()
-        wandb.log({"Action dimension": action_dim})
-        wandb.log({"Observation dimension": obs_dim})
-
         # Step 3: Define Agent Parameters
         agent_params = {
             "id": 1,
             "log": True,
-            "steps_per_iteration": 16,
-            "num_minibatches": 1,
-            "update_epochs": 2,
+            "steps_per_iteration": 128,
+            "num_minibatches": 4,
+            "update_epochs": 5,
             "learning_rate": 3e-4,
             "gamma": 0.995,
             "anneal_lr": False,
@@ -63,7 +57,7 @@ def main() -> None:
         weight_vectors = np.array(
             weight_vectors
         )  # Convert to numpy array for consistency
-        max_gym_steps = 32
+        max_gym_steps = 3096
 
         # Step 5: Train Agent
         train_agent(
@@ -76,9 +70,9 @@ def main() -> None:
             action_dim=action_dim,
             reward_dim=reward_dim,
             run_name="Run",
+            net_arch=[64, 128, 64],
             **agent_params
         )
-        wandb.finish()
 
 
 if __name__ == "__main__":

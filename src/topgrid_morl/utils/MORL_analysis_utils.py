@@ -140,7 +140,7 @@ def plot_total_sums(
 
 
 def generate_variable_name(
-    base_name: str, num_episodes: int, weights: List[float], seed: int
+    base_name: str, max_gym_steps: int, weights: List[float], seed: int
 ) -> str:
     """
     Generate a variable name based on the specifications.
@@ -155,7 +155,7 @@ def generate_variable_name(
         str: Generated variable name.
     """
     weights_str = "_".join(map(str, weights))
-    return f"{base_name}_episodes_{num_episodes}_weights_{weights_str}_seed_{seed}"
+    return f"{base_name}_episodes_{max_gym_steps}_weights_{weights_str}_seed_{seed}"
 
 
 def scale_columns_independently(

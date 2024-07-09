@@ -445,7 +445,7 @@ class MOPPO(MOPolicy):
 
     def __collect_samples(
         self, obs: th.Tensor, done: bool, grid2op_steps: int
-    ) -> Tuple[th.Tensor, bool, th.Tensor, int]:
+    ) -> Tuple[th.Tensor, bool, int, int]:
         """
         Collect samples by interacting with the environment.
 
@@ -456,11 +456,10 @@ class MOPPO(MOPolicy):
 
         Returns:
             Tuple containing the next observation, whether the episode is
-            done, cumulative reward, list of actions, and total steps.
+            done, cumulative reward, and total steps.
         """
-        
+
         for gym_step in range(self.batch_size):
-            
             # fill batch
             if done:
                 self.env.reset()
@@ -473,6 +472,7 @@ class MOPPO(MOPolicy):
 
             next_obs, reward, next_done, info = self.env.step(action.item())
             self.global_step += 1
+
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
 
             self.batch.add(obs, action, logprob, reward, done, value)
@@ -481,8 +481,16 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
+            log_data = {
+                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
+            }
+            for j in range(self.networks.reward_dim):
+                log_data[f"charts_{self.id}/episode_reward_{j}"] = (
+                    self.batch.rewards[:, j].sum().item()
+                )
+                wandb.log(log_data)
 
-        return obs, done, grid2op_steps
+        return obs, done, self.batch.rewards.sum().item(), grid2op_steps
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
@@ -497,14 +505,18 @@ class MOPPO(MOPolicy):
         Returns:
             Tuple[th.Tensor, th.Tensor]: Returns and advantages.
         """
+        returns: th.Tensor
         with th.no_grad():
             next_value = self.networks.get_value(next_obs).reshape(
                 -1, self.networks.reward_dim
             )
             if self.gae:
-                advantages = th.zeros_like(self.batch.rewards).to(self.device)
+                advantages: th.Tensor = th.zeros_like(self.batch.rewards).to(
+                    self.device
+                )
                 lastgaelam = 0
-                for t in reversed(range(self.batch.get_ptr())):
+
+                for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
                         nextnonterminal = 1.0 - next_done
                         nextvalues = next_value
@@ -522,7 +534,9 @@ class MOPPO(MOPolicy):
                         delta
                         + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
                     )
+
                 returns = advantages + self.batch.values
+
             else:
                 returns = th.zeros_like(self.batch.get_rewards()).to(self.device)
                 for t in reversed(range(self.steps_per_iteration)):
@@ -538,11 +552,11 @@ class MOPPO(MOPolicy):
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
                 advantages = returns - self.batch.values()
+
         advantages = (
             advantages @ self.weights.float()
         )  # Compute dot product of advantages and weights
-        
-        
+
         return returns, advantages
 
     @override
@@ -565,12 +579,11 @@ class MOPPO(MOPolicy):
         return action[0].detach().cpu().numpy()
 
     @override
-    def update(self):
+    def update(self) -> None:
         """
         Update the policy and value function.
         """
         obs, actions, logprobs, _, _, values = self.batch.get_all()
-
 
         # Flatten the batch (b == batch)
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
@@ -579,8 +592,6 @@ class MOPPO(MOPolicy):
         b_advantages = self.advantages.reshape(-1)
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
-
-
 
         # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
@@ -591,6 +602,7 @@ class MOPPO(MOPolicy):
             for start in range(0, self.batch_size, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_inds = b_inds[start:end]
+
                 _, newlogprob, entropy, newvalue = self.networks.get_action_and_value(
                     b_obs[mb_inds], b_actions[mb_inds]
                 )
@@ -654,31 +666,25 @@ class MOPPO(MOPolicy):
         if self.log:
             wandb.log(
                 {
-                    f"losses_{self.id}/value_loss": v_loss.item()
-                    ,
+                    f"losses_{self.id}/value_loss": v_loss.item(),
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
-                    f"losses_{self.id}/policy_loss": pg_loss.item()
-    
-                   ,
-                    f"losses_{self.id}/entropy": entropy_loss.item()
-                    ,
-                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item()
-                    ,
-                    f"losses_{self.id}/approx_kl": approx_kl.item()
-                    ,
+                    f"losses_{self.id}/policy_loss": pg_loss.item(),
+                    f"losses_{self.id}/entropy": entropy_loss.item(),
+                    f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
+                    f"losses_{self.id}/approx_kl": approx_kl.item(),
                     f"losses_{self.id}/clipfrac": np.mean(clipfracs),
                     f"losses_{self.id}/explained_variance": explained_var,
                     "global_step": self.global_step,
                 }
             )
-            log_data = {
-                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
-            }
-            for j in range(self.networks.reward_dim):
-                log_data[f"charts_{self.id}/episode_reward_{j}"] = self.batch.rewards[:, j].sum().item()
-                wandb.log(log_data)
+        # Anneal the learning rate
+        if self.anneal_lr:
+            frac = 1.0 - (self.global_step / self.max_gym_steps)
+            new_lr = self.learning_rate * frac
+            for param_group in self.optimizer.param_groups:
+                param_group["lr"] = new_lr
 
     def save_model(self, path: str) -> None:
         """
@@ -703,16 +709,17 @@ class MOPPO(MOPolicy):
         """
         grid2op_steps = 0
         num_trainings = int(max_gym_steps / self.batch_size)
-        self.global_step = 0 
+
+        self.global_step = 0
         for trainings in range(num_trainings):
             state = self.env.reset()
             next_obs = th.Tensor(state).to(self.device)
             done = False
 
-            next_obs, done, grid2op_steps_from_training = self.__collect_samples(
+            next_obs, done, _, grid2op_steps_from_training = self.__collect_samples(
                 next_obs, done, grid2op_steps=grid2op_steps
             )
-            
+
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()

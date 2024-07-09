@@ -6,9 +6,11 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import numpy.typing as npt
 import torch as th
+import wandb
 
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent
 from topgrid_morl.agent.MO_PPO import MOPPO, MOPPONet
+from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
 
 # Configure logging
 logging.basicConfig(
@@ -44,6 +46,7 @@ def initialize_agent(
     obs_dim: Tuple[int],
     action_dim: int,
     reward_dim: int,
+    net_arch: List[int] = [64, 64],
     **agent_params: Any,
 ) -> MOPPO:
     """
@@ -60,7 +63,7 @@ def initialize_agent(
     Returns:
         MOPPO: Initialized agent.
     """
-    networks = initialize_network(obs_dim, action_dim, reward_dim)
+    networks = initialize_network(obs_dim, action_dim, reward_dim, net_arch=net_arch)
     agent = MOPPO(env=env, weights=weights, networks=networks, **agent_params)
     env.reset()
     return agent
@@ -166,6 +169,7 @@ def train_agent(
     action_dim: int,
     reward_dim: int,
     run_name: str,
+    net_arch: List[int] = [64, 64],
     **agent_params: Any,
 ) -> None:
     """
@@ -188,11 +192,20 @@ def train_agent(
 
     for weights in weight_vectors:
         agent = initialize_agent(
-            env, weights, obs_dim, action_dim, reward_dim, **agent_params
+            env, weights, obs_dim, action_dim, reward_dim, net_arch, **agent_params
         )
         agent.weights = th.tensor(weights).float().to(agent.device)
-
+        run = wandb.init(
+            project="TOPGrid_MORL",
+            name=generate_variable_name(
+                base_name=run_name,
+                max_gym_steps=max_gym_steps,
+                weights=weights,
+                seed=seed,
+            ),
+        )
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
+        run.finish()
 
 
 def train_and_save_donothing_agent(
