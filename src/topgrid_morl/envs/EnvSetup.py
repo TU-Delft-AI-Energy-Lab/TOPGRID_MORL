@@ -1,19 +1,17 @@
-import logging
-from typing import List, Tuple, Any
-import os
-import grid2op
-from grid2op.gym_compat import BoxGymObsSpace, GymEnv
-from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
-from lightsim2grid import LightSimBackend
-from grid2op.Converter import IdToAct
-from grid2op.Action import BaseAction
 import json
+import logging
+import os
+from typing import Any, List, Tuple
 
-from grid2op.gym_compat import GymEnv, DiscreteActSpace
+import grid2op
+from grid2op.Action import BaseAction
+from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
+from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
+from gymnasium.spaces import Discrete
+from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.envs.GridRewards import TopoActionReward
-from gymnasium.spaces import Discrete
 
 reward1 = EpisodeDurationReward
 reward2 = LinesCapacityReward
@@ -108,12 +106,7 @@ def setup_environment(
 
     # Action space setup
     current_dir = os.getcwd()
-    path = os.path.join(
-        current_dir,
-        "action_spaces",
-        env_name,
-        "filtered_actions.json"
-    )
+    path = os.path.join(current_dir, "action_spaces", env_name, "filtered_actions.json")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
@@ -129,10 +122,9 @@ def setup_environment(
     do_nothing_action = g2op_env.action_space({})
     all_actions.insert(0, do_nothing_action)
 
-
-
-    gym_env.action_space = DiscreteActSpace(g2op_env.action_space,
-                                             action_list=all_actions)
+    gym_env.action_space = DiscreteActSpace(
+        g2op_env.action_space, action_list=all_actions
+    )
 
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
