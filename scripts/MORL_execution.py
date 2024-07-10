@@ -22,7 +22,7 @@ def main() -> None:
             env_name=env_name,
             test=True,
             seed=seed,
-            action_space=99,
+            action_space=53,
             frist_reward=EpisodeDurationReward,
             rewards_list=["LinesCapacity", "TopoAction"],
         )
@@ -57,7 +57,7 @@ def main() -> None:
         weight_vectors = np.array(
             weight_vectors
         )  # Convert to numpy array for consistency
-        max_gym_steps = 3096
+        max_gym_steps = 256
 
         # Step 5: Train Agent
         train_agent(
