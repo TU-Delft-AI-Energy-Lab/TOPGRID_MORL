@@ -458,7 +458,7 @@ class MOPPO(MOPolicy):
             Tuple containing the next observation, whether the episode is
             done, cumulative reward, and total steps.
         """
-        reward
+    
         for gym_step in range(self.batch_size):
             # fill batch
             if done:
@@ -481,7 +481,7 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
-            #move the logging!
+            # move the logging!
             log_data = {
                 f"charts_{self.id}/step_reward": self.batch.rewards.mean().item()
             }
