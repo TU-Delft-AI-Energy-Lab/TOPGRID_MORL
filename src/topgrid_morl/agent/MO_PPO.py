@@ -482,14 +482,9 @@ class MOPPO(MOPolicy):
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
             # move the logging!
-            log_data = {
-                f"charts_{self.id}/step_reward": self.batch.rewards.mean().item()
-            }
-            for j in range(self.networks.reward_dim):
-                log_data[f"charts_{self.id}/episode_reward_{j}"] = (
-                    self.batch.rewards[:, j].mean().item()
-                )
-                wandb.log(log_data)
+            # Log the reward for each step
+            log_data = {f"step_{self.id}/reward_{i}": reward[i].item() for i in range(self.networks.reward_dim)}
+            wandb.log(log_data, step=self.global_step)
 
         return obs, done, self.batch.rewards.mean().item(), grid2op_steps
 
