@@ -14,8 +14,8 @@ def main() -> None:
     """
     # Step 1: Setup Environment
     env_name = "rte_case5_example"
-    results_dir = "training_results_5bus"
-    num_seeds = 1
+    results_dir = "training_results_5bus_4094"
+    num_seeds = 10
 
     for seed in range(num_seeds):
         gym_env, obs_dim, action_dim, reward_dim = setup_environment(
@@ -33,9 +33,9 @@ def main() -> None:
         agent_params = {
             "id": 1,
             "log": True,
-            "steps_per_iteration": 128,
-            "num_minibatches": 4,
-            "update_epochs": 5,
+            "steps_per_iteration": 256,
+            "num_minibatches": 8,
+            "update_epochs": 10,
             "learning_rate": 3e-4,
             "gamma": 0.995,
             "anneal_lr": False,
@@ -57,7 +57,7 @@ def main() -> None:
         weight_vectors = np.array(
             weight_vectors
         )  # Convert to numpy array for consistency
-        max_gym_steps = 256
+        max_gym_steps = 4096
 
         # Step 5: Train Agent
         train_agent(

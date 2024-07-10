@@ -458,7 +458,7 @@ class MOPPO(MOPolicy):
             Tuple containing the next observation, whether the episode is
             done, cumulative reward, and total steps.
         """
-
+        reward
         for gym_step in range(self.batch_size):
             # fill batch
             if done:
@@ -481,16 +481,17 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
+            #move the logging!
             log_data = {
-                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
+                f"charts_{self.id}/step_reward": self.batch.rewards.mean().item()
             }
             for j in range(self.networks.reward_dim):
                 log_data[f"charts_{self.id}/episode_reward_{j}"] = (
-                    self.batch.rewards[:, j].sum().item()
+                    self.batch.rewards[:, j].mean().item()
                 )
                 wandb.log(log_data)
 
-        return obs, done, self.batch.rewards.sum().item(), grid2op_steps
+        return obs, done, self.batch.rewards.mean().item(), grid2op_steps
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
