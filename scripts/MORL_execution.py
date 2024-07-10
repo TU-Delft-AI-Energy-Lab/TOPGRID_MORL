@@ -58,7 +58,6 @@ def main() -> None:
             weight_vectors
         )  # Convert to numpy array for consistency
         max_gym_steps = 128
-    
 
         # Step 5: Train Agent
         train_agent(

@@ -458,7 +458,7 @@ class MOPPO(MOPolicy):
             Tuple containing the next observation, whether the episode is
             done, cumulative reward, and total steps.
         """
-    
+
         for gym_step in range(self.batch_size):
             # fill batch
             if done:
@@ -483,7 +483,10 @@ class MOPPO(MOPolicy):
             grid2op_steps += steps_in_gymstep
             # move the logging!
             # Log the reward for each step
-            log_data = {f"step_{self.id}/reward_{i}": reward[i].item() for i in range(self.networks.reward_dim)}
+            log_data = {
+                f"step_{self.id}/reward_{i}": reward[i].item()
+                for i in range(self.networks.reward_dim)
+            }
             wandb.log(log_data, step=self.global_step)
 
         return obs, done, self.batch.rewards.mean().item(), grid2op_steps
