@@ -1,8 +1,11 @@
-import numpy as np
 import argparse
+
+import numpy as np
 from grid2op.Reward import EpisodeDurationReward
+
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+
 
 def main(seed: int) -> None:
     """
@@ -24,7 +27,7 @@ def main(seed: int) -> None:
 
     # Reset the environment to verify dimensions
     gym_env.reset()
-    
+
     # Step 3: Define Agent Parameters
     agent_params = {
         "id": 1,
@@ -67,8 +70,11 @@ def main(seed: int) -> None:
         **agent_params
     )
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run experiment with specific seed")
-    parser.add_argument("--seed", type=int, required=True, help="Seed for the experiment")
+    parser.add_argument(
+        "--seed", type=int, required=True, help="Seed for the experiment"
+    )
     args = parser.parse_args()
     main(args.seed)
