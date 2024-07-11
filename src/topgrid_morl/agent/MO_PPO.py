@@ -481,16 +481,15 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
+            # move the logging!
+            # Log the reward for each step
             log_data = {
-                f"charts_{self.id}/episode_reward_sum": self.batch.rewards.sum().item()
+                f"step_{self.id}/reward_{i}": reward[i].item()
+                for i in range(self.networks.reward_dim)
             }
-            for j in range(self.networks.reward_dim):
-                log_data[f"charts_{self.id}/episode_reward_{j}"] = (
-                    self.batch.rewards[:, j].sum().item()
-                )
-                wandb.log(log_data)
+            wandb.log(log_data, step=self.global_step)
 
-        return obs, done, self.batch.rewards.sum().item(), grid2op_steps
+        return obs, done, self.batch.rewards.mean().item(), grid2op_steps
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
