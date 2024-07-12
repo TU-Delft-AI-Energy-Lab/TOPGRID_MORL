@@ -194,7 +194,7 @@ def train_agent(
         agent = initialize_agent(
             env, weights, obs_dim, action_dim, reward_dim, net_arch, **agent_params
         )
-        agent.weights = th.tensor(weights).().to(agent.device)
+        agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(
             project="TOPGrid_MORL",
             name=generate_variable_name(
