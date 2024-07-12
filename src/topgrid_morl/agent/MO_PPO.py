@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import json
+import h5py
 import gymnasium as gym
 import mo_gymnasium as mo_gym
 import numpy as np
@@ -15,7 +16,7 @@ from torch.distributions import Categorical
 from typing_extensions import override
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-
+from topgrid_morl.utils.Dataloader import DataLoader
 
 class PPOReplayBuffer:
     """Replay buffer for single environment."""
@@ -374,6 +375,10 @@ class MOPPO(MOPolicy):
             self.device,
         )
 
+        # Add logs for state-action pairs and rewards
+        self.state_action_log = []
+        self.rewards_log = []
+
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
         Create a deep copy of the agent.
@@ -414,6 +419,8 @@ class MOPPO(MOPolicy):
             copied_net.parameters(), lr=self.learning_rate, eps=1e-5
         )
         copied.batch = deepcopy(self.batch)
+        copied.state_action_log = deepcopy(self.state_action_log)
+        copied.rewards_log = deepcopy(self.rewards_log)
         return copied
 
     def change_weights(self, new_weights: npt.NDArray[np.float64]) -> None:
@@ -481,7 +488,11 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
-            # move the logging!
+            
+            # Log the state-action pair and reward
+            self.state_action_log.append((obs.cpu().numpy().tolist(), action.cpu().numpy().tolist()))
+            self.rewards_log.append(reward.cpu().numpy().tolist())
+
             # Log the reward for each step
             log_data = {
                 f"step_{self.id}/reward_{i}": reward[i].item()
@@ -683,21 +694,12 @@ class MOPPO(MOPolicy):
             frac = 1.0 - (self.global_step / self.max_gym_steps)
             new_lr = self.learning_rate * frac
             for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr
-
-    def save_model(self, path: str) -> None:
-        """
-        Save the model to the specified path.
-
-        Args:
-            path (str): Path to save the model.
-        """
-        th.save(self.networks.state_dict(), path)
-
+                param_group["lr"] = new_lr         
+        
     def train(
         self,
         max_gym_steps: int,
-        reward_dim: int,
+        reward_dim: int
     ) -> None:
         """
         Train the agent.
@@ -722,3 +724,7 @@ class MOPPO(MOPolicy):
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
+
+        filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
+        dataloader = DataLoader()
+        dataloader.save_logs_json(path=filename_prefix)
