@@ -5,11 +5,10 @@ template = """#!/bin/bash
 
 #SBATCH --job-name="TOPGRID_MORL_5bus_{seed}"
 #SBATCH --time=03:00:00
-#SBATCH --partition=gpu
+#SBATCH --partition=compute
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --gpus-per-task=1
-#SBATCH --mem-per-cpu=1GB
+#SBATCH --cpus-per-task=2
+#SBATCH --mem-per-cpu=32GB
 #SBATCH --account=research-eemcs-ese
 
 # Load modules:
@@ -26,7 +25,7 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # Activate conda, run job, deactivate conda
 conda activate top
 
-srun python /scratch/tlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py --seed {seed} > morl_seed_{seed}.log
+srun python /scratch/trlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py --seed {seed} > morl_seed_{seed}.log
 
 conda deactivate
 """
