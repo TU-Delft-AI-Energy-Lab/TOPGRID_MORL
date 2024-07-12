@@ -1,38 +1,40 @@
+import argparse
+
 import numpy as np
-from topgrid_morl.envs.EnvSetup import setup_environment  # Assuming this function sets up environment variables
-from topgrid_morl.utils.MO_PPO_train_utils import initialize_network, train_agent, train_and_save_donothing_agent  # Functions for network initialization and training
-
-
-
-# Step 1: Setup Environment
-# Assuming setup_environment() returns gym_env, obs_dim, action_dim, reward_dim
-from grid2op.Reward import L2RPNReward
 from grid2op.Reward import EpisodeDurationReward
 
-env_name = "rte_case5_example"
-results_dir = "training_results_5bus"
+from topgrid_morl.envs.EnvSetup import setup_environment
+from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 
-num_seeds = 5
-for seed in range(num_seeds):
 
-    gym_env, obs_dim, action_dim, reward_dim = setup_environment(env_name=env_name, test=True, seed=0, action_space=99, frist_reward = EpisodeDurationReward, rewards_list=["LinesCapacity", "TopoAction"])
+def main(seed: int) -> None:
+    """
+    Main function to set up the environment, initialize networks, define agent parameters, train the agent,
+    and run a DoNothing benchmark.
+    """
+    # Step 1: Setup Environment
+    env_name = "rte_case5_example"
+    results_dir = "training_results_5bus_4094"
+
+    gym_env, obs_dim, action_dim, reward_dim = setup_environment(
+        env_name=env_name,
+        test=True,
+        seed=seed,
+        action_space=53,
+        frist_reward=EpisodeDurationReward,
+        rewards_list=["LinesCapacity", "TopoAction"],
+    )
 
     # Reset the environment to verify dimensions
     gym_env.reset()
-    print(f"Action dimension: {action_dim}")
-    print(f"Observation dimension: {obs_dim}")
-
-    # Step 2: Initialize Neural Networks
-    # Example network architecture [64, 64]
-    networks = initialize_network(obs_dim=obs_dim, action_dim=action_dim, reward_dim=reward_dim, net_arch=[64, 64])
 
     # Step 3: Define Agent Parameters
     agent_params = {
         "id": 1,
-        "log": False,
-        "steps_per_iteration": 2048,
-        "num_minibatches": 32,
-        "update_epochs": 10,
+        "log": True,
+        "steps_per_iteration": 16,
+        "num_minibatches": 2,
+        "update_epochs": 5,
         "learning_rate": 3e-4,
         "gamma": 0.995,
         "anneal_lr": False,
@@ -44,34 +46,35 @@ for seed in range(num_seeds):
         "norm_adv": True,
         "target_kl": None,
         "gae": True,
-        "gae_lambda": 0.95, 
-        "device": "cpu"
+        "gae_lambda": 0.95,
+        "device": "cpu",
     }
 
     # Step 4: Training Parameters
-    weight_vectors = [
-        [1, 0, 0],
-        [0, 1, 0],  
-        [0, 0, 1]
-    ]
-    
+    weight_vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    num_episodes = 5
-    max_ep_steps = 5
-   
+    max_gym_steps = 32
+
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
-        num_episodes=num_episodes,
-        max_ep_steps=max_ep_steps,
+        max_gym_steps=max_gym_steps,
         seed=seed,
         results_dir=results_dir,
         env=gym_env,
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
+        run_name="Run",
+        net_arch=[64, 128, 64],
         **agent_params
     )
 
-    # Step 6: DoNothing Benchmark
-    train_and_save_donothing_agent(action_space=99, gym_env=gym_env, num_episodes=num_episodes, seed=seed, max_ep_steps=max_ep_steps, reward_dim=reward_dim, save_dir=results_dir)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run experiment with specific seed")
+    parser.add_argument(
+        "--seed", type=int, required=True, help="Seed for the experiment"
+    )
+    args = parser.parse_args()
+    main(args.seed)

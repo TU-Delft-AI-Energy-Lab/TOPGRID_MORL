@@ -1,0 +1,79 @@
+default_stages: [commit, push]
+fail_fast: false
+
+repos:
+  - repo: local
+    hooks:
+      - id: check-case-conflict
+        name: check-case-conflict
+        entry: check-case-conflict
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        entry: check-merge-conflict
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        entry: end-of-file-fixer
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: fix-byte-order-marker
+        name: fix-byte-order-marker
+        entry: fix-byte-order-marker
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: trailing-whitespace-fixer
+        name: trailing-whitespace-fixer
+        entry: trailing-whitespace-fixer
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: black
+        name: formatting
+        entry: black
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: isort
+        name: import-fixing
+        entry: isort
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: autoflake
+        name: lint-fixing
+        entry: autoflake
+        args:
+          - --in-place
+          - --remove-all-unused-imports
+          - --remove-unused-variables
+          - --expand-star-imports
+          - --ignore-init-module-imports
+          - --recursive
+        files: "^(src|scripts)"
+        language: python
+        types: [ python ]
+      - id: ruff
+        name: lint-checking-ruff
+        entry: ruff check src scripts
+        pass_filenames: false
+        language: python
+        types: [ python ]
+      - id: flake8
+        name: lint-checking-flake8
+        entry: flake8 src scripts
+        pass_filenames: false
+        language: python
+        types: [ python ]
+      - id: mypy
+        name: type-checking
+        entry: mypy src scripts
+        pass_filenames: false
+        language: python
+        types: [ python ]
