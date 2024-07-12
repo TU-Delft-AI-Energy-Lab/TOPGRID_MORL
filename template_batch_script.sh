@@ -23,6 +23,6 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 # Activate conda, run job, deactivate conda
 conda activate top
 
-srun python /scratch/tlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py --seed {{SEED}} > morl_seed_{{SEED}}.log
+srun python /scratch/trlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py --seed {{SEED}} > morl_seed_{{SEED}}.log
 
 conda deactivate
