@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+import json
+import h5py
 import gymnasium as gym
 import mo_gymnasium as mo_gym
 import numpy as np
@@ -374,6 +375,10 @@ class MOPPO(MOPolicy):
             self.device,
         )
 
+        # Add logs for state-action pairs and rewards
+        self.state_action_log = []
+        self.rewards_log = []
+
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
         Create a deep copy of the agent.
@@ -414,6 +419,8 @@ class MOPPO(MOPolicy):
             copied_net.parameters(), lr=self.learning_rate, eps=1e-5
         )
         copied.batch = deepcopy(self.batch)
+        copied.state_action_log = deepcopy(self.state_action_log)
+        copied.rewards_log = deepcopy(self.rewards_log)
         return copied
 
     def change_weights(self, new_weights: npt.NDArray[np.float64]) -> None:
@@ -481,7 +488,11 @@ class MOPPO(MOPolicy):
                 next_done
             ).float().to(self.device)
             grid2op_steps += steps_in_gymstep
-            # move the logging!
+            
+            # Log the state-action pair and reward
+            self.state_action_log.append((obs.cpu().numpy().tolist(), action.cpu().numpy().tolist()))
+            self.rewards_log.append(reward.cpu().numpy().tolist())
+
             # Log the reward for each step
             log_data = {
                 f"step_{self.id}/reward_{i}": reward[i].item()
@@ -694,6 +705,31 @@ class MOPPO(MOPolicy):
         """
         th.save(self.networks.state_dict(), path)
 
+    def save_logs(self, path: str) -> None:
+        """
+        Save the state-action pairs and rewards to a file.
+
+        Args:
+            path (str): Path to save the logs.
+        """
+        logs = {
+            "state_action_pairs": self.state_action_log,
+            "rewards": self.rewards_log
+        }
+        with open(path, "w") as f:
+            json.dump(logs, f)
+            
+    def save_logs_hdf5(self, path: str) -> None:
+        """
+        Save the state-action pairs and rewards to an HDF5 file.
+
+        Args:
+            path (str): Path to save the logs.
+        """
+        with h5py.File(path, "w") as f:
+            f.create_dataset("state_action_pairs", data=np.array(self.state_action_log))
+            f.create_dataset("rewards", data=np.array(self.rewards_log))
+
     def train(
         self,
         max_gym_steps: int,
@@ -722,3 +758,6 @@ class MOPPO(MOPolicy):
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
+
+        filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
+        self.save_logs_hdf5(filename_prefix)
