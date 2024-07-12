@@ -32,7 +32,7 @@ def main(seed: int) -> None:
     agent_params = {
         "id": 1,
         "log": True,
-        "steps_per_iteration": 64,
+        "steps_per_iteration": 16,
         "num_minibatches": 2,
         "update_epochs": 5,
         "learning_rate": 3e-4,
@@ -53,7 +53,7 @@ def main(seed: int) -> None:
     # Step 4: Training Parameters
     weight_vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    max_gym_steps = 128
+    max_gym_steps = 32
 
     # Step 5: Train Agent
     train_agent(

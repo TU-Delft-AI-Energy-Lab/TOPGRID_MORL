@@ -16,7 +16,7 @@ from torch.distributions import Categorical
 from typing_extensions import override
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-
+from topgrid_morl.utils.Dataloader import DataLoader
 
 class PPOReplayBuffer:
     """Replay buffer for single environment."""
@@ -694,46 +694,12 @@ class MOPPO(MOPolicy):
             frac = 1.0 - (self.global_step / self.max_gym_steps)
             new_lr = self.learning_rate * frac
             for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr
-
-    def save_model(self, path: str) -> None:
-        """
-        Save the model to the specified path.
-
-        Args:
-            path (str): Path to save the model.
-        """
-        th.save(self.networks.state_dict(), path)
-
-    def save_logs(self, path: str) -> None:
-        """
-        Save the state-action pairs and rewards to a file.
-
-        Args:
-            path (str): Path to save the logs.
-        """
-        logs = {
-            "state_action_pairs": self.state_action_log,
-            "rewards": self.rewards_log
-        }
-        with open(path, "w") as f:
-            json.dump(logs, f)
-            
-    def save_logs_hdf5(self, path: str) -> None:
-        """
-        Save the state-action pairs and rewards to an HDF5 file.
-
-        Args:
-            path (str): Path to save the logs.
-        """
-        with h5py.File(path, "w") as f:
-            f.create_dataset("state_action_pairs", data=np.array(self.state_action_log))
-            f.create_dataset("rewards", data=np.array(self.rewards_log))
-
+                param_group["lr"] = new_lr         
+        
     def train(
         self,
         max_gym_steps: int,
-        reward_dim: int,
+        reward_dim: int
     ) -> None:
         """
         Train the agent.
@@ -760,4 +726,5 @@ class MOPPO(MOPolicy):
             self.update()
 
         filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
-        self.save_logs_hdf5(filename_prefix)
+        dataloader = DataLoader()
+        dataloader.save_logs_json(path=filename_prefix)
