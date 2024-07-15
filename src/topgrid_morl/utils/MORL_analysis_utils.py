@@ -7,6 +7,7 @@ import seaborn as sns
 from sklearn.preprocessing import MinMaxScaler
 
 
+
 def plot_multiple_subplots(
     reward_matrices: List[npt.NDArray[np.float64]], summed_episodes: int
 ) -> None:

@@ -43,6 +43,7 @@ requires-python = ">=3.12"
 dependencies = [
   "Grid2Op==1.10.*",
   "gymnasium==0.29.*",
+  "h5py==3.11.0",
   "ipykernel==6.29.*", 
   "lightSim2Grid==0.8.*", 
   "mo-gymnasium==1.1.*",

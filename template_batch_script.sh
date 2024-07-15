@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name="test_code_grid2op"
+#SBATCH --job-name="test_code_grid2op_seed_{{SEED}}"
 #SBATCH --time=03:00:00
 #SBATCH --partition=compute
 #SBATCH --ntasks=1
@@ -19,9 +19,9 @@ module load cuda
 unset CONDA_SHLVL
 source "$(conda info --base)/etc/profile.d/conda.sh"
 
-# Activate conda, run job, deactivate conda
+# Activate conda, run job, deactivate conda ''
 conda activate top
 
-srun python /scratch/trlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py > morl.log
+srun python /scratch/trlautenbacher/TOPGRID_MORL/scripts/MORL_execution.py --seed {{SEED}} > morl_seed_{{SEED}}.log
 
 conda deactivate

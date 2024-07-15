@@ -47,6 +47,7 @@ def initialize_agent(
     action_dim: int,
     reward_dim: int,
     net_arch: List[int] = [64, 64],
+    seed: int = 42,
     **agent_params: Any,
 ) -> MOPPO:
     """
@@ -64,7 +65,7 @@ def initialize_agent(
         MOPPO: Initialized agent.
     """
     networks = initialize_network(obs_dim, action_dim, reward_dim, net_arch=net_arch)
-    agent = MOPPO(env=env, weights=weights, networks=networks, **agent_params)
+    agent = MOPPO(env=env, weights=weights, networks=networks, seed=seed, **agent_params)
     env.reset()
     return agent
 
@@ -192,9 +193,9 @@ def train_agent(
 
     for weights in weight_vectors:
         agent = initialize_agent(
-            env, weights, obs_dim, action_dim, reward_dim, net_arch, **agent_params
+            env, weights, obs_dim, action_dim, reward_dim, net_arch, seed, **agent_params
         )
-        agent.weights = th.tensor(weights).float().to(agent.device)
+        agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(
             project="TOPGrid_MORL",
             name=generate_variable_name(
@@ -255,3 +256,4 @@ def train_and_save_donothing_agent(
     np.save(file_path_steps, total_steps)
     logger.info(f"Reward matrix saved to {file_path_reward}")
     logger.info(f"Total steps saved to {file_path_steps}")
+
