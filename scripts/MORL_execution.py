@@ -22,7 +22,7 @@ def main(seed: int) -> None:
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
-        rewards_list=["LinesCapacity", "TopoAction"],
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
     )
 
     # Reset the environment to verify dimensions
