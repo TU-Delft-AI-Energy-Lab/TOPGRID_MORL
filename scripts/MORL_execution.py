@@ -12,17 +12,29 @@ def main(seed: int) -> None:
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
+    env_name="rte_case5_example"
+    
+    
     # Step 1: Setup Environment
-    env_name = "rte_case5_example"
-    results_dir = "training_results_5bus_4094"
+    if env_name == "rte_case5_example":
+        results_dir = "training_results_5bus_4094"
+        action_dim= 53
+        test_flag=True
+        actions_file='filtered_actions.json'
+    elif env_name == "l2rpn_case14_sandbox":
+        results_dir = 'training_results_14bus_4096'
+        action_dim =134
+        test_flag = False
+        actions_file = 'medha_actions.json'
 
     gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         env_name=env_name,
-        test=True,
+        test=test_flag,
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
         rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        actions_file=actions_file
     )
 
     # Reset the environment to verify dimensions
@@ -51,7 +63,7 @@ def main(seed: int) -> None:
     }
 
     # Step 4: Training Parameters
-    weight_vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+    weight_vectors = [[1, 0, 0]]
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
     max_gym_steps = 32
 

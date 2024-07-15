@@ -51,6 +51,7 @@ def setup_environment(
     seed: int = 0,
     frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
     rewards_list: List[str] = ["ScaledLinesCapacity", "TopoAction"],
+    actions_file: str = 'filtered_actions.json'
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -108,7 +109,7 @@ def setup_environment(
 
     # Action space setup
     current_dir = os.getcwd()
-    path = os.path.join(current_dir, "action_spaces", env_name, "filtered_actions.json")
+    path = os.path.join(current_dir, "action_spaces", env_name, actions_file)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
