@@ -741,7 +741,7 @@ class MOPPO(MOPolicy):
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
             if self.anneal_lr:
-                frac = 1.0 - (self.global_step / self.max_gym_steps)
+                frac = 1.0 - (self.global_step / max_gym_steps)
                 new_lr = self.learning_rate * frac
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
