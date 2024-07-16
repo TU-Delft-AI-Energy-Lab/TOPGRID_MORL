@@ -288,6 +288,7 @@ class MOPPO(MOPolicy):
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
+        env_val: CustomGymEnv,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -339,6 +340,7 @@ class MOPPO(MOPolicy):
         super().__init__(id, device)
         self.id = id
         self.env = env
+        self.env_val = env_val
         self.networks = networks
         self.device = device
         self.seed = seed
@@ -376,8 +378,10 @@ class MOPPO(MOPolicy):
         )
 
         # Add logs for state-action pairs and rewards
+        
         self.state_action_log = []
         self.rewards_log = []
+        
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
@@ -413,8 +417,9 @@ class MOPPO(MOPolicy):
             self.gae_lambda,
             self.device,
         )
-
+        
         copied.global_step = self.global_step
+        copied.eval_step = self.eval_step
         copied.optimizer = optim.Adam(
             copied_net.parameters(), lr=self.learning_rate, eps=1e-5
         )
@@ -492,14 +497,14 @@ class MOPPO(MOPolicy):
             # Log the state-action pair and reward
             self.state_action_log.append((obs.cpu().numpy().tolist(), action.cpu().numpy().tolist()))
             self.rewards_log.append(reward.cpu().numpy().tolist())
-
-            # Log the reward for each step
-            log_data = {
-                f"step_{self.id}/reward_{i}": reward[i].item()
-                for i in range(self.networks.reward_dim)
+            
+            # Log the reward for each step 
+        log_data = {
+            f"train/reward_{i}": reward[i].item()
+            for i in range(self.networks.reward_dim)
             }
-            wandb.log(log_data, step=self.global_step)
-
+            
+        wandb.log(log_data, step=self.global_step)    
         return obs, done, self.batch.rewards.mean().item(), grid2op_steps
 
     def __compute_advantages(
@@ -593,6 +598,8 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
+        eval_done=False
+        eval_state=self.env_val.reset()
         obs, actions, logprobs, _, _, values = self.batch.get_all()
 
         # Flatten the batch (b == batch)
@@ -662,6 +669,13 @@ class MOPPO(MOPolicy):
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
+            if eval_done:
+                eval_state= self.env_val.reset()
+            self.eval_step +=1
+            eval_action = self.eval(eval_state, self.weights.cpu().numpy())
+            eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
+            eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
+            
             if (
                 self.target_kl is not None
                 and approx_kl is not None
@@ -689,12 +703,24 @@ class MOPPO(MOPolicy):
                     "global_step": self.global_step,
                 }
             )
+            
+        if self.log: 
+        # Log the reward for each step
+                log_val_data = {
+                    f"eval/reward_{i}": eval_reward[i].item()
+                    for i in range(self.networks.reward_dim)
+                }
+                wandb.log(log_val_data)
         # Anneal the learning rate
         if self.anneal_lr:
             frac = 1.0 - (self.global_step / self.max_gym_steps)
             new_lr = self.learning_rate * frac
             for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr         
+                param_group["lr"] = new_lr       
+                
+        
+        
+        
         
     def train(
         self,
@@ -710,7 +736,7 @@ class MOPPO(MOPolicy):
         """
         grid2op_steps = 0
         num_trainings = int(max_gym_steps / self.batch_size)
-
+        self.eval_step =0
         self.global_step = 0
         for trainings in range(num_trainings):
             state = self.env.reset()

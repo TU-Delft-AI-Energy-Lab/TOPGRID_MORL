@@ -37,11 +37,12 @@ def initialize_network(
     Returns:
         MOPPONet: Initialized neural network.
     """
-    return MOPPONet(obs_dim, action_dim, reward_dim, net_arch=net_arch)
+    return MOPPONet(obs_dim, action_dim, reward_dim, net_arch)
 
 
 def initialize_agent(
     env: Any,
+    env_val:Any,
     weights: npt.NDArray[np.float64],
     obs_dim: Tuple[int],
     action_dim: int,
@@ -65,7 +66,7 @@ def initialize_agent(
         MOPPO: Initialized agent.
     """
     networks = initialize_network(obs_dim, action_dim, reward_dim, net_arch=net_arch)
-    agent = MOPPO(env=env, weights=weights, networks=networks, seed=seed, **agent_params)
+    agent = MOPPO(env=env,env_val=env_val, weights=weights, networks=networks, seed=seed, **agent_params)
     env.reset()
     return agent
 
@@ -166,6 +167,7 @@ def train_agent(
     results_dir: str,
     seed: int,
     env: Any,
+    env_val: Any,
     obs_dim: Tuple[int],
     action_dim: int,
     reward_dim: int,
@@ -193,7 +195,7 @@ def train_agent(
 
     for weights in weight_vectors:
         agent = initialize_agent(
-            env, weights, obs_dim, action_dim, reward_dim, net_arch, seed, **agent_params
+            env,env_val, weights, obs_dim, action_dim, reward_dim, net_arch, seed, **agent_params
         )
         agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(

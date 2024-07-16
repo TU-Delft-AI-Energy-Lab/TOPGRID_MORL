@@ -6,15 +6,15 @@ from typing import Any, List, Tuple
 import grid2op
 from grid2op.Action import BaseAction
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
-from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
+from grid2op.Reward import EpisodeDurationReward
 from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import TopoActionReward
+from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledLinesCapacityReward
 
 reward1 = EpisodeDurationReward
-reward2 = LinesCapacityReward
+reward2 = ScaledLinesCapacityReward
 reward3 = TopoActionReward
 
 # Configure logging
@@ -50,7 +50,9 @@ def setup_environment(
     action_space: int = 53,
     seed: int = 0,
     frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
-    rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
+    rewards_list: List[str] = ["ScaledLinesCapacity", "TopoAction"],
+    actions_file: str = 'filtered_actions.json',
+    env_type: str = '_train',
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -68,10 +70,12 @@ def setup_environment(
         Tuple[GymEnv, Tuple[int], int, int]: Gym-compatible environment instance,
         observation space shape, action space dimension, and reward dimension.
     """
+    
+   
 
     # Create environment
     g2op_env = grid2op.make(
-        env_name,
+        env_name+env_type,
         test=test,
         backend=LightSimBackend(),
         reward_class=frist_reward,
@@ -80,7 +84,7 @@ def setup_environment(
             for reward_name in rewards_list
         },
     )
-
+    
     g2op_env.seed(seed=seed)
     g2op_env.reset()
 
@@ -106,7 +110,7 @@ def setup_environment(
 
     # Action space setup
     current_dir = os.getcwd()
-    path = os.path.join(current_dir, "action_spaces", env_name, "filtered_actions.json")
+    path = os.path.join(current_dir, "action_spaces", env_name, actions_file)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
