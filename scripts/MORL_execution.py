@@ -29,16 +29,28 @@ def main(seed: int) -> None:
 
     gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         env_name=env_name,
-        test=test_flag,
+        test=False,
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
         rewards_list=["ScaledLinesCapacity", "TopoAction"],
         actions_file=actions_file
     )
+    
+    gym_env_val, _, _, _ = setup_environment(
+        env_name=env_name,
+        test=False,
+        seed=seed,
+        action_space=53,
+        frist_reward=EpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        actions_file=actions_file,
+        env_type='_val'
+    )
 
     # Reset the environment to verify dimensions
     gym_env.reset()
+    gym_env_val.reset()
 
     # Step 3: Define Agent Parameters
     agent_params = {
@@ -65,7 +77,7 @@ def main(seed: int) -> None:
     # Step 4: Training Parameters
     weight_vectors = [[1, 0, 0]]
     weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    max_gym_steps = 32
+    max_gym_steps = 256
 
     # Step 5: Train Agent
     train_agent(
@@ -74,6 +86,7 @@ def main(seed: int) -> None:
         seed=seed,
         results_dir=results_dir,
         env=gym_env,
+        env_val=gym_env_val,
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,

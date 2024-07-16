@@ -51,7 +51,8 @@ def setup_environment(
     seed: int = 0,
     frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
     rewards_list: List[str] = ["ScaledLinesCapacity", "TopoAction"],
-    actions_file: str = 'filtered_actions.json'
+    actions_file: str = 'filtered_actions.json',
+    env_type: str = '_train',
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -74,7 +75,7 @@ def setup_environment(
 
     # Create environment
     g2op_env = grid2op.make(
-        env_name,
+        env_name+env_type,
         test=test,
         backend=LightSimBackend(),
         reward_class=frist_reward,

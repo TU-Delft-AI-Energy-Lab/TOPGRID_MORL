@@ -1,12 +1,9 @@
 """
 Run this file only once to generate train/val/testset
 """
-
-
-
 import grid2op
-env_name= "l2rpn_case14_sandbox" # or any other...
-env = grid2op.make(env_name, test=True)
+env_name= "rte_case5_example" # or any other...
+env = grid2op.make(env_name)
 
 nm_env_train, nm_env_val = env.train_val_split_random(pct_val=10.)
 
