@@ -297,7 +297,7 @@ class MOPPO(MOPolicy):
         gamma: float = 0.995,
         anneal_lr: bool = False,
         clip_coef: float = 0.2,
-        ent_coef: float = 0.0,
+        ent_coef: float = 0.5,
         vf_coef: float = 0.5,
         clip_vloss: bool = True,
         max_grad_norm: float = 0.5,
@@ -708,11 +708,6 @@ class MOPPO(MOPolicy):
                 }
             )
 
-        if self.anneal_lr:
-            frac = 1.0 - (self.global_step / self.max_gym_steps)
-            new_lr = self.learning_rate * frac
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr
       
                 
         
@@ -745,7 +740,12 @@ class MOPPO(MOPolicy):
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
-
+            if self.anneal_lr:
+                frac = 1.0 - (self.global_step / self.max_gym_steps)
+                new_lr = self.learning_rate * frac
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = new_lr
+                    
         filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
