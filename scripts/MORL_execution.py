@@ -62,6 +62,7 @@ def main(seed: int, config_path: str) -> None:
     gym_env_val.reset()
     
 
+    
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
