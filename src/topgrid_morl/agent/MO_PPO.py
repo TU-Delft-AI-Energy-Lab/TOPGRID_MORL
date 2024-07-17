@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 import json
+import os
 import h5py
 import gymnasium as gym
 import mo_gymnasium as mo_gym
@@ -758,8 +759,17 @@ class MOPPO(MOPolicy):
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
                     
-        filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
+        directory_name = f"5bus_maxgymsteps_{max_gym_steps}"
+        directory_path_log = os.path.join("data", "runs", directory_name)
+        directory_path_rew = os.path.join("data", "rewards", directory_name)
+        # Create the directories if they don't exist
+        os.makedirs(directory_path_log, exist_ok=True)
+        os.makedirs(directory_path_rew, exist_ok=True)
+
+        # Save the logs and NumPy arrays in the created directories
+        filename_prefix = os.path.join(directory_path_log, f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}")
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
-        np.save(f"training_rewards_{self.seed}.npy", np.array(self.training_rewards))
-        np.save(f"evaluation_rewards_{self.seed}.npy", np.array(self.evaluation_rewards))
+        np.save(os.path.join(directory_path_rew, f"training_rewards_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
+        np.save(os.path.join(directory_path_rew, f"evaluation_rewards_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
+        

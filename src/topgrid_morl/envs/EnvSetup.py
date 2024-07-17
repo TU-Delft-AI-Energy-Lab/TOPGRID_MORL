@@ -11,10 +11,10 @@ from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledLinesCapacityReward
+from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledLinesCapacityReward, LinesCapacityReward
 
 reward1 = EpisodeDurationReward
-reward2 = ScaledLinesCapacityReward
+reward2 = LinesCapacityReward
 reward3 = TopoActionReward
 
 # Configure logging

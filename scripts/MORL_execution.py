@@ -21,7 +21,7 @@ def main(seed: int, config_path: str) -> None:
         config = json.load(config_file)
     
     agent_params = config["agent_params"]
-    weight_vectors = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    weights = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
 
     # Step 1: Setup Environment
@@ -42,7 +42,7 @@ def main(seed: int, config_path: str) -> None:
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        rewards_list=["LinesCapacity", "TopoAction"],
         actions_file=actions_file
     )
     
@@ -52,7 +52,7 @@ def main(seed: int, config_path: str) -> None:
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        rewards_list=["LinesCapacity", "TopoAction"],
         actions_file=actions_file,
         env_type='_val'
     )
@@ -64,7 +64,7 @@ def main(seed: int, config_path: str) -> None:
 
     # Step 5: Train Agent
     train_agent(
-        weight_vectors=weight_vectors,
+        weight_vectors=weights,
         max_gym_steps=max_gym_steps,
         seed=seed,
         results_dir=results_dir,
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         "--seed", type=int, default=42, help="Seed for the experiment"
     )
     parser.add_argument(
-        "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
+        "--config", type=str, default="configs/base_config.json", help="Path to the configuration file (default: config.json)"
     )
     args = parser.parse_args()
     main(args.seed, args.config)
