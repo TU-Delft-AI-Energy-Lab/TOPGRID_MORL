@@ -71,7 +71,7 @@ def main(seed: int, config_path: str) -> None:
             )+'DoNothing',
         )
     do_nothing_agent = DoNothingAgent(env=gym_env, env_val=gym_env_val, log=agent_params["log"], device=agent_params["device"])
-    do_nothing_agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
+    do_nothing_agent.train(max_gym_steps=5000, reward_dim=reward_dim)
     run.finish()
 
 if __name__ == "__main__":
