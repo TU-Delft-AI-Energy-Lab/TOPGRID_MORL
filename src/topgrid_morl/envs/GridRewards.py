@@ -1,5 +1,5 @@
 from typing import Optional
-
+import os
 import numpy as np
 from grid2op.Action import BaseAction
 from grid2op.Environment import BaseEnv
@@ -145,7 +145,7 @@ class MaxDistanceReward(BaseReward):
         """
         self.max_deviation = 0.0
 
-class ScaledLinesCapacityReward(BaseReward):
+class LinesCapacityReward(BaseReward):
     """
     Reward based on lines capacity usage
     Returns max reward if no current is flowing in the lines
@@ -196,6 +196,76 @@ class ScaledLinesCapacityReward(BaseReward):
         # Calculate the reward: if no usage, reward is max; if full usage, reward is min
         reward = (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
         # Scale the reward between self.reward_min and self.reward_max
-        reward = reward * (self.reward_max - self.reward_min) + self.reward_min
         # Return the calculated reward
         return reward
+    
+class ScaledLinesCapacityReward(BaseReward):
+    """
+    Reward based on lines capacity usage
+    Returns max reward if no current is flowing in the lines
+    Returns min reward if all lines are used at max capacity
+
+    Compared to `:class:L2RPNReward`:
+    This reward is linear (instead of quadratic) and only
+    considers connected lines capacities
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import ScaledLinesCapacityReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT, reward_class=ScaledLinesCapacityReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the ScaledLinesCapacityReward class
+    """
+
+    def __init__(self, logger=None):
+        # Initialize the base class
+        BaseReward.__init__(self, logger=logger)
+        # Define the minimum and maximum reward values
+        self.reward_min = dt_float(get_mean_std_rewards(1)[2])
+        self.reward_max = dt_float(get_mean_std_rewards(1)[3])
+        self.reward_mean = dt_float(get_mean_std_rewards(1)[0])
+        self.reward_std = dt_float(get_mean_std_rewards(1)[1])
+        
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        # If there's an error, the action is illegal, or ambiguous, return the minimum reward
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get the observation
+        obs = env.get_obs(_do_copy=False)
+        # Calculate the number of connected lines
+        n_connected = dt_float(obs.line_status.sum())
+        # Calculate the total usage of connected lines
+        usage = obs.rho[obs.line_status].sum()
+        # Ensure the usage is within valid range
+        usage = np.clip(usage, 0.0, float(n_connected))
+        # Calculate the reward: if no usage, reward is max; if full usage, reward is min
+        reward = (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
+        # Scale the reward between self.reward_min and self.reward_max
+        # Return the calculated reward
+        #std scale: 
+        norm_reward = (reward - self.reward_min) / (self.reward_max -self.reward_min)
+        return norm_reward
+    
+def get_mean_std_rewards(rewardNr: int = 1):
+    script_dir = os.path.dirname(os.getcwd())
+    training_rewards_path = os.path.join(script_dir, "TOPGRID_MORL\\training_rewards_42.npy")
+    training_rewards = np.load(training_rewards_path)
+    mean = np.mean(training_rewards, axis=0)[rewardNr]
+    std = np.std(training_rewards, axis=0)[rewardNr]
+    min_r = np.min(training_rewards, axis=0)[rewardNr]
+    max_r = np.max(training_rewards, axis=0)[rewardNr]
+    return(mean, std, min_r, max_r)
+    
+    
