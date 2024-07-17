@@ -6,6 +6,7 @@ from grid2op.Reward import EpisodeDurationReward
 
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent  # Import the DoNothingAgent class
 
 
 def main(seed: int, config_path: str) -> None:
@@ -75,6 +76,7 @@ def main(seed: int, config_path: str) -> None:
         net_arch=[64, 128, 64],
         **agent_params
     )
+   
 
 
 if __name__ == "__main__":

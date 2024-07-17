@@ -2,9 +2,9 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 16,
+        "steps_per_iteration": 8,
         "num_minibatches": 2,
-        "update_epochs": 5,
+        "update_epochs": 1,
         "learning_rate": 3e-4,
         "gamma": 0.995,
         "anneal_lr": true,
@@ -22,5 +22,5 @@
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 256
+    "max_gym_steps": 16
 }
