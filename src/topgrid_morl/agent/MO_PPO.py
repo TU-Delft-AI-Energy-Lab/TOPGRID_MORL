@@ -730,6 +730,7 @@ class MOPPO(MOPolicy):
         self.global_step = 0
         for trainings in range(num_trainings):
             state = self.env.reset(options={"max step": 7*288})
+            grid2op_steps=0
             next_obs = th.Tensor(state).to(self.device)
             done = False
 
