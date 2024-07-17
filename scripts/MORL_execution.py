@@ -1,59 +1,65 @@
 import argparse
+import json
 
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
 
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent  # Import the DoNothingAgent class
 
 
-def main(seed: int) -> None:
+def main(seed: int, config_path: str) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
-    # Step 1: Setup Environment
     env_name = "rte_case5_example"
-    results_dir = "training_results_5bus_4094"
+    
+    # Load configuration from file
+    with open(config_path, 'r') as config_file:
+        config = json.load(config_file)
+    
+    agent_params = config["agent_params"]
+    weight_vectors = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    max_gym_steps = config["max_gym_steps"]
+
+    # Step 1: Setup Environment
+    if env_name == "rte_case5_example":
+        results_dir = "training_results_5bus_4094"
+        action_dim = 53
+        test_flag = True
+        actions_file = 'filtered_actions.json'
+    elif env_name == "l2rpn_case14_sandbox":
+        results_dir = 'training_results_14bus_4096'
+        action_dim = 134
+        test_flag = False
+        actions_file = 'medha_actions.json'
 
     gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         env_name=env_name,
-        test=True,
+        test=False,
         seed=seed,
         action_space=53,
         frist_reward=EpisodeDurationReward,
-        rewards_list=["LinesCapacity", "TopoAction"],
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        actions_file=actions_file
+    )
+    
+    gym_env_val, _, _, _ = setup_environment(
+        env_name=env_name,
+        test=False,
+        seed=seed,
+        action_space=53,
+        frist_reward=EpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        actions_file=actions_file,
+        env_type='_val'
     )
 
     # Reset the environment to verify dimensions
     gym_env.reset()
-
-    # Step 3: Define Agent Parameters
-    agent_params = {
-        "id": 1,
-        "log": True,
-        "steps_per_iteration": 16,
-        "num_minibatches": 2,
-        "update_epochs": 5,
-        "learning_rate": 3e-4,
-        "gamma": 0.995,
-        "anneal_lr": False,
-        "clip_coef": 0.2,
-        "ent_coef": 0.0,
-        "vf_coef": 0.5,
-        "clip_vloss": True,
-        "max_grad_norm": 0.5,
-        "norm_adv": True,
-        "target_kl": None,
-        "gae": True,
-        "gae_lambda": 0.95,
-        "device": "cpu",
-    }
-
-    # Step 4: Training Parameters
-    weight_vectors = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
-    weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    max_gym_steps = 32
+    gym_env_val.reset()
 
     # Step 5: Train Agent
     train_agent(
@@ -62,6 +68,7 @@ def main(seed: int) -> None:
         seed=seed,
         results_dir=results_dir,
         env=gym_env,
+        env_val=gym_env_val,
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
@@ -69,6 +76,7 @@ def main(seed: int) -> None:
         net_arch=[64, 128, 64],
         **agent_params
     )
+   
 
 
 if __name__ == "__main__":
@@ -76,5 +84,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed", type=int, required=True, help="Seed for the experiment"
     )
+    parser.add_argument(
+        "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
+    )
     args = parser.parse_args()
-    main(args.seed)
+    main(args.seed, args.config)
