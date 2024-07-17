@@ -82,7 +82,7 @@ def main(seed: int, config_path: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run experiment with specific seed")
     parser.add_argument(
-        "--seed", type=int, required=True, help="Seed for the experiment"
+        "--seed", type=int, default=42, help="Seed for the experiment"
     )
     parser.add_argument(
         "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
