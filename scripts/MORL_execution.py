@@ -1,29 +1,38 @@
 import argparse
+import json
 
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
 
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent  # Import the DoNothingAgent class
 
 
-def main(seed: int) -> None:
+def main(seed: int, config_path: str) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
-    env_name="rte_case5_example"
+    env_name = "rte_case5_example"
     
+    # Load configuration from file
+    with open(config_path, 'r') as config_file:
+        config = json.load(config_file)
     
+    agent_params = config["agent_params"]
+    weight_vectors = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    max_gym_steps = config["max_gym_steps"]
+
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
-        action_dim= 53
-        test_flag=True
-        actions_file='filtered_actions.json'
+        action_dim = 53
+        test_flag = True
+        actions_file = 'filtered_actions.json'
     elif env_name == "l2rpn_case14_sandbox":
         results_dir = 'training_results_14bus_4096'
-        action_dim =134
+        action_dim = 134
         test_flag = False
         actions_file = 'medha_actions.json'
 
@@ -52,33 +61,6 @@ def main(seed: int) -> None:
     gym_env.reset()
     gym_env_val.reset()
 
-    # Step 3: Define Agent Parameters
-    agent_params = {
-        "id": 1,
-        "log": True,
-        "steps_per_iteration": 16,
-        "num_minibatches": 2,
-        "update_epochs": 5,
-        "learning_rate": 3e-4,
-        "gamma": 0.995,
-        "anneal_lr": True,
-        "clip_coef": 0.2,
-        "ent_coef": 0.5,
-        "vf_coef": 1.0,
-        "clip_vloss": True,
-        "max_grad_norm": 0.5,
-        "norm_adv": True,
-        "target_kl": None,
-        "gae": True,
-        "gae_lambda": 0.95,
-        "device": "cpu",
-    }
-
-    # Step 4: Training Parameters
-    weight_vectors = [[1, 0, 0]]
-    weight_vectors = np.array(weight_vectors)  # Convert to numpy array for consistency
-    max_gym_steps = 256
-
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weight_vectors,
@@ -94,6 +76,7 @@ def main(seed: int) -> None:
         net_arch=[64, 128, 64],
         **agent_params
     )
+   
 
 
 if __name__ == "__main__":
@@ -101,5 +84,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed", type=int, required=True, help="Seed for the experiment"
     )
+    parser.add_argument(
+        "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
+    )
     args = parser.parse_args()
-    main(args.seed)
+    main(args.seed, args.config)

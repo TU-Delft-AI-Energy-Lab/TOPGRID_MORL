@@ -209,6 +209,18 @@ def train_agent(
         )
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
         run.finish()
+        run = wandb.init(
+            project="TOPGrid_MORL",
+            name=generate_variable_name(
+                base_name=run_name,
+                max_gym_steps=max_gym_steps,
+                weights=weights,
+                seed=seed,
+            )+'DoNothing',
+        )
+        do_nothing_agent = DoNothingAgent(env=env, env_val=env_val, log=agent_params["log"], device=agent_params["device"])
+        do_nothing_agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
+        run.finish()
 
 
 def train_and_save_donothing_agent(
