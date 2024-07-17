@@ -1,9 +1,9 @@
 import argparse
 import json
-
+import wandb
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
-
+from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
@@ -21,7 +21,7 @@ def main(seed: int, config_path: str) -> None:
         config = json.load(config_file)
     
     agent_params = config["agent_params"]
-    weight_vectors = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    weights= np.array(config["weight_vectors"])  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
 
     # Step 1: Setup Environment
@@ -61,28 +61,23 @@ def main(seed: int, config_path: str) -> None:
     gym_env.reset()
     gym_env_val.reset()
     
-
-    # Step 5: Train Agent
-    train_agent(
-        weight_vectors=weight_vectors,
-        max_gym_steps=max_gym_steps,
-        seed=seed,
-        results_dir=results_dir,
-        env=gym_env,
-        env_val=gym_env_val,
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        reward_dim=reward_dim,
-        run_name="Run",
-        net_arch=[64, 128, 64],
-        **agent_params
-        
-    )
+    run = wandb.init(
+            project="TOPGrid_MORL",
+            name=generate_variable_name(
+                base_name='GenerateRewards',
+                max_gym_steps=max_gym_steps,
+                weights=weights,
+                seed=seed,
+            )+'DoNothing',
+        )
+    do_nothing_agent = DoNothingAgent(env=gym_env, env_val=gym_env_val, log=agent_params["log"], device=agent_params["device"])
+    do_nothing_agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
+    run.finish()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run experiment with specific seed")
     parser.add_argument(
-        "--seed", type=int, required=True, help="Seed for the experiment"
+        "--seed", type=int,  default=42, help="Seed for the experiment"
     )
     parser.add_argument(
         "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
