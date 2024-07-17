@@ -288,6 +288,7 @@ class MOPPO(MOPolicy):
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
+        env_val: CustomGymEnv,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -296,7 +297,7 @@ class MOPPO(MOPolicy):
         gamma: float = 0.995,
         anneal_lr: bool = False,
         clip_coef: float = 0.2,
-        ent_coef: float = 0.0,
+        ent_coef: float = 0.5,
         vf_coef: float = 0.5,
         clip_vloss: bool = True,
         max_grad_norm: float = 0.5,
@@ -339,6 +340,7 @@ class MOPPO(MOPolicy):
         super().__init__(id, device)
         self.id = id
         self.env = env
+        self.env_val = env_val
         self.networks = networks
         self.device = device
         self.seed = seed
@@ -376,8 +378,10 @@ class MOPPO(MOPolicy):
         )
 
         # Add logs for state-action pairs and rewards
+        
         self.state_action_log = []
         self.rewards_log = []
+        
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
@@ -413,8 +417,9 @@ class MOPPO(MOPolicy):
             self.gae_lambda,
             self.device,
         )
-
+        
         copied.global_step = self.global_step
+        copied.eval_step = self.eval_step
         copied.optimizer = optim.Adam(
             copied_net.parameters(), lr=self.learning_rate, eps=1e-5
         )
@@ -459,17 +464,17 @@ class MOPPO(MOPolicy):
         Args:
             obs (th.Tensor): Initial observation.
             done (bool): Whether the episode is done.
-            max_ep_steps (int): Maximum number of steps per episode.
+            grid2op_steps (int): Total number of steps taken in the environment.
 
         Returns:
-            Tuple containing the next observation, whether the episode is
-            done, cumulative reward, and total steps.
+            Tuple[th.Tensor, bool, int, int]: Next observation, whether the episode is done,
+                                            average reward, and total grid2op steps.
         """
-
+        grid2op_steps_per_episode=0
         for gym_step in range(self.batch_size):
-            # fill batch
             if done:
-                self.env.reset()
+                self.env.reset(options={"max step": 7*288})#one week
+                grid2op_steps_per_episode=0
 
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(
@@ -487,20 +492,19 @@ class MOPPO(MOPolicy):
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
-            grid2op_steps += steps_in_gymstep
+            grid2op_steps_per_episode += steps_in_gymstep
             
-            # Log the state-action pair and reward
-            self.state_action_log.append((obs.cpu().numpy().tolist(), action.cpu().numpy().tolist()))
-            self.rewards_log.append(reward.cpu().numpy().tolist())
-
-            # Log the reward for each step
+            # Log the training reward for each step
             log_data = {
-                f"step_{self.id}/reward_{i}": reward[i].item()
+                f"train/reward_{i}": reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
-            wandb.log(log_data, step=self.global_step)
+            log_data[f"train/grid2opsteps"] = grid2op_steps_per_episode
+            if self.log:
+                wandb.log(log_data, step=self.global_step)
 
         return obs, done, self.batch.rewards.mean().item(), grid2op_steps
+
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
@@ -593,9 +597,10 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
+        eval_done = False
+        eval_state = self.env_val.reset()
         obs, actions, logprobs, _, _, values = self.batch.get_all()
 
-        # Flatten the batch (b == batch)
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape(-1)
@@ -603,7 +608,6 @@ class MOPPO(MOPolicy):
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
 
-        # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
         clipfracs = []
 
@@ -632,14 +636,12 @@ class MOPPO(MOPolicy):
                         mb_advantages.std() + 1e-8
                     )
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * th.clamp(
                     ratio, 1 - self.clip_coef, 1 + self.clip_coef
                 )
                 pg_loss = th.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1, self.networks.reward_dim)
                 if self.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -662,6 +664,24 @@ class MOPPO(MOPolicy):
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
+            # Evaluate and log evaluation rewards
+            eval_rewards = []
+            for _ in range(30):
+                if eval_done:
+                    eval_state = self.env_val.reset()
+                eval_action = self.eval(eval_state, self.weights.cpu().numpy())
+                eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
+                eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
+                eval_rewards.append(eval_reward)
+            
+            eval_rewards = th.stack(eval_rewards).mean(dim=0)
+            if self.log: 
+                log_val_data = {
+                  f"eval/reward_{i}": eval_rewards[i].item()
+                 for i in range(self.networks.reward_dim)
+                }
+                wandb.log(log_val_data, step=self.global_step)
+
             if (
                 self.target_kl is not None
                 and approx_kl is not None
@@ -677,9 +697,7 @@ class MOPPO(MOPolicy):
             wandb.log(
                 {
                     f"losses_{self.id}/value_loss": v_loss.item(),
-                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
-                        "lr"
-                    ],
+                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0]["lr"],
                     f"losses_{self.id}/policy_loss": pg_loss.item(),
                     f"losses_{self.id}/entropy": entropy_loss.item(),
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
@@ -689,12 +707,10 @@ class MOPPO(MOPolicy):
                     "global_step": self.global_step,
                 }
             )
-        # Anneal the learning rate
-        if self.anneal_lr:
-            frac = 1.0 - (self.global_step / self.max_gym_steps)
-            new_lr = self.learning_rate * frac
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr         
+
+      
+                
+        
         
     def train(
         self,
@@ -710,10 +726,11 @@ class MOPPO(MOPolicy):
         """
         grid2op_steps = 0
         num_trainings = int(max_gym_steps / self.batch_size)
-
+        self.eval_step =0
         self.global_step = 0
         for trainings in range(num_trainings):
-            state = self.env.reset()
+            state = self.env.reset(options={"max step": 7*288})
+            grid2op_steps=0
             next_obs = th.Tensor(state).to(self.device)
             done = False
 
@@ -724,7 +741,12 @@ class MOPPO(MOPolicy):
             grid2op_steps += grid2op_steps_from_training
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
-
+            if self.anneal_lr:
+                frac = 1.0 - (self.global_step / max_gym_steps)
+                new_lr = self.learning_rate * frac
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = new_lr
+                    
         filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
