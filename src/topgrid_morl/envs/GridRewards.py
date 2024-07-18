@@ -107,7 +107,6 @@ class ScaledTopoActionReward(BaseReward):
         self.penalty_factor = penalty_factor
         self.rewardNr = 2
         self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.rewardNr))
-        print(self.reward_max, self.reward_min)
         super().__init__(logger)
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
@@ -348,7 +347,7 @@ class ScaledLinesCapacityReward(BaseReward):
     
 def get_mean_std_rewards(rewardNr: int):
     script_dir = os.getcwd()
-    rewards_dir = os.path.join(script_dir, "data", "rewards", "5bus_maxgymsteps_32")
+    rewards_dir = os.path.join(script_dir, "data", "rewards", "5bus_maxgymsteps_1024")
     if rewardNr==0: 
         training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
     elif rewardNr==1: 

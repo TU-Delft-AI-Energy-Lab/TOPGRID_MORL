@@ -1,22 +1,24 @@
 import argparse
 import json
-
+import ast
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
-
+import os
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 
-def main(seed: int, config_path: str, weights: list) -> None:
+
+def main(seed: int, config: str, weights: list) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
     env_name = "rte_case5_example"
     
+    config_path = os.path.join(os.getcwd(), 'configs', config)
     # Load configuration from file
     if not os.path.isfile(config_path):
         raise FileNotFoundError(f"No such file or directory: '{config_path}'")
@@ -46,7 +48,8 @@ def main(seed: int, config_path: str, weights: list) -> None:
         seed=seed,
         action_space=53,
         first_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacityReward", "ScaledTopoActionReward"],
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+
         actions_file=actions_file
     )
     
@@ -56,7 +59,7 @@ def main(seed: int, config_path: str, weights: list) -> None:
         seed=seed,
         action_space=53,
         first_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacityReward", "ScaledTopoActionReward"],
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file,
         env_type='_val'
     )
@@ -88,11 +91,14 @@ if __name__ == "__main__":
         "--seed", type=int, default=42, help="Seed for the experiment"
     )
     parser.add_argument(
-        "--config", type=str, default="configs/base_config.json", help="Path to the configuration file (default: configs/base_config.json)"
+        "--config", type=str, default="base_config.json", help="Path to the configuration file (default: configs/base_config.json)"
     )
     parser.add_argument(
-        "--weights", type=str, required=True, help="Weight vector for the experiment"
+        "--weights", type=str, default="[[1,0,0],[0,1,0],[0,0,1]]", help="Weight vectors for the experiment"
     )
     args = parser.parse_args()
-    weights_list = list(map(float, args.weights.split('_')))
+    
+    # Use ast.literal_eval to safely parse the weights argument
+    weights_list = ast.literal_eval(args.weights)
     main(args.seed, args.config, weights_list)
+
