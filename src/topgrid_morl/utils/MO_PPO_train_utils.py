@@ -196,6 +196,7 @@ def train_agent(
     os.makedirs(results_dir, exist_ok=True)
 
     for weights in weight_vectors:
+        weights_str = "_".join(map(str, weights))
         agent = initialize_agent(
             env,env_val, weights, obs_dim, action_dim, reward_dim, net_arch, seed, generate_reward, **agent_params
         )
@@ -208,6 +209,7 @@ def train_agent(
                 weights=weights,
                 seed=seed,
             ),
+            group=weights_str
         )
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
         run.finish()
@@ -219,6 +221,8 @@ def train_agent(
                 weights=weights,
                 seed=seed,
             )+'DoNothing',
+            group=weights_str
+            
         )
         do_nothing_agent = DoNothingAgent(env=env, env_val=env_val, log=agent_params["log"], device=agent_params["device"])
         do_nothing_agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)

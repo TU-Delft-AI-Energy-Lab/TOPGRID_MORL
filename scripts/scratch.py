@@ -1,8 +1,26 @@
-from topgrid_morl.envs.GridRewards import get_mean_std_rewards
+import numpy as np
 
+# Number of weight vectors
+num_vectors = 5
+# Number of elements in each weight vector
+num_elements = 3
 
-min_r, max_r, mean, std =get_mean_std_rewards(2)
-print(min_r, max_r, mean, std)
+# List to store the weight vectors
+weight_vectors = []
+
+# Generate the weight vectors
+for _ in range(num_vectors):
+    weights = np.random.rand(num_elements)
+    weights /= weights.sum()  # Normalize to sum to 1
+    weights = np.round(weights, 2)  # Round to two decimal places
+    weights[-1] = 1.0 - weights[:-1].sum()  # Adjust the last element to ensure the sum is exactly 1.0
+    weights = np.round(weights, 2)
+    weight_vectors.append(weights.tolist())
+
+# Print the generated weight vectors
+for i, wv in enumerate(weight_vectors):
+    print(f"Weight vector {i+1}: {wv}")
+
 """
 import argparse
 import json
