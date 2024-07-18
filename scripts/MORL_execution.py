@@ -10,7 +10,7 @@ from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 
-def main(seed: int, config_path: str) -> None:
+def main(seed: int, config_path: str, weights: list) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
@@ -18,11 +18,14 @@ def main(seed: int, config_path: str) -> None:
     env_name = "rte_case5_example"
     
     # Load configuration from file
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f"No such file or directory: '{config_path}'")
+
     with open(config_path, 'r') as config_file:
         config = json.load(config_file)
     
     agent_params = config["agent_params"]
-    weights = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    weights = np.array(weights)  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
 
     # Step 1: Setup Environment
@@ -42,8 +45,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+        first_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacityReward", "ScaledTopoActionReward"],
         actions_file=actions_file
     )
     
@@ -52,8 +55,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+        first_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacityReward", "ScaledTopoActionReward"],
         actions_file=actions_file,
         env_type='_val'
     )
@@ -62,7 +65,6 @@ def main(seed: int, config_path: str) -> None:
     gym_env.reset()
     gym_env_val.reset()
     
-
     # Step 5: Train Agent
     train_agent(
         weight_vectors=weights,
@@ -77,16 +79,20 @@ def main(seed: int, config_path: str) -> None:
         run_name="Run",
         net_arch=[64, 128, 64],
         **agent_params
-        
     )
 
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run experiment with specific seed")
+    parser = argparse.ArgumentParser(description="Run experiment with specific seed and weights")
     parser.add_argument(
         "--seed", type=int, default=42, help="Seed for the experiment"
     )
     parser.add_argument(
-        "--config", type=str, default="configs/base_config.json", help="Path to the configuration file (default: config.json)"
+        "--config", type=str, default="configs/base_config.json", help="Path to the configuration file (default: configs/base_config.json)"
+    )
+    parser.add_argument(
+        "--weights", type=str, required=True, help="Weight vector for the experiment"
     )
     args = parser.parse_args()
-    main(args.seed, args.config)
+    weights_list = list(map(float, args.weights.split('_')))
+    main(args.seed, args.config, weights_list)
