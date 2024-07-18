@@ -1,6 +1,7 @@
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 import json
+import os
 import h5py
 import gymnasium as gym
 import mo_gymnasium as mo_gym
@@ -227,6 +228,8 @@ class MOPPONet(nn.Module):
         self.action_dim = action_dim
         self.reward_dim = reward_dim
         self.net_arch = net_arch
+        
+    
 
         self.critic = mlp(
             input_dim=np.prod(self.obs_shape),
@@ -307,6 +310,7 @@ class MOPPO(MOPolicy):
         gae_lambda: float = 0.95,
         device: Union[th.device, str] = "cuda",
         seed: int = 42,
+        generate_reward: bool = False,
         rng: Optional[np.random.Generator] = None,
     ) -> None:
         """
@@ -365,6 +369,9 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
+        
+        self.training_rewards = []
+        self.evaluation_rewards = []
 
         self.optimizer = optim.Adam(
             networks.parameters(), lr=self.learning_rate, eps=1e-5
@@ -381,6 +388,8 @@ class MOPPO(MOPolicy):
         
         self.state_action_log = []
         self.rewards_log = []
+        
+        self.generate_reward = generate_reward
         
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
@@ -489,6 +498,8 @@ class MOPPO(MOPolicy):
 
             self.batch.add(obs, action, logprob, reward, done, value)
             steps_in_gymstep = info["steps"]
+            # Append rewards to training_rewards
+            self.training_rewards.append(reward.cpu().numpy())
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
@@ -597,6 +608,7 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
+    
         eval_done = False
         eval_state = self.env_val.reset()
         obs, actions, logprobs, _, _, values = self.batch.get_all()
@@ -673,8 +685,11 @@ class MOPPO(MOPolicy):
                 eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
                 eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
                 eval_rewards.append(eval_reward)
+                 # Append rewards to evaluation_rewards
+                
             
             eval_rewards = th.stack(eval_rewards).mean(dim=0)
+            self.evaluation_rewards.append(eval_rewards.cpu().numpy())
             if self.log: 
                 log_val_data = {
                   f"eval/reward_{i}": eval_rewards[i].item()
@@ -730,6 +745,7 @@ class MOPPO(MOPolicy):
         self.global_step = 0
         for trainings in range(num_trainings):
             state = self.env.reset(options={"max step": 7*288})
+            grid2op_steps=0
             next_obs = th.Tensor(state).to(self.device)
             done = False
 
@@ -746,6 +762,20 @@ class MOPPO(MOPolicy):
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
                     
-        filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
+        directory_name = f"5bus_maxgymsteps_{max_gym_steps}"
+        directory_path_log = os.path.join("data", "runs", directory_name)
+        directory_path_rew = os.path.join("data", "rewards", directory_name)
+        # Create the directories if they don't exist
+        os.makedirs(directory_path_log, exist_ok=True)
+        os.makedirs(directory_path_rew, exist_ok=True)
+
+        # Save the logs and NumPy arrays in the created directories
+        filename_prefix = os.path.join(directory_path_log, f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}")
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
+        if self.generate_reward: 
+            np.save(os.path.join(directory_path_rew, f"generate_training_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
+            np.save(os.path.join(directory_path_rew, f"generate_evaluation_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
+        else: 
+            np.save(os.path.join(directory_path_rew, f"training_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
+            np.save(os.path.join(directory_path_rew, f"evaluation_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))

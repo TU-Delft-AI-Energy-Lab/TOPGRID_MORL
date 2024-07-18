@@ -1,0 +1,45 @@
+{
+    "os": "Windows-11-10.0.22631-SP0",
+    "python": "3.12.4",
+    "heartbeatAt": "2024-07-18T08:36:40.893200",
+    "startedAt": "2024-07-18T08:36:39.279474",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "c:\\Users\\thoma\\MA\\TOPGRID_MORL\\scripts\\generate_reward_stats.py",
+    "codePathLocal": "scripts\\generate_reward_stats.py",
+    "codePath": "scripts\\generate_reward_stats.py",
+    "git": {
+        "remote": "https://github.com/TU-Delft-AI-Energy-Lab/TOPGRID_MORL.git",
+        "commit": "a97c652f52eb3f020a922e6a2431dd49371f41e2"
+    },
+    "email": "t.lautenbacher@campus.tu-berlin.de",
+    "root": "C:/Users/thoma/MA/TOPGRID_MORL",
+    "host": "Lauti",
+    "username": "thoma",
+    "executable": "C:\\Users\\thoma\\anaconda3\\envs\\repl\\python.exe",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 1801.0,
+        "min": 0.0,
+        "max": 1801.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1801.0,
+            "min": 0.0,
+            "max": 1801.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 476.11620712280273,
+            "used": 217.72996139526367
+        }
+    },
+    "memory": {
+        "total": 14.822685241699219
+    }
+}
