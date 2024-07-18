@@ -10,6 +10,7 @@ from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 
+
 def main(seed: int, config: str, weights: list) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
@@ -48,6 +49,7 @@ def main(seed: int, config: str, weights: list) -> None:
         action_space=53,
         first_reward=ScaledEpisodeDurationReward,
         rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+
         actions_file=actions_file
     )
     
@@ -99,3 +101,4 @@ if __name__ == "__main__":
     # Use ast.literal_eval to safely parse the weights argument
     weights_list = ast.literal_eval(args.weights)
     main(args.seed, args.config, weights_list)
+
