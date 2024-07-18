@@ -4,6 +4,7 @@ import json
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
 
+from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
@@ -41,8 +42,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
-        rewards_list=["LinesCapacity", "TopoAction"],
+        frist_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
         actions_file=actions_file
     )
     
@@ -51,8 +52,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
-        rewards_list=["LinesCapacity", "TopoAction"],
+        frist_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "TopoAction"],
         actions_file=actions_file,
         env_type='_val'
     )

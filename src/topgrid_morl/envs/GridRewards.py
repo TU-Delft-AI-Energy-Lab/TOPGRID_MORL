@@ -6,6 +6,66 @@ from grid2op.Environment import BaseEnv
 from grid2op.Reward import BaseReward
 from grid2op.dtypes import dt_float
 
+class ScaledEpisodeDurationReward(BaseReward):
+    """
+    This reward will always be 0., unless at the end of an episode where it will return the number
+    of steps made by the agent divided by the total number of steps possible in the episode.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import EpisodeDurationReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=EpisodeDurationReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the EpisodeDurationReward class
+
+    Notes
+    -----
+    In case of an environment being "fast forward" (see :func:`grid2op.Environment.BaseEnv.fast_forward_chronics`)
+    the time "during" the fast forward are counted "as if" they were successful.
+
+    This means that if you "fast forward" up until the end of an episode, you are likely to receive a reward of 1.0
+
+
+    """
+
+    def __init__(self, per_timestep=1, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.per_timestep = dt_float(per_timestep)
+        self.total_time_steps = dt_float(0.0)
+        self.reward_nr = 0
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.reward_nr))
+
+    def initialize(self, env):
+        self.reset(env)
+
+    def reset(self, env):
+        if env.chronics_handler.max_timestep() > 0:
+            self.total_time_steps = env.max_episode_duration() * self.per_timestep
+        else:
+            self.total_time_steps = np.inf
+            self.reward_max = np.inf
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if is_done:
+            res = env.nb_time_step
+            if np.isfinite(self.total_time_steps):
+                res /= self.total_time_steps
+        else:
+            res = self.reward_min
+            
+        res 
+        return res
+
 class TopoActionReward(BaseReward):
     """
     Reward for taking a topological action in the grid environment.
@@ -55,8 +115,7 @@ class TopoActionReward(BaseReward):
         if action is not None:
             return -self.penalty_factor
 
-        return 0.0
-
+        
 
 class MaxDistanceReward(BaseReward):
     """
@@ -231,10 +290,9 @@ class ScaledLinesCapacityReward(BaseReward):
         # Initialize the base class
         BaseReward.__init__(self, logger=logger)
         # Define the minimum and maximum reward values
-        self.reward_min = dt_float(get_mean_std_rewards(1)[2])
-        self.reward_max = dt_float(get_mean_std_rewards(1)[3])
-        self.reward_mean = dt_float(get_mean_std_rewards(1)[0])
-        self.reward_std = dt_float(get_mean_std_rewards(1)[1])
+        self.rewardNr = 1
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.rewardNr))
+      
         
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
@@ -258,14 +316,23 @@ class ScaledLinesCapacityReward(BaseReward):
         norm_reward = (reward - self.reward_min) / (self.reward_max -self.reward_min)
         return norm_reward
     
-def get_mean_std_rewards(rewardNr: int = 1):
-    script_dir = os.path.dirname(os.getcwd())
-    training_rewards_path = os.path.join(script_dir, "TOPGRID_MORL\\training_rewards_42.npy")
+def get_mean_std_rewards(rewardNr: int):
+    script_dir = os.getcwd()
+    rewards_dir = os.path.join(script_dir, "data", "rewards", "5bus_maxgymsteps_16")
+    if rewardNr==0: 
+        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
+    elif rewardNr==1: 
+        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
+    elif rewardNr==2:
+        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
+    
     training_rewards = np.load(training_rewards_path)
     mean = np.mean(training_rewards, axis=0)[rewardNr]
     std = np.std(training_rewards, axis=0)[rewardNr]
     min_r = np.min(training_rewards, axis=0)[rewardNr]
     max_r = np.max(training_rewards, axis=0)[rewardNr]
-    return(mean, std, min_r, max_r)
+    return(min_r, max_r, mean, std)
+
+
     
     

@@ -71,6 +71,7 @@ def main(seed: int, config_path: str) -> None:
         reward_dim=reward_dim,
         run_name="Run",
         net_arch=[64, 128, 64],
+        generate_reward=True,
         **agent_params
         
     )

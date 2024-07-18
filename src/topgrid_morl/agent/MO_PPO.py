@@ -310,6 +310,7 @@ class MOPPO(MOPolicy):
         gae_lambda: float = 0.95,
         device: Union[th.device, str] = "cuda",
         seed: int = 42,
+        generate_reward: bool = False,
         rng: Optional[np.random.Generator] = None,
     ) -> None:
         """
@@ -387,6 +388,8 @@ class MOPPO(MOPolicy):
         
         self.state_action_log = []
         self.rewards_log = []
+        
+        self.generate_reward = generate_reward
         
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
@@ -770,6 +773,9 @@ class MOPPO(MOPolicy):
         filename_prefix = os.path.join(directory_path_log, f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}")
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
-        np.save(os.path.join(directory_path_rew, f"training_rewards_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
-        np.save(os.path.join(directory_path_rew, f"evaluation_rewards_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
-        
+        if self.generate_reward: 
+            np.save(os.path.join(directory_path_rew, f"generate_training_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
+            np.save(os.path.join(directory_path_rew, f"generate_evaluation_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
+        else: 
+            np.save(os.path.join(directory_path_rew, f"training_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
+            np.save(os.path.join(directory_path_rew, f"evaluation_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
