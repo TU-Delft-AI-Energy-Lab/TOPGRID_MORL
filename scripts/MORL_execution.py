@@ -4,6 +4,7 @@ import json
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
 
+from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
@@ -21,7 +22,7 @@ def main(seed: int, config_path: str) -> None:
         config = json.load(config_file)
     
     agent_params = config["agent_params"]
-    weight_vectors = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
+    weights = np.array(config["weight_vectors"])  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
 
     # Step 1: Setup Environment
@@ -41,8 +42,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        frist_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file
     )
     
@@ -51,8 +52,8 @@ def main(seed: int, config_path: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        frist_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file,
         env_type='_val'
     )
@@ -64,7 +65,7 @@ def main(seed: int, config_path: str) -> None:
 
     # Step 5: Train Agent
     train_agent(
-        weight_vectors=weight_vectors,
+        weight_vectors=weights,
         max_gym_steps=max_gym_steps,
         seed=seed,
         results_dir=results_dir,
@@ -82,10 +83,10 @@ def main(seed: int, config_path: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run experiment with specific seed")
     parser.add_argument(
-        "--seed", type=int, required=True, help="Seed for the experiment"
+        "--seed", type=int, default=42, help="Seed for the experiment"
     )
     parser.add_argument(
-        "--config", type=str, default="base_config.json", help="Path to the configuration file (default: config.json)"
+        "--config", type=str, default="configs/base_config.json", help="Path to the configuration file (default: config.json)"
     )
     args = parser.parse_args()
     main(args.seed, args.config)

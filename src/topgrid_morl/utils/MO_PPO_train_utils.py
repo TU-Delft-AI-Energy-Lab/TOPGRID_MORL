@@ -49,6 +49,7 @@ def initialize_agent(
     reward_dim: int,
     net_arch: List[int] = [64, 64],
     seed: int = 42,
+    generate_reward: int = False,
     **agent_params: Any,
 ) -> MOPPO:
     """
@@ -66,7 +67,7 @@ def initialize_agent(
         MOPPO: Initialized agent.
     """
     networks = initialize_network(obs_dim, action_dim, reward_dim, net_arch=net_arch)
-    agent = MOPPO(env=env,env_val=env_val, weights=weights, networks=networks, seed=seed, **agent_params)
+    agent = MOPPO(env=env,env_val=env_val, weights=weights, networks=networks, seed=seed, generate_reward=generate_reward, **agent_params)
     env.reset()
     return agent
 
@@ -173,6 +174,7 @@ def train_agent(
     reward_dim: int,
     run_name: str,
     net_arch: List[int] = [64, 64],
+    generate_reward: bool = False,
     **agent_params: Any,
 ) -> None:
     """
@@ -195,7 +197,7 @@ def train_agent(
 
     for weights in weight_vectors:
         agent = initialize_agent(
-            env,env_val, weights, obs_dim, action_dim, reward_dim, net_arch, seed, **agent_params
+            env,env_val, weights, obs_dim, action_dim, reward_dim, net_arch, seed, generate_reward, **agent_params
         )
         agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(

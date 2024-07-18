@@ -6,16 +6,17 @@ from typing import Any, List, Tuple
 import grid2op
 from grid2op.Action import BaseAction
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
-from grid2op.Reward import EpisodeDurationReward
+from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
 from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledLinesCapacityReward
+from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledTopoActionReward, ScaledLinesCapacityReward, ScaledEpisodeDurationReward
 
-reward1 = EpisodeDurationReward
+reward1 = ScaledEpisodeDurationReward
 reward2 = ScaledLinesCapacityReward
-reward3 = TopoActionReward
+reward3 = ScaledTopoActionReward
+
 
 # Configure logging
 logging.basicConfig(
@@ -50,7 +51,7 @@ def setup_environment(
     action_space: int = 53,
     seed: int = 0,
     frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
-    rewards_list: List[str] = ["ScaledLinesCapacity", "TopoAction"],
+    rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
