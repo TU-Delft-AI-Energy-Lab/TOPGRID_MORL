@@ -43,7 +43,7 @@ def main(seed: int, config_path: str) -> None:
         seed=seed,
         action_space=53,
         frist_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file
     )
     
@@ -53,7 +53,7 @@ def main(seed: int, config_path: str) -> None:
         seed=seed,
         action_space=53,
         frist_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file,
         env_type='_val'
     )

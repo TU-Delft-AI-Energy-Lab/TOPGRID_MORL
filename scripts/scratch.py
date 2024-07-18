@@ -1,3 +1,9 @@
+from topgrid_morl.envs.GridRewards import get_mean_std_rewards
+
+
+min_r, max_r, mean, std =get_mean_std_rewards(2)
+print(min_r, max_r, mean, std)
+"""
 import argparse
 import json
 
@@ -40,3 +46,5 @@ gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         actions_file=actions_file
     )
 print(gym_env.step(31))
+
+"""
