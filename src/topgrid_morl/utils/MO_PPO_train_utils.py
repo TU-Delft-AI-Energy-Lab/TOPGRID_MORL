@@ -202,7 +202,7 @@ def train_agent(
         )
         agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(
-            project="TOPGrid_MORL",
+            project="TOPGrid_MORL_5bus",
             name=generate_variable_name(
                 base_name=run_name,
                 max_gym_steps=max_gym_steps,
@@ -214,7 +214,7 @@ def train_agent(
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
         run.finish()
         run = wandb.init(
-            project="TOPGrid_MORL",
+            project="TOPGrid_MORL_5bus",
             name=generate_variable_name(
                 base_name=run_name,
                 max_gym_steps=max_gym_steps,

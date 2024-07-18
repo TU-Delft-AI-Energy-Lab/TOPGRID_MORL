@@ -50,7 +50,7 @@ def setup_environment(
     test: bool = False,
     action_space: int = 53,
     seed: int = 0,
-    frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
+    first_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
     rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
@@ -79,7 +79,7 @@ def setup_environment(
         env_name+env_type,
         test=test,
         backend=LightSimBackend(),
-        reward_class=frist_reward,
+        reward_class=first_reward,
         other_rewards={
             reward_name: globals()[reward_name + "Reward"]
             for reward_name in rewards_list
