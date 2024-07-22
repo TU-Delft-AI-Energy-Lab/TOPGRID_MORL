@@ -465,7 +465,7 @@ class MOPPO(MOPolicy):
             return tensor
 
     def __collect_samples(
-        self, obs: th.Tensor, done: bool, grid2op_steps: int
+        self, obs: th.Tensor, done: bool
     ) -> Tuple[th.Tensor, bool, int, int]:
         """
         Collect samples by interacting with the environment.
@@ -479,11 +479,11 @@ class MOPPO(MOPolicy):
             Tuple[th.Tensor, bool, int, int]: Next observation, whether the episode is done,
                                             average reward, and total grid2op steps.
         """
-        grid2op_steps_per_episode=0
+        cs_steps=0
         for gym_step in range(self.batch_size):
             if done:
                 self.env.reset(options={"max step": 7*288})#one week
-                grid2op_steps_per_episode=0
+                self.chronic_steps=0
 
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(
@@ -497,24 +497,24 @@ class MOPPO(MOPolicy):
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
 
             self.batch.add(obs, action, logprob, reward, done, value)
-            steps_in_gymstep = info["steps"]
+            self.chronic_steps += info["steps"]
             # Append rewards to training_rewards
             self.training_rewards.append(reward.cpu().numpy())
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
-            grid2op_steps_per_episode += steps_in_gymstep
+
             
             # Log the training reward for each step
             log_data = {
                 f"train/reward_{i}": reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
-            log_data[f"train/grid2opsteps"] = grid2op_steps_per_episode
+            log_data[f"train/grid2opsteps"] = self.chronic_steps
             if self.log:
                 wandb.log(log_data, step=self.global_step)
 
-        return obs, done, self.batch.rewards.mean().item(), grid2op_steps
+        return obs, done, self.batch.rewards.mean().item()
 
 
     def __compute_advantages(
@@ -610,7 +610,7 @@ class MOPPO(MOPolicy):
         """
     
         eval_done = False
-        eval_state = self.env_val.reset()
+        eval_state = self.env_val.reset(options={"max step": 7*288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
 
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
@@ -678,16 +678,20 @@ class MOPPO(MOPolicy):
 
             # Evaluate and log evaluation rewards
             eval_rewards = []
-            for _ in range(30):
-                if eval_done:
-                    eval_state = self.env_val.reset()
+            eval_actions = []
+            eval_states = []
+            eval_state = self.env_val.reset(options={"max step": 7*288})
+            #eval for chronic
+            eval_done = False
+            while not eval_done: 
                 eval_action = self.eval(eval_state, self.weights.cpu().numpy())
                 eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
                 eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
                 eval_rewards.append(eval_reward)
+                eval_actions.append(eval_action)
+                eval_states.append(eval_state)
                  # Append rewards to evaluation_rewards
                 
-            
             eval_rewards = th.stack(eval_rewards).mean(dim=0)
             self.evaluation_rewards.append(eval_rewards.cpu().numpy())
             if self.log: 
@@ -696,13 +700,31 @@ class MOPPO(MOPolicy):
                  for i in range(self.networks.reward_dim)
                 }
                 wandb.log(log_val_data, step=self.global_step)
-
+                
+            
             if (
                 self.target_kl is not None
                 and approx_kl is not None
                 and approx_kl > self.target_kl
             ):
                 break
+            ##logging of eval data
+            # Convert lists to serializable format
+        eval_rewards_serializable = [reward.cpu().numpy().tolist() for reward in eval_rewards]
+        eval_actions_serializable = [action.tolist() if isinstance(action, (list, np.ndarray)) else action for action in eval_actions]
+        eval_states_serializable = [state.tolist() if isinstance(state, (list, np.ndarray)) else state for state in eval_states]
+
+        # Create a dictionary
+        eval_data = {
+            "eval_rewards": eval_rewards_serializable,
+            "eval_actions": eval_actions_serializable,
+            "eval_states": eval_states_serializable
+        }
+
+        # Write the dictionary to a JSON file
+        with open("eval_data.json", "w") as json_file:
+            json.dump(eval_data, json_file, indent=4)
+            
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
@@ -739,21 +761,24 @@ class MOPPO(MOPolicy):
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
-        grid2op_steps = 0
+        state = self.env.reset(options={"max step": 7*288})
+        self.chronic_steps=0
+        next_obs = th.Tensor(state).to(self.device)
+        done = False
+        
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step =0
         self.global_step = 0
         for trainings in range(num_trainings):
-            state = self.env.reset(options={"max step": 7*288})
-            grid2op_steps=0
-            next_obs = th.Tensor(state).to(self.device)
-            done = False
+            if done: 
+                state = self.env.reset(options={"max step": 7*288})
+                self.chronic_steps=0
+                next_obs = th.Tensor(state).to(self.device)
+                done = False
 
-            next_obs, done, _, grid2op_steps_from_training = self.__collect_samples(
-                next_obs, done, grid2op_steps=grid2op_steps
-            )
-
-            grid2op_steps += grid2op_steps_from_training
+            next_obs, done, _  = self.__collect_samples(
+                next_obs, done)
+            
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
             if self.anneal_lr:

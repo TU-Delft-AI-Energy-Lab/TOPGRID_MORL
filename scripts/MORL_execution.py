@@ -79,7 +79,7 @@ def main(seed: int, config: str) -> None:
         action_dim=action_dim,
         reward_dim=reward_dim,
         run_name="Run",
-        net_arch=[64, 128, 64],
+        net_arch=[64, 64],
         **agent_params,
     )
 
