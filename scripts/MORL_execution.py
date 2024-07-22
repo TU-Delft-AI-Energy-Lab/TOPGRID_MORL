@@ -7,11 +7,11 @@ import os
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
-from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent  # Import the DoNothingAgent class
 
 
 
-def main(seed: int, config: str, weights: list) -> None:
+def main(seed: int, config: str) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
@@ -27,7 +27,8 @@ def main(seed: int, config: str, weights: list) -> None:
         config = json.load(config_file)
     
     agent_params = config["agent_params"]
-    weights = np.array(weights)  # Convert to numpy array for consistency
+    weight_vectors = config['weight_vectors']
+    weights = np.array(weight_vectors)  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
 
     # Step 1: Setup Environment
@@ -93,12 +94,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", type=str, default="base_config.json", help="Path to the configuration file (default: configs/base_config.json)"
     )
-    parser.add_argument(
-        "--weights", type=str, default="[[1,0,0],[0,1,0],[0,0,1]]", help="Weight vectors for the experiment"
-    )
     args = parser.parse_args()
     
-    # Use ast.literal_eval to safely parse the weights argument
-    weights_list = ast.literal_eval(args.weights)
-    main(args.seed, args.config, weights_list)
+
+    main(args.seed, args.config)
 

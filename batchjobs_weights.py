@@ -37,9 +37,6 @@ os.makedirs(batch_dir, exist_ok=True)
 
 # Define the weight vectors (example combinations)
 weight_vectors = [ 
-    [1, 0, 0],
-    [0, 1, 0],
-    [0,0,1],
     [0.5, 0.25, 0.25], 
     [0.25, 0.25, 0.5], 
     [0.5, 0.5, 0],

@@ -97,6 +97,9 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             cum_reward += reward
 
+            if done:
+                break  # Exit the loop if done is True
+
         reward += cum_reward  # Accumulate the rewards
 
         info["steps"] = self.steps
