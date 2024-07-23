@@ -2,7 +2,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 8,
+        "steps_per_iteration": 16,
         "num_minibatches": 2,
         "update_epochs": 1,
         "learning_rate": 3e-4,
@@ -20,13 +20,7 @@
         "device": "cpu"
     },
     "weight_vectors": [
-        [0.5, 0.25, 0.25], 
-        [0.25, 0.25, 0.5], 
-        [0.5, 0.5, 0],
-        [0.25, 0.25, 0.5],
-        [0.75, 0.25, 0],
-        [0.25, 0.75, 0], 
-        [0.2, 0.6, 0.2]
+        [0.1,0,0]
     ],
-    "max_gym_steps": 16
+    "max_gym_steps": 128
 }
