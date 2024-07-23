@@ -18,6 +18,7 @@ from typing_extensions import override
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.utils.Dataloader import DataLoader
+from topgrid_morl.utils.Grid2op_eval import evaluate_agent
 
 class PPOReplayBuffer:
     """Replay buffer for single environment."""
@@ -678,20 +679,16 @@ class MOPPO(MOPolicy):
 
             # Evaluate and log evaluation rewards
             eval_rewards = []
-            eval_actions = []
-            eval_states = []
-            eval_state = self.env_val.reset(options={"max step": 7*288})
-            #eval for chronic
-            eval_done = False
-            while not eval_done: 
+            for _ in range(30):
+                if eval_done:
+                    eval_state = self.env_val.reset()
                 eval_action = self.eval(eval_state, self.weights.cpu().numpy())
                 eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
                 eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
                 eval_rewards.append(eval_reward)
-                eval_actions.append(eval_action)
-                eval_states.append(eval_state)
                  # Append rewards to evaluation_rewards
                 
+            
             eval_rewards = th.stack(eval_rewards).mean(dim=0)
             self.evaluation_rewards.append(eval_rewards.cpu().numpy())
             if self.log: 
@@ -708,24 +705,13 @@ class MOPPO(MOPolicy):
                 and approx_kl > self.target_kl
             ):
                 break
-            ##logging of eval data
-            # Convert lists to serializable format
-        eval_rewards_serializable = [reward.cpu().numpy().tolist() for reward in eval_rewards]
-        eval_actions_serializable = [action.tolist() if isinstance(action, (list, np.ndarray)) else action for action in eval_actions]
-        eval_states_serializable = [state.tolist() if isinstance(state, (list, np.ndarray)) else state for state in eval_states]
-
-        # Create a dictionary
-        eval_data = {
-            "eval_rewards": eval_rewards_serializable,
-            "eval_actions": eval_actions_serializable,
-            "eval_states": eval_states_serializable
-        }
-
-        # Write the dictionary to a JSON file
-        with open("eval_data.json", "w") as json_file:
-            json.dump(eval_data, json_file, indent=4)
             
-
+            # Evaluate and log evaluation rewards
+        
+        eval_done = False
+        eval_state = self.env_val.reset(options={"max step": 7*288})
+        evaluate_agent(self, self.env_val, eval_steps=7*288, eval_counter=self.eval_counter)
+        self.eval_counter+=1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -765,10 +751,12 @@ class MOPPO(MOPolicy):
         self.chronic_steps=0
         next_obs = th.Tensor(state).to(self.device)
         done = False
+    
         
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step =0
         self.global_step = 0
+        self.eval_counter = 0 
         for trainings in range(num_trainings):
             if done: 
                 state = self.env.reset(options={"max step": 7*288})
@@ -781,6 +769,7 @@ class MOPPO(MOPolicy):
             
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
+
             if self.anneal_lr:
                 frac = 1.0 - (self.global_step / max_gym_steps)
                 new_lr = self.learning_rate * frac
