@@ -128,16 +128,15 @@ class ScaledTopoActionReward(BaseReward):
         
         action_dict = action.as_dict()
         
-        if action_dict == {}:
-            return reward #no topo action
-        if list(action_dict.keys())[0] == 'set_bus_vect':
+        if action_dict != {}:
+            if list(action_dict.keys())[0] == 'set_bus_vect':
             #Modification of Topology
-            nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
+                nb_mod_objects = action_dict['set_bus_vect']['nb_modif_objects']
                 #print("nb_mod_objects")
-            reward = - self.penalty_factor * nb_mod_objects
-        else: 
+                reward = - self.penalty_factor * nb_mod_objects
+            else: 
                 #line switching
-            reward = - 1 * self.penalty_factor
+                reward = - 1 * self.penalty_factor
         # Check for zero division
         norm_reward = reward / 60
         # or handle it in another appropriate way

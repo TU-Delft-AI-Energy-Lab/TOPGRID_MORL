@@ -5,7 +5,11 @@ import numpy as np
 from typing import List, Dict, Any, Tuple
 
 def format_weights(weights: np.ndarray) -> str:
-    return "_".join(map(str, weights.cpu().numpy().astype(int)))
+    weights_np = weights.cpu().numpy()
+    if weights_np.dtype.kind in 'iu':  # Integer or unsigned integer
+        return "_".join(map(str, weights_np.astype(int)))
+    else:
+        return "_".join(map(lambda x: f"{x:.2f}", weights_np))
 
 def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> None:
     """
@@ -24,10 +28,11 @@ def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> N
     
     eval_done = False
     eval_state = env.reset(options={"max step": eval_steps})
-    
+    eval_steps = 0 
     while not eval_done: 
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
         eval_state, eval_reward, eval_done, eval_info = env.step(eval_action)
+        eval_steps += eval_info['steps']
         
         eval_reward = th.tensor(eval_reward).to(agent.device).view(agent.networks.reward_dim)
         
@@ -38,7 +43,8 @@ def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> N
     eval_data = {
         "eval_rewards": eval_rewards,
         "eval_actions": eval_actions,
-        "eval_states": eval_states
+        "eval_states": eval_states,
+        "eval_steps": eval_steps
     }
     
     # Create directories for environment name and weights
@@ -56,4 +62,4 @@ def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> N
     with open(filepath, "w") as json_file:
         json.dump(eval_data, json_file, indent=4)
     
-    print(f"Evaluation data saved to {filepath}")
+  
