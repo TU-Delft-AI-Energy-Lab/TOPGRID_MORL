@@ -106,12 +106,13 @@ class ScaledTopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
         self.penalty_factor = penalty_factor
         self.rewardNr = 2
-        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.rewardNr))
+        #self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.rewardNr))
+        self.reward_max = 60
         super().__init__(logger)
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
-            return -1  # Penalize for illegal or erroneous actions
+           return -1  # Penalize for illegal or erroneous actions
         """
         Compute the reward for the given action in the environment.
 
@@ -124,25 +125,21 @@ class ScaledTopoActionReward(BaseReward):
         - reward (float): The computed reward value.
         """
         reward =0
-
+        
         action_dict = action.as_dict()
-
-        if action_dict == {}:
-            return reward #no topo action
-        else:
+        
+        if action_dict != {}:
             if list(action_dict.keys())[0] == 'set_bus_vect':
-                #Modification of Topology
-                nb_mod_objects = action.as_dict()['set_bus_vect']['nb_modif_objects']
+            #Modification of Topology
+                nb_mod_objects = action_dict['set_bus_vect']['nb_modif_objects']
                 #print("nb_mod_objects")
-                reward = - (self.penalty_factor * nb_mod_objects)
+                reward = - self.penalty_factor * nb_mod_objects
             else: 
                 #line switching
-                reward = - (1 * self.penalty_factor )  
+                reward = - 1 * self.penalty_factor
         # Check for zero division
-        if self.reward_max != self.reward_min:
-            norm_reward = (reward - self.reward_min) / (self.reward_max - self.reward_min)
-        else:
-            norm_reward = 0.0  # or handle it in another appropriate way
+        norm_reward = reward / 60
+        # or handle it in another appropriate way
 
         return norm_reward   
             
