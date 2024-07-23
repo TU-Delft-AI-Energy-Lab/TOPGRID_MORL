@@ -63,9 +63,18 @@ gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file
     )
+
+reward=0
+penalty_factor = 10
 gym_env.reset()
-print(gym_env.step(0))
-g2op_act = gym_env.action_space.from_gym(31)
+g2op_act = gym_env.action_space.from_gym(19)
 action_dict = g2op_act.as_dict()
-action_dict.keys()
-print(list(action_dict.keys())[0])
+if action_dict == {}:
+            print(reward) #no topo action
+if list(action_dict.keys())[0] == 'set_bus_vect':
+    #Modification of Topology
+    nb_mod_objects = action_dict['set_bus_vect']['nb_modif_objects']
+         #print("nb_mod_objects")
+    reward = - penalty_factor * nb_mod_objects
+print(reward)
+
