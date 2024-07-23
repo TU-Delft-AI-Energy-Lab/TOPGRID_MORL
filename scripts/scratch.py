@@ -1,3 +1,4 @@
+"""
 import numpy as np
 
 # Number of weight vectors
@@ -20,7 +21,6 @@ for _ in range(num_vectors):
 # Print the generated weight vectors
 for i, wv in enumerate(weight_vectors):
     print(f"Weight vector {i+1}: {wv}")
-
 """
 import argparse
 import json
@@ -28,10 +28,10 @@ import json
 import numpy as np
 from grid2op.Reward import EpisodeDurationReward
 
-from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
+from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledTopoActionReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
-from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
+#from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 env_name = "rte_case5_example"
 
@@ -59,10 +59,13 @@ gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "TopoAction"],
+        first_reward=ScaledEpisodeDurationReward,
+        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file
     )
-print(gym_env.step(31))
-
-"""
+gym_env.reset()
+print(gym_env.step(0))
+g2op_act = gym_env.action_space.from_gym(31)
+action_dict = g2op_act.as_dict()
+action_dict.keys()
+print(list(action_dict.keys())[0])
