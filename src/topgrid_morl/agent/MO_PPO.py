@@ -710,7 +710,7 @@ class MOPPO(MOPolicy):
         
         eval_done = False
         eval_state = self.env_val.reset(options={"max step": 7*288})
-        evaluate_agent(self, self.env_val, eval_steps=7*288, eval_counter=self.eval_counter)
+        evaluate_agent(agent=self, env=self.env_val, weights=self.weights, eval_steps=7*288, eval_counter=self.eval_counter)
         self.eval_counter+=1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)

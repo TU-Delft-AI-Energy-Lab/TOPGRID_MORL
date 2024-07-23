@@ -112,7 +112,7 @@ class ScaledTopoActionReward(BaseReward):
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
-           return 0  # Penalize for illegal or erroneous actions
+           return -1  # Penalize for illegal or erroneous actions
         """
         Compute the reward for the given action in the environment.
 
