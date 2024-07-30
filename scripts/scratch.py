@@ -54,7 +54,7 @@ if env_name == "rte_case5_example":
     actions_file = 'filtered_actions.json'
 
 
-gym_env, obs_dim, action_dim, reward_dim = setup_environment(
+gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
@@ -64,6 +64,7 @@ gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         actions_file=actions_file
     )
 obs = gym_env.reset(options={"time serie id": "01"} )
-gym_env.set_id(0)
 obs, reward, done, info = gym_env.step(1)
-print(info)
+chronics =g2op_env.chronics_handler.available_chronics()
+print(chronics)
+

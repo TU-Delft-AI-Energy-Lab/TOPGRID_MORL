@@ -11,7 +11,7 @@ def format_weights(weights: np.ndarray) -> str:
     else:
         return "_".join(map(lambda x: f"{x:.2f}", weights_np))
 
-def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> None:
+def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int, eval_counter: int) -> None:
     """
     Evaluate the agent on a single chronic and save the results.
 
@@ -22,10 +22,10 @@ def evaluate_agent(agent, weights, env, eval_steps: int, eval_counter: int) -> N
         eval_steps (int): The maximum number of steps for evaluation.
         eval_counter (int): The current evaluation counter.
     """
+    chronics = g2op_env_val.chronics_handler.available_chronics()
     eval_rewards = []
     eval_actions = []
     eval_states = []
-    
     eval_done = False
     eval_state = env.reset(options={"max step": eval_steps})
     eval_steps = 0 
