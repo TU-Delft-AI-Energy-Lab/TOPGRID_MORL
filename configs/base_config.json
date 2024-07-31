@@ -27,7 +27,14 @@
         "act_fct": "relu"
     },
     "weight_vectors": [
-        [0, 1, 0]
+        [1, 0, 0]
     ],
-    "max_gym_steps": 1024
+    "max_gym_steps": 1024,
+    "rewards": {
+        "first": "ScaledLinesCapacity",
+        "second": "EpisodeDuration",
+        "third": "TopoAction"
+    }
+
+    
 }

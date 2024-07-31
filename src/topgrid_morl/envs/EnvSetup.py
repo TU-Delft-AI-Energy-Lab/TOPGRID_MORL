@@ -11,20 +11,10 @@ from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import TopoActionReward, ScaledTopoActionReward, ScaledLinesCapacityReward, ScaledEpisodeDurationReward
-
-reward1 = ScaledEpisodeDurationReward
-reward2 = ScaledLinesCapacityReward
-reward3 = ScaledTopoActionReward
+from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward,  ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-# Log the rewards using % formatting
-logger.info("The rewards are %s, %s, %s", reward1, reward2, reward3)
+
 
 
 class CustomDiscreteActions(Discrete):
@@ -50,11 +40,11 @@ def setup_environment(
     test: bool = False,
     action_space: int = 53,
     seed: int = 0,
-    first_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
-    rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
+    first_reward: grid2op.Reward.BaseReward = LinesCapacityReward,
+    rewards_list: List[str] = ["EpisodeDuration", "TopoAction"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
-    max_rho: float = 0.9
+    max_rho: float = 0.95
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -135,7 +125,5 @@ def setup_environment(
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
 
-    logger.info(gym_env.action_space)
-    logger.info(f"Environment setup completed for {env_name} with Gym compatibility.")
 
     return gym_env, gym_env.observation_space.shape, action_space, reward_dim, g2op_env

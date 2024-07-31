@@ -29,5 +29,11 @@
     "weight_vectors": [
         [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.33, 0.33, 0.33], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]
     ],
-    "max_gym_steps": 4096
+    "max_gym_steps": 4096,
+    "rewards": {
+        "first": "ScaledLinesCapacity",
+        "second": "EpisodeDuration",
+        "third": "TopoAction"
+    }
+
 }

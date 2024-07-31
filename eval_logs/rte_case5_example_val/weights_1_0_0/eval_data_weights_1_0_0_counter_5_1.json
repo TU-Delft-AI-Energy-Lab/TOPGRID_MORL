@@ -2,8 +2,8 @@
     "eval_chronic": "C:\\Users\\thoma\\data_grid2op\\rte_case5_example_val\\chronics\\19",
     "eval_rewards": [
         [
-            1.0,
             0.9597582411634392,
+            2.0,
             0.0
         ]
     ],

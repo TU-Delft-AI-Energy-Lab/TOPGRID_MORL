@@ -8,7 +8,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
     DoNothingAgent,
 )
 from topgrid_morl.envs.EnvSetup import setup_environment
-from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward
+from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 
 
@@ -35,6 +35,8 @@ def main(seed: int, config: str) -> None:
     max_rho = env_params["max_rho"]
     network_params = config["network_params"]
     net_arch = network_params["net_arch"]
+    rewards = config["rewards"]
+    reward_list = [rewards["second"], rewards["third"]]
     
 
     # Step 1: Setup Environment
@@ -52,8 +54,8 @@ def main(seed: int, config: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        first_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+        first_reward=ScaledLinesCapacityReward,
+        rewards_list=reward_list,
         actions_file=actions_file,
         max_rho = max_rho
     )
@@ -63,8 +65,8 @@ def main(seed: int, config: str) -> None:
         test=False,
         seed=seed,
         action_space=53,
-        first_reward=ScaledEpisodeDurationReward,
-        rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
+        first_reward=ScaledLinesCapacityReward,
+        rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_val",
         max_rho = max_rho
@@ -89,8 +91,9 @@ def main(seed: int, config: str) -> None:
         run_name="Run",
         net_arch=net_arch,
         g2op_env=g2op_env, 
-        g2op_env_val= g2op_env_val, 
-        **agent_params,
+        g2op_env_val= g2op_env_val,
+        reward_list = reward_list,
+        **agent_params
     )
 
 

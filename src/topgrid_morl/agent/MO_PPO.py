@@ -751,7 +751,8 @@ class MOPPO(MOPolicy):
                 global_step=self.global_step,
                 reward_dim=self.networks.reward_dim,
                 chronic=chronic,
-                idx=idx
+                idx=idx,
+                reward_list = self.reward_list
             )
             eval_rewards.append(th.stack(eval_data['eval_rewards']).mean(dim=0))
             eval_steps.append(eval_data['eval_steps'])
@@ -793,15 +794,17 @@ class MOPPO(MOPolicy):
     def train(
         self,
         max_gym_steps: int,
-        reward_dim: int
+        reward_dim: int,
+        reward_list: list,
     ) -> None:
-        """
+        """fwan
         Train the agent.
 
         Args:
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
+        self.reward_list =reward_list
         state = self.env.reset(options={"max step": 7*288})
         self.chronic_steps = 0
         next_obs = th.Tensor(state).to(self.device)

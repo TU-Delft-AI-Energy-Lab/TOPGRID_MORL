@@ -179,7 +179,7 @@ def train_agent(
     run_name: str,
     net_arch: List[int] = [64, 64],
     generate_reward: bool = False,
-    
+    reward_list: List = ["ScaledEpisodeDuration", "ScaledTopoAction"],
     **agent_params: Any,
 ) -> None:
     """
@@ -216,7 +216,7 @@ def train_agent(
             ),
             group=weights_str
         )
-        agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
+        agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim, reward_list=reward_list)
         run.finish()
         run = wandb.init(
             project="TOPGrid_MORL_5bus",
