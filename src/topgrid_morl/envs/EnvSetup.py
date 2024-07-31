@@ -11,7 +11,7 @@ from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward,  ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
+from topgrid_morl.envs.GridRewards import ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward,  ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
 
 
 
@@ -64,7 +64,7 @@ def setup_environment(
     """
     
    
-
+    print(rewards_list)
     # Create environment
     g2op_env = grid2op.make(
         env_name+env_type,

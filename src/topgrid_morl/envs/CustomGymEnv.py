@@ -78,14 +78,7 @@ class CustomGymEnv(GymEnv):
 
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         
-        to_reco = ~g2op_obs.line_status
-        self.reconnect_line = []
-        if np.any(to_reco):
-            reco_id = np.where(to_reco)[0]
-            for line_id in reco_id:
-                g2op_act = self.init_env.action_space(
-                    {"set_line_status": [(line_id, +1)]}
-                )
+        
 
         #         self.reconnect_line.append(g2op_act)
         tmp_steps +=1 
