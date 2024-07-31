@@ -21,7 +21,16 @@ from topgrid_morl.utils.Dataloader import DataLoader
 from topgrid_morl.utils.Grid2op_eval import evaluate_agent
 
 class PPOReplayBuffer:
-    """Replay buffer for single environment."""
+    """
+    Replay buffer for single environment.
+
+    Attributes:
+        size (int): Maximum size of the buffer.
+        obs_shape (Tuple[int, ...]): Shape of the observations.
+        action_shape (Tuple[int, ...]): Shape of the actions.
+        reward_dim (int): Dimension of the rewards.
+        device (Union[th.device, str]): Device to store the buffer.
+    """
 
     def __init__(
         self,
@@ -89,7 +98,8 @@ class PPOReplayBuffer:
             step (int): The index of the step.
 
         Returns:
-            Tuple containing observation, action, log probability, reward, done, and value.
+            Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+            Observation, action, log probability, reward, done, and value.
         """
         return (
             self.obs[step],
@@ -107,8 +117,9 @@ class PPOReplayBuffer:
         Get all experiences in the buffer.
 
         Returns:
-            Tuple containing all observations, actions, log probabilities,
-            rewards, dones, and values up to the current pointer.
+            Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+            All observations, actions, log probabilities, rewards, dones, and values
+            up to the current pointer.
         """
         return (
             self.obs,
@@ -206,7 +217,15 @@ def _value_init(layer: nn.Module) -> None:
 
 
 class MOPPONet(nn.Module):
-    """Neural network for the MOPPO agent."""
+    """
+    Neural network for the MOPPO agent.
+
+    Attributes:
+        obs_shape (Tuple[int, ...]): Shape of the observations.
+        action_dim (int): Dimension of the action space.
+        reward_dim (int): Dimension of the reward space.
+        net_arch (List[int]): Architecture of the neural network.
+    """
 
     def __init__(
         self,
@@ -214,6 +233,7 @@ class MOPPONet(nn.Module):
         action_dim: int,
         reward_dim: int,
         net_arch: List[int] = [64, 64],
+        act_fcn=nn.ReLU
     ) -> None:
         """
         Initialize the neural network.
@@ -229,14 +249,12 @@ class MOPPONet(nn.Module):
         self.action_dim = action_dim
         self.reward_dim = reward_dim
         self.net_arch = net_arch
-        
-    
 
         self.critic = mlp(
             input_dim=np.prod(self.obs_shape),
             output_dim=self.reward_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.critic.apply(_hidden_layer_init)
         _critic_init(list(self.critic.modules())[-1])
@@ -245,7 +263,7 @@ class MOPPONet(nn.Module):
             input_dim=np.prod(self.obs_shape),
             output_dim=self.action_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.actor.apply(_hidden_layer_init)
         _value_init(list(self.actor.modules())[-1])
@@ -284,7 +302,34 @@ class MOPPONet(nn.Module):
 
 
 class MOPPO(MOPolicy):
-    """Multi-Objective Proximal Policy Optimization algorithm."""
+    """
+    Multi-Objective Proximal Policy Optimization algorithm.
+
+    Attributes:
+        id (int): Identifier for the agent.
+        networks (MOPPONet): Neural network for the agent.
+        weights (npt.NDArray[np.float64]): Weights for the objectives.
+        env (CustomGymEnv): Custom gym environment.
+        log (bool): Whether to log the training process.
+        steps_per_iteration (int): Steps per iteration.
+        num_minibatches (int): Number of minibatches.
+        update_epochs (int): Number of update epochs.
+        learning_rate (float): Learning rate.
+        gamma (float): Discount factor.
+        anneal_lr (bool): Whether to anneal the learning rate.
+        clip_coef (float): Clipping coefficient.
+        ent_coef (float): Entropy coefficient.
+        vf_coef (float): Value function coefficient.
+        clip_vloss (bool): Whether to clip value loss.
+        max_grad_norm (float): Maximum gradient norm.
+        norm_adv (bool): Whether to normalize advantages.
+        target_kl (Optional[float]): Target KL divergence.
+        gae (bool): Whether to use Generalized Advantage Estimation.
+        gae_lambda (float): GAE lambda.
+        device (Union[th.device, str]): Device to use.
+        seed (int): Random seed.
+        rng (Optional[np.random.Generator]): Random number generator.
+    """
 
     def __init__(
         self,
@@ -390,7 +435,6 @@ class MOPPO(MOPolicy):
         )
 
         # Add logs for state-action pairs and rewards
-        
         self.state_action_log = []
         self.rewards_log = []
         
@@ -413,6 +457,9 @@ class MOPPO(MOPolicy):
             copied_net,
             self.weights.detach().cpu().numpy(),
             self.env,
+            self.env_val,
+            self.g2op_env, 
+            self.g2op_env_val,
             self.log,
             self.steps_per_iteration,
             self.num_minibatches,
@@ -430,6 +477,9 @@ class MOPPO(MOPolicy):
             self.gae,
             self.gae_lambda,
             self.device,
+            self.seed,
+            self.generate_reward,
+            self.np_random,
         )
         
         copied.global_step = self.global_step
@@ -471,24 +521,22 @@ class MOPPO(MOPolicy):
 
     def __collect_samples(
         self, obs: th.Tensor, done: bool
-    ) -> Tuple[th.Tensor, bool, int, int]:
+    ) -> Tuple[th.Tensor, bool, int]:
         """
         Collect samples by interacting with the environment.
 
         Args:
             obs (th.Tensor): Initial observation.
             done (bool): Whether the episode is done.
-            grid2op_steps (int): Total number of steps taken in the environment.
 
         Returns:
-            Tuple[th.Tensor, bool, int, int]: Next observation, whether the episode is done,
-                                            average reward, and total grid2op steps.
+            Tuple[th.Tensor, bool, int]: Next observation, whether the episode is done,
+                                            and average reward.
         """
-        cs_steps=0
         for gym_step in range(self.batch_size):
             if done:
-                self.env.reset(options={"max step": 7*288})#one week
-                self.chronic_steps=0
+                self.env.reset(options={"max step": 7*288})  # One week
+                self.chronic_steps = 0
 
             with th.no_grad():
                 action, logprob, _, value = self.networks.get_action_and_value(
@@ -503,13 +551,13 @@ class MOPPO(MOPolicy):
 
             self.batch.add(obs, action, logprob, reward, done, value)
             self.chronic_steps += info["steps"]
+
             # Append rewards to training_rewards
             self.training_rewards.append(reward.cpu().numpy())
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
 
-            
             # Log the training reward for each step
             log_data = {
                 f"train/reward_{i}": reward[i].item()
@@ -613,7 +661,6 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
-    
         eval_done = False
         eval_state = self.env_val.reset(options={"max step": 7*288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
@@ -681,28 +728,6 @@ class MOPPO(MOPolicy):
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
-            # Evaluate and log evaluation rewards
-            eval_rewards = []
-            for _ in range(30):
-                if eval_done:
-                    eval_state = self.env_val.reset()
-                eval_action = self.eval(eval_state, self.weights.cpu().numpy())
-                eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
-                eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
-                eval_rewards.append(eval_reward)
-                 # Append rewards to evaluation_rewards
-                
-            """
-            eval_rewards = th.stack(eval_rewards).mean(dim=0)
-            self.evaluation_rewards.append(eval_rewards.cpu().numpy())
-            if self.log: 
-                log_val_data = {
-                  f"eval/reward_{i}": eval_rewards[i].item()
-                 for i in range(self.networks.reward_dim)
-                }
-                wandb.log(log_val_data, step=self.global_step)
-            """    
-            
             if (
                 self.target_kl is not None
                 and approx_kl is not None
@@ -711,9 +736,6 @@ class MOPPO(MOPolicy):
                 break
             
             # Evaluate and log evaluation rewards
-        
-        eval_done = False
-        eval_state = self.env_val.reset(options={"max step": 7*288})
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
         eval_rewards= []
         eval_steps= []
@@ -735,12 +757,18 @@ class MOPPO(MOPolicy):
             eval_steps.append(eval_data['eval_steps'])
             
         eval_rewards = th.stack(eval_rewards).mean(dim=0)
+        eval_steps =np.array(eval_steps).mean()
+        
         self.evaluation_rewards.append(eval_rewards.cpu().numpy())
         if self.log:
-            log_val_data = {
+            log_rew_data = {
                 f"eval/reward_{i}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
             }
-            wandb.log(log_val_data, step=self.global_step)
+            log_step_data = {
+                f"eval/steps": eval_steps
+            }
+            wandb.log(log_rew_data, step=self.global_step)
+            wandb.log(log_step_data, step=self.global_step)
     
         self.eval_counter+=1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
@@ -762,10 +790,6 @@ class MOPPO(MOPolicy):
                 }
             )
 
-      
-                
-        
-        
     def train(
         self,
         max_gym_steps: int,
@@ -779,23 +803,22 @@ class MOPPO(MOPolicy):
             reward_dim (int): Dimension of the reward.
         """
         state = self.env.reset(options={"max step": 7*288})
-        self.chronic_steps=0
+        self.chronic_steps = 0
         next_obs = th.Tensor(state).to(self.device)
         done = False
     
-        
         num_trainings = int(max_gym_steps / self.batch_size)
-        self.eval_step =0
+        self.eval_step = 0
         self.global_step = 0
         self.eval_counter = 0 
         for trainings in range(num_trainings):
             if done: 
                 state = self.env.reset(options={"max step": 7*288})
-                self.chronic_steps=0
+                self.chronic_steps = 0
                 next_obs = th.Tensor(state).to(self.device)
                 done = False
 
-            next_obs, done, _  = self.__collect_samples(
+            next_obs, done, _ = self.__collect_samples(
                 next_obs, done)
             
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)

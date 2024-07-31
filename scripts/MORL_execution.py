@@ -31,6 +31,11 @@ def main(seed: int, config: str) -> None:
     weight_vectors = config["weight_vectors"]
     weights = np.array(weight_vectors)  # Convert to numpy array for consistency
     max_gym_steps = config["max_gym_steps"]
+    env_params = config["env_params"]
+    max_rho = env_params["max_rho"]
+    network_params = config["network_params"]
+    net_arch = network_params["net_arch"]
+    
 
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
@@ -50,6 +55,7 @@ def main(seed: int, config: str) -> None:
         first_reward=ScaledEpisodeDurationReward,
         rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file,
+        max_rho = max_rho
     )
 
     gym_env_val, _, _, _, g2op_env_val = setup_environment(
@@ -61,6 +67,8 @@ def main(seed: int, config: str) -> None:
         rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file,
         env_type="_val",
+        max_rho = max_rho
+        
     )
 
     # Reset the environment to verify dimensions
@@ -79,7 +87,7 @@ def main(seed: int, config: str) -> None:
         action_dim=action_dim,
         reward_dim=reward_dim,
         run_name="Run",
-        net_arch=[64, 64],
+        net_arch=net_arch,
         g2op_env=g2op_env, 
         g2op_env_val= g2op_env_val, 
         **agent_params,

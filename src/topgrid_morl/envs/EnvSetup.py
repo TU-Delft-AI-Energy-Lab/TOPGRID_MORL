@@ -54,6 +54,7 @@ def setup_environment(
     rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
+    max_rho: float = 0.9
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -90,7 +91,7 @@ def setup_environment(
     g2op_env.reset()
 
     # Use custom Gym environment
-    gym_env = CustomGymEnv(g2op_env)
+    gym_env = CustomGymEnv(g2op_env, safe_max_rho=max_rho)
 
     # Set rewards in Gym Environment
     gym_env.set_rewards(rewards_list=rewards_list)
