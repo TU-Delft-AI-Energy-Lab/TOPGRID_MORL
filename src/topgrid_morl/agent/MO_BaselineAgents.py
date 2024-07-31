@@ -8,7 +8,7 @@ from topgrid_morl.envs.EnvSetup import setup_environment
 from mo_gymnasium import MORecordEpisodeStatistics
 import gymnasium as gym
 import numpy as np
-from stable_baselines3 import PPO
+
 
 class DoNothingAgent:
     """Baseline agent that always performs action 0."""
@@ -114,63 +114,3 @@ class DoNothingAgent:
                 for i in range(reward_dim)
             }
             wandb.log(log_val_data, step=self.global_step)
-            
-
-class PPOAgent:
-    """Generic PPO agent using stable-baselines3."""
-
-    def __init__(
-        self,
-        env: gym.Env,
-        env_val: gym.Env,
-        device: str = "cpu",
-        **ppo_params
-    ) -> None:
-        """
-        Initialize the PPO agent.
-
-        Args:
-            env (gym.Env): Gym environment for training.
-            env_val (gym.Env): Gym environment for validation.
-            device (str): Device to use.
-            **ppo_params: Additional PPO parameters.
-        """
-        self.env = env
-        self.env_val = env_val
-        self.device = device
-
-        # Create the PPO model
-        self.model = PPO('MlpPolicy', self.env, verbose=1, device=self.device, **ppo_params)
-
-    def train(self, total_timesteps: int) -> None:
-        """
-        Train the PPO agent.
-
-        Args:
-            total_timesteps (int): Total timesteps for training.
-        """
-        self.model.learn(total_timesteps=total_timesteps)
-
-    def evaluate(self, n_eval_episodes: int) -> np.ndarray:
-        """
-        Evaluate the PPO agent.
-
-        Args:
-            n_eval_episodes (int): Number of evaluation episodes.
-
-        Returns:
-            np.ndarray: Average reward per episode.
-        """
-        eval_rewards = []
-        for _ in range(n_eval_episodes):
-            obs = self.env_val.reset()
-            done = False
-            episode_reward = 0
-            while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
-                obs, reward, done, info = self.env_val.step(action)
-                episode_reward += reward
-
-            eval_rewards.append(episode_reward)
-
-        return np.mean(eval_rewards)

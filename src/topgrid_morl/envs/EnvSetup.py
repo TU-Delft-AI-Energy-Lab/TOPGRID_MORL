@@ -137,4 +137,4 @@ def setup_environment(
     logger.info(gym_env.action_space)
     logger.info(f"Environment setup completed for {env_name} with Gym compatibility.")
 
-    return gym_env, gym_env.observation_space.shape, action_space, reward_dim
+    return gym_env, gym_env.observation_space.shape, action_space, reward_dim, g2op_env
