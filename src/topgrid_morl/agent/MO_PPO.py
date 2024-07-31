@@ -214,6 +214,7 @@ class MOPPONet(nn.Module):
         action_dim: int,
         reward_dim: int,
         net_arch: List[int] = [64, 64],
+        act_fcn = nn.ReLU
     ) -> None:
         """
         Initialize the neural network.
@@ -236,7 +237,7 @@ class MOPPONet(nn.Module):
             input_dim=np.prod(self.obs_shape),
             output_dim=self.reward_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.critic.apply(_hidden_layer_init)
         _critic_init(list(self.critic.modules())[-1])
@@ -245,7 +246,7 @@ class MOPPONet(nn.Module):
             input_dim=np.prod(self.obs_shape),
             output_dim=self.action_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.actor.apply(_hidden_layer_init)
         _value_init(list(self.actor.modules())[-1])
@@ -681,27 +682,6 @@ class MOPPO(MOPolicy):
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
 
-            # Evaluate and log evaluation rewards
-            eval_rewards = []
-            for _ in range(30):
-                if eval_done:
-                    eval_state = self.env_val.reset()
-                eval_action = self.eval(eval_state, self.weights.cpu().numpy())
-                eval_state, eval_reward, eval_done, _ = self.env_val.step(eval_action)
-                eval_reward = th.tensor(eval_reward).to(self.device).view(self.networks.reward_dim)
-                eval_rewards.append(eval_reward)
-                 # Append rewards to evaluation_rewards
-                
-            """
-            eval_rewards = th.stack(eval_rewards).mean(dim=0)
-            self.evaluation_rewards.append(eval_rewards.cpu().numpy())
-            if self.log: 
-                log_val_data = {
-                  f"eval/reward_{i}": eval_rewards[i].item()
-                 for i in range(self.networks.reward_dim)
-                }
-                wandb.log(log_val_data, step=self.global_step)
-            """    
             
             if (
                 self.target_kl is not None
@@ -712,8 +692,6 @@ class MOPPO(MOPolicy):
             
             # Evaluate and log evaluation rewards
         
-        eval_done = False
-        eval_state = self.env_val.reset(options={"max step": 7*288})
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
         eval_rewards= []
         eval_steps= []
@@ -735,12 +713,18 @@ class MOPPO(MOPolicy):
             eval_steps.append(eval_data['eval_steps'])
             
         eval_rewards = th.stack(eval_rewards).mean(dim=0)
+        eval_steps =np.array(eval_steps).mean()
+        
         self.evaluation_rewards.append(eval_rewards.cpu().numpy())
         if self.log:
-            log_val_data = {
+            log_rew_data = {
                 f"eval/reward_{i}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
             }
-            wandb.log(log_val_data, step=self.global_step)
+            log_step_data = {
+                f"eval/steps": eval_steps
+            }
+            wandb.log(log_rew_data, step=self.global_step)
+            wandb.log(log_step_data, step=self.global_step)
     
         self.eval_counter+=1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()

@@ -6,7 +6,7 @@ from grid2op.Reward import EpisodeDurationReward, L2RPNReward
 from topgrid_morl.utils.MORL_analysis_utils import generate_variable_name
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
-from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
+from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent  # Import the DoNothingAgent class
 
 
 def main(seed: int, config_path: str) -> None:
@@ -34,22 +34,22 @@ def main(seed: int, config_path: str) -> None:
         action_dim = 134
         actions_file = 'medha_actions.json'
 
-    gym_env, obs_dim, action_dim, reward_dim = setup_environment(
+    gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
+        first_reward=EpisodeDurationReward,
         rewards_list=["LinesCapacity", "TopoAction"],
         actions_file=actions_file
     )
     
-    gym_env_val, _, _, _ = setup_environment(
+    gym_env_val, _, _, _, g2op_env_val = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
         action_space=53,
-        frist_reward=EpisodeDurationReward,
+        first_reward=EpisodeDurationReward,
         rewards_list=["LinesCapacity", "TopoAction"],
         actions_file=actions_file,
         env_type='_val'
@@ -72,6 +72,8 @@ def main(seed: int, config_path: str) -> None:
         run_name="Run",
         net_arch=[64, 128, 64],
         generate_reward=True,
+        g2op_env=g2op_env,
+        g2op_env_val=g2op_env_val,
         **agent_params
         
     )

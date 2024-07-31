@@ -26,8 +26,8 @@ def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int,
     #wandb.define_metric("reward_sum", step_metric="global_step")
 
     # Set the chronic to the environment
-    g2op_env.set_id(chronic)
-    gym_env = CustomGymEnv(g2op_env)
+    g2op_env_val.set_id(chronic)
+    gym_env = CustomGymEnv(g2op_env_val, safe_max_rho=0.95)
 
     # Set rewards in Gym Environment
     rewards_list = ["ScaledLinesCapacity", "ScaledTopoAction"]
@@ -70,7 +70,6 @@ def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int,
     )
 
     # Print the chronic being processed
-    print(f"Processing chronic {idx}: {chronic}")
     eval_chronic = chronic
     eval_rewards = []
     eval_actions = []
