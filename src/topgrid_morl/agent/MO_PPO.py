@@ -560,7 +560,7 @@ class MOPPO(MOPolicy):
 
             # Log the training reward for each step
             log_data = {
-                f"train/reward_{i}": reward[i].item()
+                f"train/reward_{self.reward_list_ext[i]}": reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
             log_data[f"train/grid2opsteps"] = self.chronic_steps
@@ -751,7 +751,9 @@ class MOPPO(MOPolicy):
                 global_step=self.global_step,
                 reward_dim=self.networks.reward_dim,
                 chronic=chronic,
-                idx=idx
+                idx=idx,
+                reward_list = self.reward_list,
+                
             )
             eval_rewards.append(th.stack(eval_data['eval_rewards']).mean(dim=0))
             eval_steps.append(eval_data['eval_steps'])
@@ -760,9 +762,11 @@ class MOPPO(MOPolicy):
         eval_steps =np.array(eval_steps).mean()
         
         self.evaluation_rewards.append(eval_rewards.cpu().numpy())
+        
+        
         if self.log:
             log_rew_data = {
-                f"eval/reward_{i}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
+                f"eval/reward_{self.reward_list_ext[i]}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
             }
             log_step_data = {
                 f"eval/steps": eval_steps
@@ -793,15 +797,18 @@ class MOPPO(MOPolicy):
     def train(
         self,
         max_gym_steps: int,
-        reward_dim: int
+        reward_dim: int,
+        reward_list: list,
     ) -> None:
-        """
+        """fwan
         Train the agent.
 
         Args:
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
+        self.reward_list =reward_list
+        self.reward_list_ext = ['ScaledLinesCapacity', self.reward_list[0], self.reward_list[1]]
         state = self.env.reset(options={"max step": 7*288})
         self.chronic_steps = 0
         next_obs = th.Tensor(state).to(self.device)

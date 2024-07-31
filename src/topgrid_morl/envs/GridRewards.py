@@ -1,10 +1,354 @@
 from typing import Optional
+import copy
 import os
 import numpy as np
 from grid2op.Action import BaseAction
 from grid2op.Environment import BaseEnv
 from grid2op.Reward import BaseReward
 from grid2op.dtypes import dt_float
+from grid2op.Action._backendAction import _BackendAction
+
+
+class DistanceReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+
+        idx = 0
+        diff = dt_float(0.0)
+        for n_elems_on_sub in obs.sub_info:
+            # Find this substation elements range in topology vect
+            sub_start = idx
+            sub_end = idx + n_elems_on_sub
+            current_sub_topo = topo[sub_start:sub_end]
+
+            # Count number of elements not on bus 1
+            # Because at the initial state, all elements are on bus 1
+            diff += dt_float(1.0) * np.count_nonzero(current_sub_topo != 1)
+
+            # Set index to next sub station
+            idx += n_elems_on_sub
+
+        r = np.interp(
+            diff,
+            [dt_float(0.0), len(topo) * dt_float(1.0)],
+            [self.reward_max, self.reward_min],
+        )
+        return r
+    
+class ScaledDistanceReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.reward_max_stat = 1800
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+
+        idx = 0
+        diff = dt_float(0.0)
+        for n_elems_on_sub in obs.sub_info:
+            # Find this substation elements range in topology vect
+            sub_start = idx
+            sub_end = idx + n_elems_on_sub
+            current_sub_topo = topo[sub_start:sub_end]
+
+            # Count number of elements not on bus 1
+            # Because at the initial state, all elements are on bus 1
+            diff += dt_float(1.0) * np.count_nonzero(current_sub_topo != 1)
+
+            # Set index to next sub station
+            idx += n_elems_on_sub
+
+        r = np.interp(
+            diff,
+            [dt_float(0.0), len(topo) * dt_float(1.0)],
+            [self.reward_max, self.reward_min],
+        )
+        normed_r = r/self.reward_max_stat
+        return normed_r
+
+
+class N1Reward(BaseReward):
+    """
+    This class implements a reward that is inspired
+    by the "n-1" criterion widely used in power system.
+    
+    More specifically it returns the maximum flows (on all the powerlines) after a given (as input) a powerline
+    has been disconnected.
+
+    Examples
+    --------
+
+    This can be used as:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import N1Reward
+        L_ID = 0
+        env = grid2op.make("l2rpn_case14_sandbox",
+                           reward_class=N1Reward(l_id=L_ID)
+                          )
+        obs = env.reset()
+        obs, reward, *_ = env.step(env.action_space())
+        print(f"reward: {reward:.3f}")
+        print("We can check that it is exactly like 'simulate' on the current step the disconnection of the same powerline")
+        obs_n1, *_ = obs.simulate(env.action_space({"set_line_status": [(L_ID, -1)]}), time_step=0)
+        print(f"\tmax flow after disconnection of line {L_ID}: {obs_n1.rho.max():.3f}")
+
+    Notes
+    -----
+    It is also possible to use the `other_rewards` argument to simulate multiple powerline disconnections, for example:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import N1Reward
+        L_ID = 0
+        env = grid2op.make("l2rpn_case14_sandbox",
+                           other_rewards={f"line_{l_id}": N1Reward(l_id=l_id)  for l_id in [0, 1]}
+                           )
+        obs = env.reset()
+        obs, reward, *_ = env.step(env.action_space())
+        print(f"reward: {reward:.3f}")
+        print("We can check that it is exactly like 'simulate' on the current step the disconnection of the same powerline")
+        obs_n1, *_ = obs.simulate(env.action_space({"set_line_status": [(L_ID, -1)]}), time_step=0)
+        print(f"\tmax flow after disconnection of line {L_ID}: {obs_n1.rho.max():.3f}")
+
+    """
+
+    def __init__(self, l_id=0, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self._backend = None
+        self._backend_action = None
+        self.l_id = l_id
+
+
+    def initialize(self, env):
+        self._backend = env.backend.copy()
+        bk_act_cls = _BackendAction.init_grid(env.backend)
+        self._backend_action = bk_act_cls()
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if is_done:
+            return self.reward_min
+        self._backend_action.reset()
+        act = env.backend.get_action_to_set()
+        th_lim = env.get_thermal_limit()
+        th_lim[th_lim <= 1] = 1  # assign 1 for the thermal limit
+        this_n1 = copy.deepcopy(act)
+        self._backend_action += this_n1
+            
+        self._backend.apply_action(self._backend_action)
+        self._backend._disconnect_line(self.l_id)
+        div_exc_ = None
+        try:
+            # TODO there is a bug in lightsimbackend that make it crash instead of diverging
+            conv, div_exc_ = self._backend.runpf()
+        except Exception as exc_:
+            conv = False
+            div_exc_ = exc_
+
+        if conv:
+            flow = self._backend.get_line_flow()
+            res = (flow / th_lim).max()
+        else:
+            self.logger.info(f"Divergence of the backend at step {env.nb_time_step} for N1Reward with error `{div_exc_}`")
+            res = -1
+        return res
+
+
+    def close(self):
+        self._backend.close()
+        del self._backend
+        self._backend = None
+
+
+
+class CloseToOverflowReward(BaseReward):
+    """
+    This reward finds all lines close to overflowing.
+    Returns max reward when there is no overflow, min reward if more than one line is close to overflow
+    and the mean between max and min reward if one line is close to overflow
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import CloseToOverflowReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=CloseToOverflowReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with this class (computing the penalty based on the number of overflow)
+
+    """
+
+    def __init__(self, max_lines=5, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.max_overflowed = dt_float(max_lines)
+
+
+    def initialize(self, env):
+        pass
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        thermal_limits = env.backend.get_thermal_limit()
+        lineflow_ratio = env.current_obs.rho
+
+        close_to_overflow = dt_float(0.0)
+        for ratio, limit in zip(lineflow_ratio, thermal_limits):
+            # Seperate big line and small line
+            if (limit < 400.00 and ratio >= 0.95) or ratio >= 0.975:
+                close_to_overflow += dt_float(1.0)
+
+        close_to_overflow = np.clip(
+            close_to_overflow, dt_float(0.0), self.max_overflowed
+        )
+        reward = np.interp(
+            close_to_overflow,
+            [dt_float(0.0), self.max_overflowed],
+            [self.reward_max, self.reward_min],
+        )
+        return reward
+
+
+
+class EpisodeDurationReward(BaseReward):
+    """
+    This reward will always be 0., unless at the end of an episode where it will return the number
+    of steps made by the agent divided by the total number of steps possible in the episode.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import EpisodeDurationReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=EpisodeDurationReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the EpisodeDurationReward class
+
+    Notes
+    -----
+    In case of an environment being "fast forward" (see :func:`grid2op.Environment.BaseEnv.fast_forward_chronics`)
+    the time "during" the fast forward are counted "as if" they were successful.
+
+    This means that if you "fast forward" up until the end of an episode, you are likely to receive a reward of 1.0
+
+
+    """
+
+    def __init__(self, per_timestep=1, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.per_timestep = dt_float(per_timestep)
+        self.total_time_steps = dt_float(0.0)
+        self.reward_nr = 0
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.reward_nr))
+
+    def initialize(self, env):
+        self.reset(env)
+
+    def reset(self, env):
+        if env.chronics_handler.max_timestep() > 0:
+            self.total_time_steps = env.max_episode_duration() * self.per_timestep
+        else:
+            self.total_time_steps = np.inf
+            self.reward_max = np.inf
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if is_done:
+            res = env.nb_time_step
+            if np.isfinite(self.total_time_steps):
+                res /= self.total_time_steps
+        else:
+            res = self.reward_min
+        return res    
+        
 
 class ScaledEpisodeDurationReward(BaseReward):
     """

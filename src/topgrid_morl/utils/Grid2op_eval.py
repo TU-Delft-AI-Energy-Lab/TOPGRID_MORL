@@ -60,9 +60,9 @@ def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx:
         json.dump(eval_data_serializable, json_file, indent=4)
 
 
-def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int, eval_counter: int, global_step, reward_dim, chronic, idx) -> Dict[str, Any]:
+def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int, eval_counter: int, global_step, reward_dim, chronic, idx, reward_list) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
-    rewards_list = ["ScaledLinesCapacity", "ScaledTopoAction"]
+    rewards_list = reward_list
     obs_tennet = ["rho", "gen_p", "load_p", "topo_vect", "p_or", "p_ex", "timestep_overflow"]
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet)
 
