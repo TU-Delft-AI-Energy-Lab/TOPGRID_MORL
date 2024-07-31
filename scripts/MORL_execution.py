@@ -42,7 +42,7 @@ def main(seed: int, config: str) -> None:
         action_dim = 134
         actions_file = "medha_actions.json"
 
-    gym_env, obs_dim, action_dim, reward_dim = setup_environment(
+    gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
@@ -52,7 +52,7 @@ def main(seed: int, config: str) -> None:
         actions_file=actions_file,
     )
 
-    gym_env_val, _, _, _ = setup_environment(
+    gym_env_val, _, _, _, g2op_env_val = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
@@ -80,6 +80,8 @@ def main(seed: int, config: str) -> None:
         reward_dim=reward_dim,
         run_name="Run",
         net_arch=[64, 64],
+        g2op_env=g2op_env, 
+        g2op_env_val= g2op_env_val, 
         **agent_params,
     )
 

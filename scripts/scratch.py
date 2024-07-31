@@ -31,6 +31,7 @@ from grid2op.Reward import EpisodeDurationReward
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledTopoActionReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+from grid2op.Chronics import ChronicsHandler
 #from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 env_name = "rte_case5_example"
@@ -66,5 +67,14 @@ gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
 obs = gym_env.reset(options={"time serie id": "01"} )
 obs, reward, done, info = gym_env.step(1)
 chronics =g2op_env.chronics_handler.available_chronics()
-print(chronics)
+for idx, chronic in enumerate(chronics):
+    # Set the chronic to the environment
+    g2op_env.set_id(chronic)
 
+    # Reset the environment to the beginning of the chronic
+    obs = gym_env.reset()
+
+    # Print the chronic being processed
+    print(f"Processing chronic {idx}: {chronic}")
+
+    
