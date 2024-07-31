@@ -9,8 +9,8 @@
         "gamma": 0.995,
         "anneal_lr": true,
         "clip_coef": 0.2,
-        "ent_coef": 0.1,
-        "vf_coef": 0.5,
+        "ent_coef": 0.2,
+        "vf_coef": 0.8,
         "clip_vloss": true,
         "max_grad_norm": 0.5,
         "norm_adv": true,
@@ -20,7 +20,7 @@
         "device": "cpu"
     },
     "weight_vectors": [
-        [1, 0, 0], [0, 1, 0], [0, 0, 1]
+        [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.33, 0.33, 0.33], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]
     ],
     "max_gym_steps": 4096
 }

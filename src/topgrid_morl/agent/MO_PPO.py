@@ -293,6 +293,8 @@ class MOPPO(MOPolicy):
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
         env_val: CustomGymEnv,
+        g2op_env: Any, 
+        g2op_env_val: Any, 
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -346,6 +348,8 @@ class MOPPO(MOPolicy):
         self.id = id
         self.env = env
         self.env_val = env_val
+        self.g2op_env = g2op_env, 
+        self.g2op_env_val = g2op_env_val
         self.networks = networks
         self.device = device
         self.seed = seed
@@ -688,7 +692,7 @@ class MOPPO(MOPolicy):
                 eval_rewards.append(eval_reward)
                  # Append rewards to evaluation_rewards
                 
-            
+            """
             eval_rewards = th.stack(eval_rewards).mean(dim=0)
             self.evaluation_rewards.append(eval_rewards.cpu().numpy())
             if self.log: 
@@ -697,7 +701,7 @@ class MOPPO(MOPolicy):
                  for i in range(self.networks.reward_dim)
                 }
                 wandb.log(log_val_data, step=self.global_step)
-                
+            """    
             
             if (
                 self.target_kl is not None
@@ -710,7 +714,34 @@ class MOPPO(MOPolicy):
         
         eval_done = False
         eval_state = self.env_val.reset(options={"max step": 7*288})
-        evaluate_agent(agent=self, env=self.env_val, weights=self.weights, eval_steps=7*288, eval_counter=self.eval_counter)
+        chronics = self.g2op_env_val.chronics_handler.available_chronics()
+        eval_rewards= []
+        eval_steps= []
+        for idx, chronic in enumerate(chronics):
+            eval_data = evaluate_agent(
+                agent=self,
+                env=self.env_val,
+                g2op_env=self.g2op_env_val,
+                g2op_env_val=self.g2op_env_val,
+                weights=self.weights,
+                eval_steps=7*288,
+                eval_counter=self.eval_counter,
+                global_step=self.global_step,
+                reward_dim=self.networks.reward_dim,
+                chronic=chronic,
+                idx=idx
+            )
+            eval_rewards.append(th.stack(eval_data['eval_rewards']).mean(dim=0))
+            eval_steps.append(eval_data['eval_steps'])
+            
+        eval_rewards = th.stack(eval_rewards).mean(dim=0)
+        self.evaluation_rewards.append(eval_rewards.cpu().numpy())
+        if self.log:
+            log_val_data = {
+                f"eval/reward_{i}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
+            }
+            wandb.log(log_val_data, step=self.global_step)
+    
         self.eval_counter+=1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)

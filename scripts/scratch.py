@@ -31,6 +31,7 @@ from grid2op.Reward import EpisodeDurationReward
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledTopoActionReward
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.utils.MO_PPO_train_utils import train_agent
+from grid2op.Chronics import ChronicsHandler
 #from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
 
 env_name = "rte_case5_example"
@@ -54,7 +55,7 @@ if env_name == "rte_case5_example":
     actions_file = 'filtered_actions.json'
 
 
-gym_env, obs_dim, action_dim, reward_dim = setup_environment(
+gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         env_name=env_name,
         test=False,
         seed=seed,
@@ -63,18 +64,17 @@ gym_env, obs_dim, action_dim, reward_dim = setup_environment(
         rewards_list=["ScaledLinesCapacity", "ScaledTopoAction"],
         actions_file=actions_file
     )
+obs = gym_env.reset(options={"time serie id": "01"} )
+obs, reward, done, info = gym_env.step(1)
+chronics =g2op_env.chronics_handler.available_chronics()
+for idx, chronic in enumerate(chronics):
+    # Set the chronic to the environment
+    g2op_env.set_id(chronic)
 
-reward=0
-penalty_factor = 10
-gym_env.reset()
-g2op_act = gym_env.action_space.from_gym(19)
-action_dict = g2op_act.as_dict()
-if action_dict == {}:
-            print(reward) #no topo action
-if list(action_dict.keys())[0] == 'set_bus_vect':
-    #Modification of Topology
-    nb_mod_objects = action_dict['set_bus_vect']['nb_modif_objects']
-         #print("nb_mod_objects")
-    reward = - penalty_factor * nb_mod_objects
-print(reward)
+    # Reset the environment to the beginning of the chronic
+    obs = gym_env.reset()
 
+    # Print the chronic being processed
+    print(f"Processing chronic {idx}: {chronic}")
+
+    
