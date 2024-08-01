@@ -218,6 +218,7 @@ def train_agent(
         )
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim, reward_list=reward_list)
         run.finish()
+        """
         run = wandb.init(
             project="TOPGrid_MORL_5bus",
             name=generate_variable_name(
@@ -232,7 +233,7 @@ def train_agent(
         do_nothing_agent = DoNothingAgent(env=env, env_val=env_val, log=agent_params["log"], device=agent_params["device"])
         do_nothing_agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim)
         run.finish()
-
+        """
 
 def train_and_save_donothing_agent(
     action_space: Any,

@@ -41,8 +41,8 @@ def setup_gym_env(g2op_env_val, rewards_list: List[str], obs_tennet: List[str]) 
     return gym_env
 
 
-def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx: int, eval_data: Dict[str, Any]) -> None:
-    dir_path = os.path.join("eval_logs", env_name, f"weights_{weights_str}")
+def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx: int, eval_data: Dict[str, Any], rewards_list) -> None:
+    dir_path = os.path.join("eval_logs", env_name, f"{rewards_list}", f"weights_{weights_str}" )
     os.makedirs(dir_path, exist_ok=True)
 
     filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
@@ -94,6 +94,6 @@ def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int,
 
     env_name = gym_env.init_env.name if hasattr(gym_env.init_env, 'name') else 'default_env'
     weights_str = format_weights(weights)
-    log_evaluation_data(env_name, weights_str, eval_counter, idx, eval_data)
+    log_evaluation_data(env_name, weights_str, eval_counter, idx, eval_data, rewards_list=reward_list)
 
     return eval_data
