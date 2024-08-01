@@ -124,8 +124,7 @@ class CustomGymEnv(GymEnv):
                     action += line
                 self.reconnect_line = []
             
-            if action != self.action_space.from_gym(do_nothing): 
-                    print(action)    
+                
             g2op_obs, reward1, done, info = self.init_env.step(action=action)
             reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
