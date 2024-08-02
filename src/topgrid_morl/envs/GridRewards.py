@@ -11,235 +11,306 @@ from grid2op.Action._backendAction import _BackendAction
 
 class TopoDepthReward(BaseReward):
     """
-    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
-    everything is connected to bus 1.
+    Reward class that penalizes based on the depth of topology changes.
 
-    Examples
-    ---------
-    You can use this reward in any environment with:
-
-    .. code-block:: python
-
-        import grid2op
-        from grid2op.Reward import DistanceReward
-
-        # then you create your environment with it:
-        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
-        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
-        # and do a step with a "do nothing" action
-        obs = env.reset()
-        obs, reward, done, info = env.step(env.action_space())
-        # the reward is computed with the DistanceReward class
-
+    Attributes:
+        last_reward (float): The last computed reward.
+        reward_min (float): Minimum reward value.
+        reward_max (float): Maximum reward value.
+        penalize (int): Penalty factor for topology depth.
     """
 
     def __init__(self, logger=None):
+        """
+        Initializes the TopoDepthReward class.
+
+        Args:
+            logger (Logger, optional): Logger for the reward class. Defaults to None.
+        """
         BaseReward.__init__(self, logger=logger)
         self.last_reward = 0
-        self.reward_min = dt_float(0.0)
-        self.reward_max = dt_float(1.0)
+        self.reward_min = 0.0
+        self.reward_max = 1.0
         self.penalize = 1
 
+    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+        """
+        Computes the reward based on the depth of topology changes.
 
-    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        Args:
+            action (Action): The action taken by the agent.
+            env: The environment object.
+            has_error (bool): Whether there was an error.
+            is_done (bool): Whether the episode is done.
+            is_illegal (bool): Whether the action is illegal.
+            is_ambiguous (bool): Whether the action is ambiguous.
+
+        Returns:
+            float: The computed reward.
+        """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
 
-        # Get topo from env
-        obs = env.get_obs(_do_copy=False)
+        # Get topology vector from the environment observation
+        obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
+        
+        # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
         
-        r = busbar2/ len(topo) * - self.penalize
+        # Calculate the reward, penalized by the number of elements connected to busbar 2
+        r = busbar2 / len(topo) * -self.penalize
         
-        return r #penalize the reward becuase it increases with topo Depth
+        return r
+
 
 class ScaledTopoDepthReward(BaseReward):
     """
-    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
-    everything is connected to bus 1.
+    Reward class that penalizes based on the depth of topology changes and scales the reward.
 
-    Examples
-    ---------
-    You can use this reward in any environment with:
-
-    .. code-block:: python
-
-        import grid2op
-        from grid2op.Reward import DistanceReward
-
-        # then you create your environment with it:
-        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
-        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
-        # and do a step with a "do nothing" action
-        obs = env.reset()
-        obs, reward, done, info = env.step(env.action_space())
-        # the reward is computed with the DistanceReward class
-
+    Attributes:
+        last_reward (float): The last computed reward.
+        reward_min (float): Minimum reward value.
+        reward_max (float): Maximum reward value.
+        penalize (int): Penalty factor for topology depth.
     """
 
     def __init__(self, logger=None):
+        """
+        Initializes the ScaledTopoDepthReward class.
+
+        Args:
+            logger (Logger, optional): Logger for the reward class. Defaults to None.
+        """
         BaseReward.__init__(self, logger=logger)
         self.last_reward = 0
-        self.reward_min = dt_float(0.0)
-        self.reward_max = dt_float(1.0)
+        self.reward_min = 0.0
+        self.reward_max = 1.0
         self.penalize = 1
 
+    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+        """
+        Computes the scaled reward based on the depth of topology changes.
 
-    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        Args:
+            action (Action): The action taken by the agent.
+            env: The environment object.
+            has_error (bool): Whether there was an error.
+            is_done (bool): Whether the episode is done.
+            is_illegal (bool): Whether the action is illegal.
+            is_ambiguous (bool): Whether the action is ambiguous.
+
+        Returns:
+            float: The computed and scaled reward.
+        """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
 
-        # Get topo from env
-        obs = env.get_obs(_do_copy=False)
+        # Get topology vector from the environment observation
+        obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
+        
+        # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
         
-        r = busbar2/ len(topo) * - self.penalize
+        # Calculate the reward, penalized by the number of elements connected to busbar 2
+        r = busbar2 / len(topo) * -self.penalize
         
-        norm_r = r/ 900
+        # Scale the reward
+        norm_r = r / 900
         
-        return norm_r #penalize the reward becuase it increases with topo Depth
+        return norm_r
+
 
 class MaxTopoDepthReward(BaseReward):
     """
-    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
-    everything is connected to bus 1.
+    Reward class that tracks and penalizes the maximum depth of topology changes.
 
-    Examples
-    ---------
-    You can use this reward in any environment with:
-
-    .. code-block:: python
-
-        import grid2op
-        from grid2op.Reward import DistanceReward
-
-        # then you create your environment with it:
-        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
-        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
-        # and do a step with a "do nothing" action
-        obs = env.reset()
-        obs, reward, done, info = env.step(env.action_space())
-        # the reward is computed with the DistanceReward class
-
+    Attributes:
+        max_depth (int): The maximum depth recorded.
+        reward_min (float): Minimum reward value.
+        reward_max (float): Maximum reward value.
+        penalize (int): Penalty factor for topology depth.
     """
 
     def __init__(self, logger=None):
+        """
+        Initializes the MaxTopoDepthReward class.
+
+        Args:
+            logger (Logger, optional): Logger for the reward class. Defaults to None.
+        """
         BaseReward.__init__(self, logger=logger)
         self.max_depth = 0
-        self.reward_min = dt_float(0.0)
-        self.reward_max = dt_float(1.0)
+        self.reward_min = 0.0
+        self.reward_max = 1.0
         self.penalize = 1
 
+    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+        """
+        Computes the reward based on the maximum depth of topology changes.
 
-    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        Args:
+            action (Action): The action taken by the agent.
+            env: The environment object.
+            has_error (bool): Whether there was an error.
+            is_done (bool): Whether the episode is done.
+            is_illegal (bool): Whether the action is illegal.
+            is_ambiguous (bool): Whether the action is ambiguous.
+
+        Returns:
+            float: The computed reward.
+        """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
 
-        # Get topo from env
-        obs = env.get_obs(_do_copy=False)
+        # Get topology vector from the environment observation
+        obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
+        
+        # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
         
+        # Update the maximum depth if the current depth is greater
         if busbar2 > self.max_depth:
             self.max_depth = busbar2
-            #print(self.max_depth)
-        r = self.max_depth/ len(topo) * (- self.penalize)
-        return r #penalize the reward becuase it increases with topo Depth
-    
+        
+        # Calculate the reward, penalized by the maximum depth
+        r = self.max_depth / len(topo) * -self.penalize
+        
+        return r
+
+
 class ScaledMaxTopoDepthReward(BaseReward):
     """
-    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
-    everything is connected to bus 1.
+    Reward class that tracks and penalizes the maximum depth of topology changes and scales the reward.
 
-    Examples
-    ---------
-    You can use this reward in any environment with:
-
-    .. code-block:: python
-
-        import grid2op
-        from grid2op.Reward import DistanceReward
-
-        # then you create your environment with it:
-        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
-        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
-        # and do a step with a "do nothing" action
-        obs = env.reset()
-        obs, reward, done, info = env.step(env.action_space())
-        # the reward is computed with the DistanceReward class
-
+    Attributes:
+        max_depth (int): The maximum depth recorded.
+        reward_min (float): Minimum reward value.
+        reward_max (float): Maximum reward value.
+        penalize (int): Penalty factor for topology depth.
     """
 
     def __init__(self, logger=None):
+        """
+        Initializes the ScaledMaxTopoDepthReward class.
+
+        Args:
+            logger (Logger, optional): Logger for the reward class. Defaults to None.
+        """
         BaseReward.__init__(self, logger=logger)
         self.max_depth = 0
-        self.reward_min = dt_float(0.0)
-        self.reward_max = dt_float(1.0)
+        self.reward_min = 0.0
+        self.reward_max = 1.0
         self.penalize = 1
 
+    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+        """
+        Computes the scaled reward based on the maximum depth of topology changes.
 
-    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        Args:
+            action (Action): The action taken by the agent.
+            env: The environment object.
+            has_error (bool): Whether there was an error.
+            is_done (bool): Whether the episode is done.
+            is_illegal (bool): Whether the action is illegal.
+            is_ambiguous (bool): Whether the action is ambiguous.
+
+        Returns:
+            float: The computed and scaled reward.
+        """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
 
-        # Get topo from env
-        obs = env.get_obs(_do_copy=False)
+        # Get topology vector from the environment observation
+        obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
+        
+        # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
         
+        # Update the maximum depth if the current depth is greater
         if busbar2 > self.max_depth:
             self.max_depth = busbar2
-            #print(self.max_depth)
-        r = self.max_depth/ len(topo) * (- self.penalize)
+        
+        # Calculate the reward, penalized by the maximum depth
+        r = self.max_depth / len(topo) * -self.penalize
+        
+        # Scale the reward
         norm_r = r / 1200
-        return norm_r #penalize the reward becuase it increases with topo Depth
+        
+        return norm_r
+
 
 class SubstationSwitchingReward(BaseReward):
     """
-    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
-    everything is connected to bus 1.
+    Reward class that penalizes switching actions on substations.
 
-    Examples
-    ---------
-    You can use this reward in any environment with:
-
-    .. code-block:: python
-
-        import grid2op
-        from grid2op.Reward import DistanceReward
-
-        # then you create your environment with it:
-        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
-        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
-        # and do a step with a "do nothing" action
-        obs = env.reset()
-        obs, reward, done, info = env.step(env.action_space())
-        # the reward is computed with the DistanceReward class
-
+    Attributes:
+        last_sub (int or None): The last substation that was switched.
+        sub_station_switchings (np.ndarray): Array to track the number of switchings for each substation.
+        calls (int): The number of calls to the reward function.
+        reward_min (float): Minimum reward value.
+        reward_max (float): Maximum reward value.
+        penalize (int): Penalty factor for substation switching.
     """
 
     def __init__(self, logger=None):
+        """
+        Initializes the SubstationSwitchingReward class.
+
+        Args:
+            logger (Logger, optional): Logger for the reward class. Defaults to None.
+        """
         BaseReward.__init__(self, logger=logger)
         self.last_sub = None
-        self.reward_min = dt_float(0.0)
-        self.reward_max = dt_float(1.0)
+        self.sub_station_switchings = np.zeros((5,), dtype=int)
+        self.calls = 0
+        self.reward_min = 0.0
+        self.reward_max = 1.0
         self.penalize = 1
 
+    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+        """
+        Computes the reward based on substation switching actions.
 
-    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        Args:
+            action (Action): The action taken by the agent.
+            env: The environment object.
+            has_error (bool): Whether there was an error.
+            is_done (bool): Whether the episode is done.
+            is_illegal (bool): Whether the action is illegal.
+            is_ambiguous (bool): Whether the action is ambiguous.
+
+        Returns:
+            float: The computed reward.
+        """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
+        if is_done:
+            self.calls = 0
+        self.calls += 1
         r = 0 
-        # Get topo from env
+
+        # Check if the action involves setting the bus
         if action.as_dict():
-            sub_id = action.as_dict()['set_bus_vect']['modif_subs_id'][0]
-        
+            # Extract the substation ID from the action
+            sub_id = int(action.as_dict()['set_bus_vect']['modif_subs_id'][0])
+            
+            # Increment the count of switchings for this substation
+            self.sub_station_switchings[sub_id] += 1
+               
+            # Penalize if the action is on a different substation from the last one
             if sub_id != self.last_sub:
-                r = - self.penalize
+                # Calculate penalty factor
+                pen_factor = 1 / (self.sub_station_switchings[sub_id] / self.calls)
+                r = -self.penalize * pen_factor
                 self.last_sub = sub_id
-        return r #penalize the reward becuase it increases with topo Depth
+                
+        return r  # Penalize the reward because it increases with substation switching
+
+
 
 
 class DistanceReward(BaseReward):
@@ -460,7 +531,6 @@ class N1Reward(BaseReward):
         self._backend.close()
         del self._backend
         self._backend = None
-
 
 
 class CloseToOverflowReward(BaseReward):

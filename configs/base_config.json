@@ -33,7 +33,7 @@
     "rewards": {
         "first": "ScaledLinesCapacity",
         "second": "ScaledTopoDepth",
-        "third": "ScaledMaxTopoDepth"
+        "third": "SubstationSwitching"
     }
 
     
