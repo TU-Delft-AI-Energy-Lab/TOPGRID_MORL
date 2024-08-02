@@ -9,6 +9,239 @@ from grid2op.dtypes import dt_float
 from grid2op.Action._backendAction import _BackendAction
 
 
+class TopoDepthReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.last_reward = 0
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.penalize = 1
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+        busbar2 = np.sum(topo == 2)
+        
+        r = busbar2/ len(topo) * - self.penalize
+        
+        return r #penalize the reward becuase it increases with topo Depth
+
+class ScaledTopoDepthReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.last_reward = 0
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.penalize = 1
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+        busbar2 = np.sum(topo == 2)
+        
+        r = busbar2/ len(topo) * - self.penalize
+        
+        norm_r = r/ 900
+        
+        return norm_r #penalize the reward becuase it increases with topo Depth
+
+class MaxTopoDepthReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.max_depth = 0
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.penalize = 1
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+        busbar2 = np.sum(topo == 2)
+        
+        if busbar2 > self.max_depth:
+            self.max_depth = busbar2
+            #print(self.max_depth)
+        r = self.max_depth/ len(topo) * (- self.penalize)
+        return r #penalize the reward becuase it increases with topo Depth
+    
+class ScaledMaxTopoDepthReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.max_depth = 0
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.penalize = 1
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+
+        # Get topo from env
+        obs = env.get_obs(_do_copy=False)
+        topo = obs.topo_vect
+        busbar2 = np.sum(topo == 2)
+        
+        if busbar2 > self.max_depth:
+            self.max_depth = busbar2
+            #print(self.max_depth)
+        r = self.max_depth/ len(topo) * (- self.penalize)
+        norm_r = r / 1200
+        return norm_r #penalize the reward becuase it increases with topo Depth
+
+class SubstationSwitchingReward(BaseReward):
+    """
+    This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
+    everything is connected to bus 1.
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import DistanceReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=DistanceReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the DistanceReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+        self.last_sub = None
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(1.0)
+        self.penalize = 1
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+        r = 0 
+        # Get topo from env
+        if action.as_dict():
+            sub_id = action.as_dict()['set_bus_vect']['modif_subs_id'][0]
+        
+            if sub_id != self.last_sub:
+                r = - self.penalize
+                self.last_sub = sub_id
+        return r #penalize the reward becuase it increases with topo Depth
+
+
 class DistanceReward(BaseReward):
     """
     This reward computes a penalty based on the distance of the current grid to the grid at time 0 where

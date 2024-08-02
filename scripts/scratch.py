@@ -65,7 +65,26 @@ gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         actions_file=actions_file
     )
 obs = gym_env.reset(options={"time serie id": "01"} )
+
 obs, reward, done, info = gym_env.step(1)
+action = 1
+g2op_act = gym_env.action_space.from_gym(action)
+print(g2op_act.as_dict()['set_bus_vect']['modif_subs_id'][0])
+
+"""
+g2op_obs, reward1, done, info = g2op_env.step(g2op_act)
+sub_topo = g2op_obs.sub_topology
+busbar2 = np.sum(topo == 2)
+print(busbar2)
+action = 31
+g2op_act = gym_env.action_space.from_gym(action)
+g2op_obs, reward1, done, info = g2op_env.step(g2op_act)
+topo = g2op_obs.topo_vect
+
+busbar2 = np.sum(topo == 2)
+print(busbar2)
+"""
+"""
 chronics =g2op_env.chronics_handler.available_chronics()
 for idx, chronic in enumerate(chronics):
     # Set the chronic to the environment
@@ -76,5 +95,4 @@ for idx, chronic in enumerate(chronics):
 
     # Print the chronic being processed
     print(f"Processing chronic {idx}: {chronic}")
-
-    
+"""
