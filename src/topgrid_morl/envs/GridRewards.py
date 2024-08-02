@@ -33,7 +33,7 @@ class TopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
         Computes the reward based on the depth of topology changes.
 
@@ -88,7 +88,7 @@ class ScaledTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
         Computes the scaled reward based on the depth of topology changes.
 
@@ -146,7 +146,7 @@ class MaxTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
         Computes the reward based on the maximum depth of topology changes.
 
@@ -205,7 +205,7 @@ class ScaledMaxTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
         Computes the scaled reward based on the maximum depth of topology changes.
 
@@ -271,7 +271,7 @@ class SubstationSwitchingReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: Action, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
         Computes the reward based on substation switching actions.
 
