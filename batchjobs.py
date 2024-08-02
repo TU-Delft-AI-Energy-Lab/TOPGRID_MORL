@@ -7,8 +7,8 @@ template = """#!/bin/bash
 #SBATCH --time=03:00:00
 #SBATCH --partition=compute
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=2
-#SBATCH --mem-per-cpu=32GB
+#SBATCH --cpus-per-task=8
+#SBATCH --mem-per-cpu=2GB
 #SBATCH --account=research-eemcs-ese
 
 # Load modules:
