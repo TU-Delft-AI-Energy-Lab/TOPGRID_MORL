@@ -574,7 +574,7 @@ class MOPPO(MOPolicy):
         self, next_obs: th.Tensor, next_done: bool
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
-        Compute advantages and returns.
+        Compute advantages and returns
 
         Args:
             next_obs (th.Tensor): Next observation.

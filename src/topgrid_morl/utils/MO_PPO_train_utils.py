@@ -177,6 +177,7 @@ def train_agent(
     action_dim: int,
     reward_dim: int,
     run_name: str,
+    project_name: str = "TOPGrid_MORL_5",
     net_arch: List[int] = [64, 64],
     generate_reward: bool = False,
     reward_list: List = ["ScaledEpisodeDuration", "ScaledTopoAction"],
@@ -207,14 +208,10 @@ def train_agent(
         )
         agent.weights = th.tensor(weights).cpu().to(agent.device)
         run = wandb.init(
-            project="TOPGrid_MORL_5bus",
-            name=generate_variable_name(
-                base_name=run_name,
-                max_gym_steps=max_gym_steps,
-                weights=weights,
-                seed=seed,
-            ),
-            group=weights_str
+            project=project_name,
+            name=f"{run_name}_{reward_list[0]}_{reward_list[1]}_weights_{weights_str}_seed_{seed}",
+            group=f"{reward_list[0]}_{reward_list[1]}",
+            tags=[run_name]
         )
         agent.train(max_gym_steps=max_gym_steps, reward_dim=reward_dim, reward_list=reward_list)
         run.finish()

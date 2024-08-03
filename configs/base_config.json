@@ -1,4 +1,7 @@
 {
+    "config_name": "base",
+    "project_name": "TOPGRID_MORL_5bus",
+
     "agent_params": {
         "id": 1,
         "log": true,

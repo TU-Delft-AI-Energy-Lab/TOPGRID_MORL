@@ -1,4 +1,7 @@
-{
+{   
+    "config_name": "high_ent",
+    "project_name": "TOPGRID_MORL_5bus_HPC",
+
     "agent_params": {
         "id": 1,
         "log": true,
@@ -9,8 +12,8 @@
         "gamma": 0.99,
         "anneal_lr": false,
         "clip_coef": 0.2,
-        "ent_coef": 0.05,
-        "vf_coef": 0.7,
+        "ent_coef": 0.1,
+        "vf_coef": 0.5,
         "clip_vloss": true,
         "max_grad_norm": 0.5,
         "norm_adv": true,
@@ -27,9 +30,9 @@
         "act_fct": "relu"
     },
     "weight_vectors": [
-        [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.33, 0.33, 0.33], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]
+        [1, 0, 0]
     ],
-    "max_gym_steps": 4096,
+    "max_gym_steps": 3072,
     "rewards": {
         "first": "ScaledLinesCapacity",
         "second": "EpisodeDuration",
