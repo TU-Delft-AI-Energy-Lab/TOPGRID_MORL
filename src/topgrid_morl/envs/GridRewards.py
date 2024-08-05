@@ -1,12 +1,13 @@
-from typing import Optional
 import copy
 import os
+from typing import Optional
+
 import numpy as np
 from grid2op.Action import BaseAction
+from grid2op.Action._backendAction import _BackendAction
+from grid2op.dtypes import dt_float
 from grid2op.Environment import BaseEnv
 from grid2op.Reward import BaseReward
-from grid2op.dtypes import dt_float
-from grid2op.Action._backendAction import _BackendAction
 
 
 class TopoDepthReward(BaseReward):
@@ -33,7 +34,15 @@ class TopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Computes the reward based on the depth of topology changes.
 
@@ -54,13 +63,13 @@ class TopoDepthReward(BaseReward):
         # Get topology vector from the environment observation
         obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
-        
+
         # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
-        
+
         # Calculate the reward, penalized by the number of elements connected to busbar 2
         r = busbar2 / len(topo) * -self.penalize
-        
+
         return r
 
 
@@ -88,7 +97,15 @@ class ScaledTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Computes the scaled reward based on the depth of topology changes.
 
@@ -109,16 +126,16 @@ class ScaledTopoDepthReward(BaseReward):
         # Get topology vector from the environment observation
         obs = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
-        
+
         # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
-        
+
         # Calculate the reward, penalized by the number of elements connected to busbar 2
         r = busbar2 / len(topo) * -self.penalize
-        
+
         # Scale the reward
         norm_r = r / 500
-        
+
         return norm_r
 
 
@@ -146,7 +163,15 @@ class MaxTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Computes the reward based on the maximum depth of topology changes.
 
@@ -167,17 +192,17 @@ class MaxTopoDepthReward(BaseReward):
         # Get topology vector from the environment observation
         obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
-        
+
         # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
-        
+
         # Update the maximum depth if the current depth is greater
         if busbar2 > self.max_depth:
             self.max_depth = busbar2
-        
+
         # Calculate the reward, penalized by the maximum depth
         r = self.max_depth / len(topo) * -self.penalize
-        
+
         return r
 
 
@@ -205,7 +230,15 @@ class ScaledMaxTopoDepthReward(BaseReward):
         self.reward_max = 1.0
         self.penalize = 1
 
-    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Computes the scaled reward based on the maximum depth of topology changes.
 
@@ -226,20 +259,20 @@ class ScaledMaxTopoDepthReward(BaseReward):
         # Get topology vector from the environment observation
         obs: Observation = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
-        
+
         # Count the number of elements connected to busbar 2
         busbar2 = np.sum(topo == 2)
-        
+
         # Update the maximum depth if the current depth is greater
         if busbar2 > self.max_depth:
             self.max_depth = busbar2
-        
+
         # Calculate the reward, penalized by the maximum depth
         r = self.max_depth / len(topo) * -self.penalize
-        
+
         # Scale the reward
         norm_r = r / 1200
-        
+
         return norm_r
 
 
@@ -270,10 +303,16 @@ class SubstationSwitchingReward(BaseReward):
         self.reward_min = 0.0
         self.reward_max = 1.0
         self.penalize = 1
-        
-        
 
-    def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
+    def __call__(
+        self,
+        action: BaseAction,
+        env,
+        has_error: bool,
+        is_done: bool,
+        is_illegal: bool,
+        is_ambiguous: bool,
+    ) -> float:
         """
         Computes the reward based on substation switching actions.
 
@@ -293,29 +332,26 @@ class SubstationSwitchingReward(BaseReward):
         if is_done:
             self.calls = 0
         self.calls += 1
-        r = 0 
+        r = 0
         if self.calls >= 2016:
             self.sub_station_switchings = np.zeros((5,), dtype=int)
-            
 
         # Check if the action involves setting the bus
         if action.as_dict():
             # Extract the substation ID from the action
-            sub_id = int(action.as_dict()['set_bus_vect']['modif_subs_id'][0])
-            
+            sub_id = int(action.as_dict()["set_bus_vect"]["modif_subs_id"][0])
+
             # Increment the count of switchings for this substation
             self.sub_station_switchings[sub_id] += 1
-               
+
             # Penalize if the action is on a different substation from the last one
             if sub_id != self.last_sub:
                 # Calculate penalty factor
                 pen_factor = 1 / (self.sub_station_switchings[sub_id])
                 r = -self.penalize * pen_factor
                 self.last_sub = sub_id
-                
+
         return r  # Penalize the reward because it increases with substation switching
-
-
 
 
 class DistanceReward(BaseReward):
@@ -347,7 +383,6 @@ class DistanceReward(BaseReward):
         self.reward_min = dt_float(0.0)
         self.reward_max = dt_float(1.0)
 
-
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
@@ -377,7 +412,8 @@ class DistanceReward(BaseReward):
             [self.reward_max, self.reward_min],
         )
         return r
-    
+
+
 class ScaledDistanceReward(BaseReward):
     """
     This reward computes a penalty based on the distance of the current grid to the grid at time 0 where
@@ -408,7 +444,6 @@ class ScaledDistanceReward(BaseReward):
         self.reward_max = dt_float(1.0)
         self.reward_max_stat = 1800
 
-
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
@@ -437,7 +472,7 @@ class ScaledDistanceReward(BaseReward):
             [dt_float(0.0), len(topo) * dt_float(1.0)],
             [self.reward_max, self.reward_min],
         )
-        normed_r = r/self.reward_max_stat
+        normed_r = r / self.reward_max_stat
         return normed_r
 
 
@@ -445,7 +480,7 @@ class N1Reward(BaseReward):
     """
     This class implements a reward that is inspired
     by the "n-1" criterion widely used in power system.
-    
+
     More specifically it returns the maximum flows (on all the powerlines) after a given (as input) a powerline
     has been disconnected.
 
@@ -496,12 +531,10 @@ class N1Reward(BaseReward):
         self._backend_action = None
         self.l_id = l_id
 
-
     def initialize(self, env):
         self._backend = env.backend.copy()
         bk_act_cls = _BackendAction.init_grid(env.backend)
         self._backend_action = bk_act_cls()
-
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if is_done:
@@ -512,7 +545,7 @@ class N1Reward(BaseReward):
         th_lim[th_lim <= 1] = 1  # assign 1 for the thermal limit
         this_n1 = copy.deepcopy(act)
         self._backend_action += this_n1
-            
+
         self._backend.apply_action(self._backend_action)
         self._backend._disconnect_line(self.l_id)
         div_exc_ = None
@@ -527,10 +560,11 @@ class N1Reward(BaseReward):
             flow = self._backend.get_line_flow()
             res = (flow / th_lim).max()
         else:
-            self.logger.info(f"Divergence of the backend at step {env.nb_time_step} for N1Reward with error `{div_exc_}`")
+            self.logger.info(
+                f"Divergence of the backend at step {env.nb_time_step} for N1Reward with error `{div_exc_}`"
+            )
             res = -1
         return res
-
 
     def close(self):
         self._backend.close()
@@ -569,10 +603,8 @@ class CloseToOverflowReward(BaseReward):
         self.reward_max = dt_float(1.0)
         self.max_overflowed = dt_float(max_lines)
 
-
     def initialize(self, env):
         pass
-
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         if has_error or is_illegal or is_ambiguous:
@@ -596,7 +628,6 @@ class CloseToOverflowReward(BaseReward):
             [self.reward_max, self.reward_min],
         )
         return reward
-
 
 
 class EpisodeDurationReward(BaseReward):
@@ -636,7 +667,9 @@ class EpisodeDurationReward(BaseReward):
         self.per_timestep = dt_float(per_timestep)
         self.total_time_steps = dt_float(0.0)
         self.reward_nr = 0
-        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.reward_nr))
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(
+            get_mean_std_rewards(self.reward_nr)
+        )
 
     def initialize(self, env):
         self.reset(env)
@@ -655,8 +688,8 @@ class EpisodeDurationReward(BaseReward):
                 res /= self.total_time_steps
         else:
             res = self.reward_min
-        return res    
-        
+        return res
+
 
 class ScaledEpisodeDurationReward(BaseReward):
     """
@@ -695,7 +728,9 @@ class ScaledEpisodeDurationReward(BaseReward):
         self.per_timestep = dt_float(per_timestep)
         self.total_time_steps = dt_float(0.0)
         self.reward_nr = 0
-        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.reward_nr))
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(
+            get_mean_std_rewards(self.reward_nr)
+        )
 
     def initialize(self, env):
         self.reset(env)
@@ -714,9 +749,10 @@ class ScaledEpisodeDurationReward(BaseReward):
                 res /= self.total_time_steps
         else:
             res = self.reward_min
-            
-        norm_reward = (res - self.reward_min) / (self.reward_max -self.reward_min)
+
+        norm_reward = (res - self.reward_min) / (self.reward_max - self.reward_min)
         return norm_reward
+
 
 class TopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
@@ -737,15 +773,16 @@ class TopoActionReward(BaseReward):
         Returns:
         - reward (float): The computed reward value.
         """
-        reward =0
-        
+        reward = 0
+
         action_dict = action.as_dict()
         if action_dict == {}:
-            reward= 0 #no topo action
+            reward = 0  # no topo action
         else:
-            reward =-1 
-            
+            reward = -1
+
         return reward
+
 
 class ScaledTopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
@@ -768,18 +805,18 @@ class ScaledTopoActionReward(BaseReward):
         Returns:
         - reward (float): The computed reward value.
         """
-        reward =0
-        
+        reward = 0
+
         action_dict = action.as_dict()
         if action_dict == {}:
-            reward= 0 #no topo action
+            reward = 0  # no topo action
         else:
-            reward =-1 
-        
+            reward = -1
+
         norm_rew = reward
         return norm_rew
 
-            
+
 class MaxDistanceReward(BaseReward):
     """
     Reward based on the maximum topological deviation from the initial state where everything is connected to bus 1.
@@ -867,6 +904,7 @@ class MaxDistanceReward(BaseReward):
         """
         self.max_deviation = 0.0
 
+
 class LinesCapacityReward(BaseReward):
     """
     Reward based on lines capacity usage
@@ -916,11 +954,14 @@ class LinesCapacityReward(BaseReward):
         # Ensure the usage is within valid range
         usage = np.clip(usage, 0.0, float(n_connected))
         # Calculate the reward: if no usage, reward is max; if full usage, reward is min
-        reward = (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
+        reward = (
+            (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
+        )
         # Scale the reward between self.reward_min and self.reward_max
         # Return the calculated reward
         return reward
-    
+
+
 class ScaledLinesCapacityReward(BaseReward):
     """
     Reward based on lines capacity usage
@@ -954,9 +995,9 @@ class ScaledLinesCapacityReward(BaseReward):
         BaseReward.__init__(self, logger=logger)
         # Define the minimum and maximum reward values
         self.rewardNr = 1
-        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(get_mean_std_rewards(self.rewardNr))
-      
-        
+        self.reward_min, self.reward_max, self.reward_mean, self.reward_std = dt_float(
+            get_mean_std_rewards(self.rewardNr)
+        )
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         # If there's an error, the action is illegal, or ambiguous, return the minimum reward
@@ -972,30 +1013,102 @@ class ScaledLinesCapacityReward(BaseReward):
         # Ensure the usage is within valid range
         usage = np.clip(usage, 0.0, float(n_connected))
         # Calculate the reward: if no usage, reward is max; if full usage, reward is min
-        reward = (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
+        reward = (
+            (n_connected - usage) / n_connected if n_connected > 0 else self.reward_min
+        )
         # Scale the reward between self.reward_min and self.reward_max
         # Return the calculated reward
-        #std scale: 
-        norm_reward = (reward - self.reward_min) / (self.reward_max -self.reward_min)
+        # std scale:
+        norm_reward = (reward - self.reward_min) / (self.reward_max - self.reward_min)
         return norm_reward
     
+class L2RPNReward(BaseReward):
+    """
+    This is the historical :class:`BaseReward` used for the Learning To Run a Power Network competition on WCCI 2019
+
+    See `L2RPN <https://l2rpn.chalearn.org/>`_ for more information.
+
+    This rewards makes the sum of the "squared margin" on each powerline.
+
+    The margin is defined, for each powerline as:
+    `margin of a powerline = (thermal limit - flow in amps) / thermal limit`
+    (if flow in amps <= thermal limit) else `margin of a powerline  = 0.`
+
+    This rewards is then: `sum (margin of this powerline) ^ 2`, for each powerline.
+
+
+    Examples
+    ---------
+    You can use this reward in any environment with:
+
+    .. code-block:: python
+
+        import grid2op
+        from grid2op.Reward import L2RPNReward
+
+        # then you create your environment with it:
+        NAME_OF_THE_ENVIRONMENT = "l2rpn_case14_sandbox"
+        env = grid2op.make(NAME_OF_THE_ENVIRONMENT,reward_class=L2RPNReward)
+        # and do a step with a "do nothing" action
+        obs = env.reset()
+        obs, reward, done, info = env.step(env.action_space())
+        # the reward is computed with the L2RPNReward class
+
+    """
+
+    def __init__(self, logger=None):
+        BaseReward.__init__(self, logger=logger)
+
+
+    def initialize(self, env):
+        self.reward_min = dt_float(0.0)
+        self.reward_max = dt_float(env.backend.n_line)
+
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        if not is_done and not has_error:
+            line_cap = self.__get_lines_capacity_usage(env)
+            res = line_cap.sum()
+        else:
+            # no more data to consider, no powerflow has been run, reward is what it is
+            res = self.reward_min
+        # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
+        return res
+
+
+    @staticmethod
+    def __get_lines_capacity_usage(env):
+        ampere_flows = np.abs(env.backend.get_line_flow(), dtype=dt_float)
+        thermal_limits = np.abs(env.get_thermal_limit(), dtype=dt_float)
+        thermal_limits += 1e-1  # for numerical stability
+        relative_flow = np.divide(ampere_flows, thermal_limits, dtype=dt_float)
+
+        x = np.minimum(relative_flow, dt_float(1.0))
+        lines_capacity_usage_score = np.maximum(
+            dt_float(1.0) - x**4, np.zeros(x.shape, dtype=dt_float)
+        )
+        return lines_capacity_usage_score
+
+
 def get_mean_std_rewards(rewardNr: int):
     script_dir = os.getcwd()
     rewards_dir = os.path.join(script_dir, "data", "rewards", "5bus_maxgymsteps_1024")
-    if rewardNr==0: 
-        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
-    elif rewardNr==1: 
-        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
-    elif rewardNr==2:
-        training_rewards_path = os.path.join(rewards_dir, "generate_training_rewards_weights_1_0_0.npy")
-    
+    if rewardNr == 0:
+        training_rewards_path = os.path.join(
+            rewards_dir, "generate_training_rewards_weights_1_0_0.npy"
+        )
+    elif rewardNr == 1:
+        training_rewards_path = os.path.join(
+            rewards_dir, "generate_training_rewards_weights_1_0_0.npy"
+        )
+    elif rewardNr == 2:
+        training_rewards_path = os.path.join(
+            rewards_dir, "generate_training_rewards_weights_1_0_0.npy"
+        )
+
     training_rewards = np.load(training_rewards_path)
     mean = np.mean(training_rewards, axis=0)[rewardNr]
     std = np.std(training_rewards, axis=0)[rewardNr]
     min_r = np.min(training_rewards, axis=0)[rewardNr]
     max_r = np.max(training_rewards, axis=0)[rewardNr]
-    return(min_r, max_r, mean, std)
-
-
-    
-    
+    return (min_r, max_r, mean, std)
