@@ -9,6 +9,7 @@ from lightsim2grid import LightSimBackend
 import wandb
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.envs.GridRewards import ScaledTopoActionReward, ScaledLinesCapacityReward
+from datetime import datetime
 
 
 def format_weights(weights: np.ndarray) -> str:
@@ -41,8 +42,9 @@ def setup_gym_env(g2op_env_val, rewards_list: List[str], obs_tennet: List[str]) 
     return gym_env
 
 
-def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx: int, eval_data: Dict[str, Any], rewards_list) -> None:
-    dir_path = os.path.join("eval_logs", env_name, f"{rewards_list}", f"weights_{weights_str}" )
+def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx: int, eval_data: Dict[str, Any], rewards_list, seed=42) -> None:
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    dir_path = os.path.join("eval_logs", env_name, f"{current_date}", f"{rewards_list}", f"weights_{weights_str}", f"seed_{seed}")
     os.makedirs(dir_path, exist_ok=True)
 
     filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
@@ -60,7 +62,7 @@ def log_evaluation_data(env_name: str, weights_str: str, eval_counter: int, idx:
         json.dump(eval_data_serializable, json_file, indent=4)
 
 
-def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int, eval_counter: int, global_step, reward_dim, chronic, idx, reward_list) -> Dict[str, Any]:
+def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int, eval_counter: int, global_step, reward_dim, chronic, idx, reward_list,seed) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
     rewards_list = reward_list
     obs_tennet = ["rho", "gen_p", "load_p", "topo_vect", "p_or", "p_ex", "timestep_overflow"]
@@ -94,6 +96,6 @@ def evaluate_agent(agent, weights, env, g2op_env, g2op_env_val, eval_steps: int,
 
     env_name = gym_env.init_env.name if hasattr(gym_env.init_env, 'name') else 'default_env'
     weights_str = format_weights(weights)
-    log_evaluation_data(env_name, weights_str, eval_counter, idx, eval_data, rewards_list=reward_list)
+    log_evaluation_data(env_name, weights_str, eval_counter, idx, eval_data, rewards_list=reward_list, seed=seed)
 
     return eval_data

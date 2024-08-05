@@ -107,7 +107,7 @@ class ScaledTopoDepthReward(BaseReward):
             return self.reward_min
 
         # Get topology vector from the environment observation
-        obs: Observation = env.get_obs(_do_copy=False)
+        obs = env.get_obs(_do_copy=False)
         topo = obs.topo_vect
         
         # Count the number of elements connected to busbar 2
@@ -117,7 +117,7 @@ class ScaledTopoDepthReward(BaseReward):
         r = busbar2 / len(topo) * -self.penalize
         
         # Scale the reward
-        norm_r = r / 900
+        norm_r = r / 500
         
         return norm_r
 
@@ -270,6 +270,8 @@ class SubstationSwitchingReward(BaseReward):
         self.reward_min = 0.0
         self.reward_max = 1.0
         self.penalize = 1
+        
+        
 
     def __call__(self, action: BaseAction, env, has_error: bool, is_done: bool, is_illegal: bool, is_ambiguous: bool) -> float:
         """
@@ -292,6 +294,9 @@ class SubstationSwitchingReward(BaseReward):
             self.calls = 0
         self.calls += 1
         r = 0 
+        if self.calls >= 2016:
+            self.sub_station_switchings = np.zeros((5,), dtype=int)
+            
 
         # Check if the action involves setting the bus
         if action.as_dict():
@@ -304,7 +309,7 @@ class SubstationSwitchingReward(BaseReward):
             # Penalize if the action is on a different substation from the last one
             if sub_id != self.last_sub:
                 # Calculate penalty factor
-                pen_factor = 1 / (self.sub_station_switchings[sub_id] / self.calls)
+                pen_factor = 1 / (self.sub_station_switchings[sub_id])
                 r = -self.penalize * pen_factor
                 self.last_sub = sub_id
                 

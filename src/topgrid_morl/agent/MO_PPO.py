@@ -753,6 +753,7 @@ class MOPPO(MOPolicy):
                 chronic=chronic,
                 idx=idx,
                 reward_list = self.reward_list,
+                seed=self.seed
                 
             )
             eval_rewards.append(th.stack(eval_data['eval_rewards']).mean(dim=0))
