@@ -11,19 +11,10 @@ from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import TopoActionReward
+from topgrid_morl.envs.GridRewards import ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward,  ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
 
-reward1 = EpisodeDurationReward
-reward2 = LinesCapacityReward
-reward3 = TopoActionReward
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-# Log the rewards using % formatting
-logger.info("The rewards are %s, %s, %s", reward1, reward2, reward3)
+
 
 
 class CustomDiscreteActions(Discrete):
@@ -49,8 +40,11 @@ def setup_environment(
     test: bool = False,
     action_space: int = 53,
     seed: int = 0,
-    frist_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
-    rewards_list: List[str] = ["LinesCapacity", "TopoAction"],
+    first_reward: grid2op.Reward.BaseReward = LinesCapacityReward,
+    rewards_list: List[str] = ["EpisodeDuration", "TopoAction"],
+    actions_file: str = 'filtered_actions.json',
+    env_type: str = '_train',
+    max_rho: float = 0.95
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards and
@@ -68,24 +62,26 @@ def setup_environment(
         Tuple[GymEnv, Tuple[int], int, int]: Gym-compatible environment instance,
         observation space shape, action space dimension, and reward dimension.
     """
-
+    
+   
+    print(rewards_list)
     # Create environment
     g2op_env = grid2op.make(
-        env_name,
+        env_name+env_type,
         test=test,
         backend=LightSimBackend(),
-        reward_class=frist_reward,
+        reward_class=first_reward,
         other_rewards={
             reward_name: globals()[reward_name + "Reward"]
             for reward_name in rewards_list
         },
     )
-
+    
     g2op_env.seed(seed=seed)
     g2op_env.reset()
 
     # Use custom Gym environment
-    gym_env = CustomGymEnv(g2op_env)
+    gym_env = CustomGymEnv(g2op_env, safe_max_rho=max_rho)
 
     # Set rewards in Gym Environment
     gym_env.set_rewards(rewards_list=rewards_list)
@@ -106,7 +102,7 @@ def setup_environment(
 
     # Action space setup
     current_dir = os.getcwd()
-    path = os.path.join(current_dir, "action_spaces", env_name, "filtered_actions.json")
+    path = os.path.join(current_dir, "action_spaces", env_name, actions_file)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
@@ -129,7 +125,5 @@ def setup_environment(
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
 
-    logger.info(gym_env.action_space)
-    logger.info(f"Environment setup completed for {env_name} with Gym compatibility.")
 
-    return gym_env, gym_env.observation_space.shape, action_space, reward_dim
+    return gym_env, gym_env.observation_space.shape, action_space, reward_dim, g2op_env

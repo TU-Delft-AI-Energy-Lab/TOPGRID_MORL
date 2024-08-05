@@ -1,0 +1,42 @@
+{   
+    "config_name": "TenneT",
+    "project_name": "TOPGRID_MORL_5bus_HPC",
+
+    "agent_params": {
+        "id": 1,
+        "log": true,
+        "steps_per_iteration": 256,
+        "num_minibatches": 2,
+        "update_epochs": 15,
+        "learning_rate": 5e-4,
+        "gamma": 0.99,
+        "anneal_lr": false,
+        "clip_coef": 0.2,
+        "ent_coef": 0.05,
+        "vf_coef": 0.5,
+        "clip_vloss": true,
+        "max_grad_norm": 0.5,
+        "norm_adv": true,
+        "target_kl": null,
+        "gae": true,
+        "gae_lambda": 0.95,
+        "device": "cpu"
+    },
+    "env_params": {
+        "max_rho": 0.95
+    }, 
+    "network_params":{
+        "net_arch": [256,256],
+        "act_fct": "relu"
+    },
+    "weight_vectors": [
+        [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.33, 0.33, 0.33]
+    ],
+    "max_gym_steps": 3072,
+    "rewards": {
+        "first": "ScaledLinesCapacity",
+        "second": "ScaledTopoDepth",
+        "third": "TopoAction"
+    }
+
+}

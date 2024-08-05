@@ -1,0 +1,1 @@
+{"train/reward_0": 0.0, "train/reward_1": 0.0005021537160309954, "train/reward_2": 0.0, "train/grid2opsteps": 373, "_timestamp": 1722411000.675107, "_runtime": 30.40571689605713, "_step": 17, "eval_steps": 446, "reward_0": 0.11061507936507936, "reward_1": 0.0, "reward_2": -1.0, "_wandb": {"runtime": 29}}
