@@ -75,11 +75,11 @@ def compute_row_pair_means(df):
 # Specify the relative path to the directory containing the JSON files
 dir_path = os.path.join(
     "eval_logs",
-    "rte_case5_example_val",
+    "rte_case5_example_val_2",
     "2024-08-05",
     "['ScaledTopoDepth', 'SubstationSwitching']",
-    "weights_0_1_0",
-    "seed_42"
+    "weights_1.00_0.00_0.00",
+    "seed_0"
 )
 
 # Load all evaluation data with steps, actions, rewards, and states from the specified directory
@@ -91,7 +91,7 @@ df_steps = pd.DataFrame(evaluation_data["steps"])
 df_rewards = pd.DataFrame(evaluation_data["rewards"])
 
 df_all = create_combined_dataframe(evaluation_data)
-print(df_all)
+#print(df_all)
 
 # Add a new column with the summed rewards along the specified axis
 df_rewards["cum_reward"] = df_rewards["eval_rewards"].apply(sum_rewards)
@@ -136,7 +136,7 @@ ax2.set_ylabel("Evaluation Steps")
 fig.suptitle("Mean Cumulative Rewards and Evaluation Steps Plot")
 ax2.legend(loc="upper right")
 
-#plt.show()
+plt.show()
 mapping = create_action_to_substation_mapping();
 
 def map_to_substation(actions, mapping):

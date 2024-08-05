@@ -421,7 +421,7 @@ def create_action_to_substation_mapping():
         # Add the mapping to the dictionary
         action_to_substation_mapping[action] = substation_id
 
-    print(action_to_substation_mapping)
+    #print(action_to_substation_mapping)
     return action_to_substation_mapping
 
 # Example usage

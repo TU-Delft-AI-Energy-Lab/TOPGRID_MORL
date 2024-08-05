@@ -35,8 +35,8 @@
     "max_gym_steps": 1024,
     "rewards": {
         "first": "ScaledLinesCapacity",
-        "second": "ScaledTopoDepth",
-        "third": "SubstationSwitching"
+        "second": "L2RPN",
+        "third": "ScaledTopoDepth"
     }
 
     
