@@ -55,7 +55,7 @@ base_dir_path = os.path.join(
     "eval_logs",
     "rte_case5_example_val_2",
     "2024-08-05",
-    "['ScaledTopoDepth', 'SubstationSwitching']",
+    "['L2RPN', 'ScaledTopoDepth']",
     "weights_1.00_0.00_0.00"
 )
 
