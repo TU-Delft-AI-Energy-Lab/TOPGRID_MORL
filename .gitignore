@@ -149,3 +149,9 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+#eval logs 
+eval_logs/ 
+
+#ignore wandb
+wandb/
