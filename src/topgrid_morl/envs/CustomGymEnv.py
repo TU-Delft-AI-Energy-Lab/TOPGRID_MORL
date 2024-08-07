@@ -112,12 +112,7 @@ class CustomGymEnv(GymEnv):
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
             do_nothing = 0                    
-            g2op_act = self.action_space.from_gym(do_nothing)
-            
-            if self.reconnect_line:
-                for line in self.reconnect_line:
-                    g2op_act += line
-                #print(g2op_act)    
+            g2op_act = self.action_space.from_gym(do_nothing)    
     
                 
             g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
@@ -128,12 +123,14 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             tmp_steps +=1 
             cum_reward += tmp_reward
+            #print(tmp_reward)
 
             if done:
                 break  # Exit the loop if done is True
         
             
         reward = cum_reward  # Accumulate the rewards
+        #print(reward)
         info["steps"] = tmp_steps
         # Handle opponent attack
         """

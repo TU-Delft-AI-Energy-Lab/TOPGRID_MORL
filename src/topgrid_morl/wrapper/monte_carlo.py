@@ -7,7 +7,10 @@ from tqdm import tqdm
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.utils.Grid2op_eval import evaluate_agent
 
-
+def sum_rewards(rewards):
+    rewards_np = np.array(rewards)
+    summed_rewards = rewards_np.sum(axis=0)
+    return summed_rewards.tolist()
 
 
 class MOPPOTrainer:
@@ -52,18 +55,23 @@ class MOPPOTrainer:
         self.num_samples = 100      # Assuming a default number of samples for weights
     
     def runMC_MOPPO(self):
-        cum_rewards = []
+        eval_rewards = np.empty((self.iterations, self.reward_dim))
+        results_dict = {}
         for i in range(self.iterations):
             weights = self.sample_weights()
-            run_rewards = self.train_agent(weights)
-            cum_rewards.append(run_rewards)
-            i+=1
-        return cum_rewards
-
-    def sample_weights(self) -> np.ndarray:
-        weights = self.np_random.uniform(self.weight_range[0], self.weight_range[1], (self.reward_dim))
-        print(weights)
-        return weights
+            eval_data = self.train_agent(weights)
+            eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
+            eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
+            mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
+            eval_rewards[i] = mean_rewards
+            results_dict[tuple(weights)] = mean_rewards
+        return eval_rewards, results_dict
+    
+    def sample_weights(self):
+        weights = np.random.rand(self.reward_dim)
+        normalized_weights = weights / np.sum(weights)
+        rounded_weights = np.round(normalized_weights, 2)
+        return rounded_weights
 
     def run(self):
         weight_vectors = self.sample_weights()
@@ -92,14 +100,17 @@ class MOPPOTrainer:
             **self.agent_params
         )
         agent.weights = th.tensor(weights).cpu().to(agent.device)
-        run = wandb.init(
-            project=self.project_name,
-            name=f"{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
-            group=f"{self.reward_list[0]}_{self.reward_list[1]}",
-            tags=[self.run_name]
-        )
-        agent.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list)
-        run.finish()
+        
+        if self.agent_params['log']: 
+            run = wandb.init(
+                project=self.project_name,
+                name=f"{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
+                group=f"{self.reward_list[0]}_{self.reward_list[1]}",
+                tags=[self.run_name]
+            )
+        agent.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list, )
+        if self.agent_params['log']:
+            run.finish()
         eval_data_dict = {}
         weights = th.tensor(weights).cpu().to(agent.device)
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
