@@ -10,7 +10,7 @@ from topgrid_morl.utils.MO_PPO_train_utils import train_agent
 from grid2op.Chronics import ChronicsHandler
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 #from topgrid_morl.agent.MO_BaselineAgents import DoNothingAgent, PPOAgent  # Import the DoNothingAgent class
-
+import matplotlib.pyplot as plt
 env_name = "rte_case5_example"
 
 config = "base_config.json"
@@ -51,13 +51,21 @@ gym_env_val, _, _, _, g2op_env_val = setup_environment(
         env_type="_val",
         max_rho = max_rho
 )
-        
+from grid2op.PlotGrid import PlotMatplot
+plot_helper = PlotMatplot(g2op_env_val.observation_space)
 obs = gym_env_val.reset(options={"time serie id": "12"} )
 
 obs = g2op_env_val.reset(options={"time serie id": "12"} )
+obs = g2op_env_val.observation_space
 print(obs.line_status)
 
-obs, reward, done, info = gym_env_val.step(33)
+
+
+print(gym_env_val.action_space.from_gym(33))
+obs, reward, done, info = g2op_env_val.step(gym_env_val.action_space.from_gym(33))
+g2op_env_val
 print(obs, info)
+fig = plot_helper.plot_obs(obs)
+plt.show()
 
 
