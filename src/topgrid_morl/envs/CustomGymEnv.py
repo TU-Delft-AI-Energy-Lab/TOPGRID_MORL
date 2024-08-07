@@ -66,14 +66,12 @@ class CustomGymEnv(GymEnv):
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
             Observation, reward, done flag, and additional info.
         """
+        
         g2op_act = self.action_space.from_gym(action)
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
-            #print(g2op_act)
             
-
-                
         tmp_steps = 0 
         
         # Reconnect lines if necessary      
@@ -88,11 +86,11 @@ class CustomGymEnv(GymEnv):
         self.steps += 1
 
         # Create reward array
-        reward = np.array(
+        gym_reward = np.array(
             [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
             dtype=np.float64,
         )
-        cum_reward+=reward
+        cum_reward+=gym_reward
         
         
         #reconnect lines
@@ -122,8 +120,6 @@ class CustomGymEnv(GymEnv):
                 #print(g2op_act)    
     
                 
-            
-                
             g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
             tmp_reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
@@ -132,26 +128,9 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             tmp_steps +=1 
             cum_reward += tmp_reward
-            #reconnect lines
-            to_reco = info["disc_lines"]
-            self.reconnect_line = []
-            if np.any(to_reco == 0):
-            # Get the indices of elements that are 0
-                reco_id = np.where(to_reco == 0)[0]
-            
-                for line_id in reco_id:
-                    lines_act = self.init_env.action_space(
-                     {"set_line_status": [(line_id, +1)]}
-                    )
-                    
-                    self.reconnect_line.append(lines_act)
 
             if done:
                 break  # Exit the loop if done is True
-
-        #reward += cum_reward  # Accumulate the rewards
-        info["steps"] = tmp_steps
-        
         
             
         reward = cum_reward  # Accumulate the rewards

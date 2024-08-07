@@ -335,13 +335,13 @@ class MOPPO(MOPolicy):
 
     def __init__(
         self,
-        id: int,
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
         env_val: CustomGymEnv,
         g2op_env: Any,
         g2op_env_val: Any,
+        id: int = 1,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -748,8 +748,6 @@ class MOPPO(MOPolicy):
                 weights=self.weights,
                 eval_steps=7 * 288,
                 eval_counter=self.eval_counter,
-                global_step=self.global_step,
-                reward_dim=self.networks.reward_dim,
                 chronic=chronic,
                 idx=idx,
                 reward_list=self.reward_list,
