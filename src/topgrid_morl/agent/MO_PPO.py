@@ -748,8 +748,6 @@ class MOPPO(MOPolicy):
                 weights=self.weights,
                 eval_steps=7 * 288,
                 eval_counter=self.eval_counter,
-                global_step=self.global_step,
-                reward_dim=self.networks.reward_dim,
                 chronic=chronic,
                 idx=idx,
                 reward_list=self.reward_list,

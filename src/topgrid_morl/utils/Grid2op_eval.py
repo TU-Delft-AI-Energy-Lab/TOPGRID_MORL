@@ -96,13 +96,11 @@ def evaluate_agent(
     g2op_env,
     g2op_env_val,
     eval_steps: int,
-    eval_counter: int,
-    global_step,
-    reward_dim,
     chronic,
     idx,
     reward_list,
     seed,
+    eval_counter: int = 1
 ) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
     rewards_list = reward_list
