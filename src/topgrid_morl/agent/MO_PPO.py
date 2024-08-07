@@ -335,13 +335,13 @@ class MOPPO(MOPolicy):
 
     def __init__(
         self,
-        id: int,
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
         env_val: CustomGymEnv,
         g2op_env: Any,
         g2op_env_val: Any,
+        id: int = 1,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,

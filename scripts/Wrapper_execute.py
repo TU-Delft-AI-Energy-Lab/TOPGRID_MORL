@@ -9,7 +9,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 )
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
-from topgrid_morl.wrapper.monte_carlo import train_agent
+from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
 
 def sum_rewards(rewards):
         rewards_np = np.array(rewards)
@@ -89,8 +89,8 @@ def main(seed: int, config: str) -> None:
     gym_env_val.reset()
     weights = np.array([1,0,0])
     # Step 5: Train Agent
-    eval_data = train_agent(
-        weights=weights,
+    trainer = MOPPOTrainer(
+        iterations=2,
         max_gym_steps=max_gym_steps,
         seed=seed,
         results_dir=results_dir,
@@ -99,7 +99,7 @@ def main(seed: int, config: str) -> None:
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
-        run_name=config_name,
+        run_name="runMC",
         project_name=project_name,
         net_arch=net_arch,
         g2op_env=g2op_env, 
@@ -107,17 +107,27 @@ def main(seed: int, config: str) -> None:
         reward_list = reward_list,
         **agent_params
     )
+    cum_reward = trainer.runMC_MOPPO()
+    print(cum_reward)
+    """
+    iterations=2
+        max_gym_steps=max_gym_steps,
+        seed=seed,
+        results_dir=results_dir,
+        env=gym_env,
+        env_val=gym_env_val,
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        reward_dim=reward_dim,
+        run_name="runMC",
+        project_name=project_name,
+        net_arch=net_arch,
+        g2op_env=g2op_env, 
+        g2op_env_val= g2op_env_val,
+        reward_list = reward_list,
+        **agent_params
     print(eval_data)
-    # Access the rewards for eval_data_0
-    rewards_eval_data_0 = eval_data['eval_data_0']['eval_rewards']
-
-    # Access the rewards for eval_data_1
-    rewards_eval_data_1 = eval_data['eval_data_1']['eval_rewards']
-    
-    summed_rewards1 = sum_rewards(rewards=rewards_eval_data_0)
-    summed_rewards2 = sum_rewards(rewards=rewards_eval_data_1)
-        
-    print(summed_rewards1)
+    """
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
