@@ -44,6 +44,7 @@ class LinearSupport:
             epsilon (float, optional): Minimum improvement per iteration. Defaults to 0.0.
             verbose (bool): Defaults to False.
         """
+        self.calls_cornerweights = 0
         self.num_objectives = num_objectives
         self.epsilon = epsilon
         self.visited_weights = []  # List of already tested weight vectors
@@ -156,6 +157,7 @@ class LinearSupport:
         Returns:
             List of indices of value vectors removed from the CCS for being dominated.
         """
+        removed_indx=None
         if self.verbose:
             print(f"Adding value: {value} to CCS.")
 
@@ -165,14 +167,16 @@ class LinearSupport:
         if self.is_dominated(value):
             if self.verbose:
                 print(f"Value {value} is dominated. Discarding.")
-            return [len(self.ccs)]
-
-        removed_indx = self.remove_obsolete_values(value)
+            removed_indx = None
+            return [len(self.ccs)], self.ccs
+            
+        else:
+            removed_indx = self.remove_obsolete_values(value)
 
         self.ccs.append(value)
         self.weight_support.append(w)
 
-        return removed_indx
+        return removed_indx, self.ccs
 
     def ols_priority(self, w: np.ndarray) -> float:
         """Get the priority of a weight vector for OLS.
@@ -265,8 +269,8 @@ class LinearSupport:
             if len(weights_optimal) == 0:
                 print("removed value", self.ccs[i])
                 removed_indx.append(i)
-                self.ccs.pop(i)
-                self.weight_support.pop(i)
+                #self.ccs.pop(i)
+                #self.weight_support.pop(i)
         return removed_indx
 
     def max_value_lp(self, w_new: np.ndarray) -> float:
@@ -315,6 +319,9 @@ class LinearSupport:
         Returns:
             List of corner weights.
         """
+        
+        
+        self.calls_cornerweights+=1
         A = np.vstack(self.ccs)
         A = np.round_(A, decimals=4)  # Round to avoid numerical issues
         A = np.concatenate((A, -np.ones(A.shape[0]).reshape(-1, 1)), axis=1)

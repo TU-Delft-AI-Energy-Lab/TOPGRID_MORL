@@ -26,7 +26,7 @@ def main():
         values.append(discounted_vec)
         policies.append(new_policy)
 
-        removed_inds = ols.add_solution(discounted_vec, w)
+        removed_inds, _ = ols.add_solution(discounted_vec, w)
     print(policies)
     print(values)
     
