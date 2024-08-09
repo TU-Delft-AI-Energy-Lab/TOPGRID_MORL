@@ -1085,7 +1085,7 @@ class L2RPNReward(BaseReward):
 
         x = np.minimum(relative_flow, dt_float(1.0))
         lines_capacity_usage_score = np.maximum(
-            dt_float(1.0) - x**4, np.zeros(x.shape, dtype=dt_float)
+            dt_float(1.0) - x**2, np.zeros(x.shape, dtype=dt_float)
         )
         return lines_capacity_usage_score
 

@@ -71,6 +71,7 @@ class CustomGymEnv(GymEnv):
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
+            self.reconnect_line = []
             
         tmp_steps = 0 
         
@@ -117,7 +118,7 @@ class CustomGymEnv(GymEnv):
             if self.reconnect_line:
                 for line in self.reconnect_line:
                     g2op_act += line
-                #print(g2op_act)    
+                self.reconnect_line = []
     
                 
             g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
@@ -128,12 +129,14 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             tmp_steps +=1 
             cum_reward += tmp_reward
+            #print(tmp_reward)
 
             if done:
                 break  # Exit the loop if done is True
         
             
         reward = cum_reward  # Accumulate the rewards
+        print(reward)
         info["steps"] = tmp_steps
         # Handle opponent attack
         """

@@ -52,21 +52,7 @@ class MOPPOTrainer:
         self.agent_params = agent_params
         self.np_random = np.random.RandomState(seed)
         self.weight_range = [0, 1]  # Assuming some default range for weights
-        self.num_samples = 5      # Assuming a default number of samples for weights
-    
-    def runMC_MOPPO(self):
-        eval_rewards = np.empty((self.iterations, self.reward_dim))
-        results_dict = {}
-        for i in range(self.iterations):
-            weights = self.sample_weights()
-            print(weights)
-            eval_data = self.train_agent(weights)
-            eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
-            eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
-            mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
-            eval_rewards[i] = mean_rewards
-            results_dict[tuple(weights)] = mean_rewards
-        return eval_rewards, results_dict
+        self.num_samples = 100      # Assuming a default number of samples for weights
     
     def sample_weights(self):
         weights = np.random.rand(self.reward_dim)
@@ -109,7 +95,7 @@ class MOPPOTrainer:
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
                 tags=[self.run_name]
             )
-        agent.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list)
+        agent.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list )
         if self.agent_params['log']:
             run.finish()
         eval_data_dict = {}

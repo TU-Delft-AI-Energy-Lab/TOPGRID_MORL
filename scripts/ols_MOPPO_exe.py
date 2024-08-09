@@ -1,3 +1,11 @@
+import gymnasium as gym
+import mo_gymnasium as mo_gym
+
+from topgrid_morl.wrapper.ols import LinearSupport
+from morl_baselines.single_policy.ser.mo_q_learning import MOQLearning
+
+
+
 import argparse
 import json
 import os
@@ -5,13 +13,15 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt     
 from mpl_toolkits.mplot3d import Axes3D
-
+from topgrid_morl.agent.MO_PPO import MOPPO
 from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent class
     DoNothingAgent,
 )
+from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
+
 
 def sum_rewards(rewards):
         rewards_np = np.array(rewards)
@@ -89,44 +99,67 @@ def main(seed: int, config: str) -> None:
     # Reset the environment to verify dimensions
     gym_env.reset()
     gym_env_val.reset()
-    weights = np.array([1,0,0])
-    # Step 5: Train Agent
-    trainer = MOPPOTrainer(
-        iterations=5,
-        max_gym_steps=max_gym_steps,
-        seed=seed,
-        results_dir=results_dir,
-        env=gym_env,
-        env_val=gym_env_val,
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        reward_dim=reward_dim,
-        run_name="runMC",
-        project_name=project_name,
-        net_arch=net_arch,
-        g2op_env=g2op_env, 
-        g2op_env_val= g2op_env_val,
-        reward_list = reward_list,
-        **agent_params
-    )
-    eval_rewards, results_dict = trainer.runMC_MOPPO()
-    print(results_dict)
+  
+    num_obj = 3 
+    GAMMA = 0.99
     
-    # Extracting weights and mean rewards
-    weights = list(results_dict.keys())
-    mean_rewards = list(results_dict.values())
+    ols = LinearSupport(num_objectives=num_obj, epsilon=0.01, verbose=True)
+    policies = []
+    weights = []
+    values = []
+    ccs_list = []
+    while not ols.ended():
+        w = ols.next_weight(algo='ols')
+        print(f"this weights will be given to the MOPPO: {w}")
+        if ols.ended(): 
+            break
+        trainer = MOPPOTrainer(
+            iterations=5,
+            max_gym_steps=max_gym_steps,
+            seed=seed,
+            results_dir=results_dir,
+            env=gym_env,
+            env_val=gym_env_val,
+            obs_dim=obs_dim,
+            action_dim=action_dim,
+            reward_dim=reward_dim,
+            run_name="runMC",
+            project_name=project_name,
+            net_arch=net_arch,
+            g2op_env=g2op_env, 
+            g2op_env_val= g2op_env_val,
+            reward_list = reward_list,
+            **agent_params
+        )
+        eval_data = trainer.train_agent(weights=w)
+        eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
+        eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
+        mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
+        weights_array = np.array(w)
+        mean_rewards_array = np.array(mean_rewards)
+        print(f"this is mean rewards{mean_rewards_array}")
+        #policies.append(new_policy)
+        if ols.ended(): 
+            break
+        removed_inds, ccs = ols.add_solution(mean_rewards_array, w)
+        values.append(mean_rewards_array)
+        weights.append(w)
+        ccs_list.append(ccs)
+    
+    print(values)
 
-    # Convert to numpy arrays for easier manipulation
     weights_array = np.array(weights)
-    mean_rewards_array = np.array(mean_rewards)
+    values = np.array(values)
+    final_ccs = ccs_list[-1]
+    print(final_ccs)
 
     # Create a 3D scatter plot
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
     # Plot each point with its corresponding label
-    for i in range(len(weights_array)):
-        x, y, z = mean_rewards_array[i]
+    for i in range(num_obj):
+        x, y, z = final_ccs[i]
         ax.scatter(x, y, z, marker='o')
         label = f"{weights_array[i]}"
         ax.text(x, y, z, label)
@@ -137,26 +170,7 @@ def main(seed: int, config: str) -> None:
     ax.set_zlabel('Reward Dimension 3')
 
     plt.show()
-    """
-    iterations=2
-        max_gym_steps=max_gym_steps,
-        seed=seed,
-        results_dir=results_dir,
-        env=gym_env,
-        env_val=gym_env_val,
-        obs_dim=obs_dim,
-        action_dim=action_dim,
-        reward_dim=reward_dim,
-        run_name="runMC",
-        project_name=project_name,
-        net_arch=net_arch,
-        g2op_env=g2op_env, 
-        g2op_env_val= g2op_env_val,
-        reward_list = reward_list,
-        **agent_params
-    print(eval_data)
-    """
-    
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run experiment with specific seed and weights"
