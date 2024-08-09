@@ -175,6 +175,9 @@ class LinearSupport:
 
         self.ccs.append(value)
         self.weight_support.append(w)
+        
+        if self.calls_cornerweights>4:
+            self.ols_ended = True
 
         return removed_indx, self.ccs
 

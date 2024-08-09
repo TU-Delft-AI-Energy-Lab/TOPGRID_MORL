@@ -5,7 +5,7 @@ from topgrid_morl.wrapper.ols import LinearSupport
 from morl_baselines.single_policy.ser.mo_q_learning import MOQLearning
 
 
-
+from datetime import datetime
 import argparse
 import json
 import os
@@ -22,6 +22,16 @@ from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
 
+# Recursive function to convert all numpy arrays to lists
+def convert_ndarray_to_list(data):
+    if isinstance(data, dict):
+        return {key: convert_ndarray_to_list(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_ndarray_to_list(element) for element in data]
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
+    else:
+        return data
 
 def sum_rewards(rewards):
         rewards_np = np.array(rewards)
@@ -104,7 +114,7 @@ def main(seed: int, config: str) -> None:
     GAMMA = 0.99
     
     ols = LinearSupport(num_objectives=num_obj, epsilon=0.01, verbose=True)
-    policies = []
+    agents = []
     weights = []
     values = []
     ccs_list = []
@@ -131,7 +141,7 @@ def main(seed: int, config: str) -> None:
             reward_list = reward_list,
             **agent_params
         )
-        eval_data = trainer.train_agent(weights=w)
+        eval_data, agent = trainer.train_agent(weights=w)
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
         mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
@@ -139,37 +149,43 @@ def main(seed: int, config: str) -> None:
         mean_rewards_array = np.array(mean_rewards)
         print(f"this is mean rewards{mean_rewards_array}")
         #policies.append(new_policy)
-        if ols.ended(): 
-            break
+       
         removed_inds, ccs = ols.add_solution(mean_rewards_array, w)
+        agents.append(agent)
         values.append(mean_rewards_array)
         weights.append(w)
         ccs_list.append(ccs)
     
-    print(values)
 
     weights_array = np.array(weights)
     values = np.array(values)
     final_ccs = ccs_list[-1]
     print(final_ccs)
+    
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    dir_path = os.path.join(
+        "morl_logs",
+        "OLS",
+        env_name,
+        f"{current_date}",
+        f"{reward_list}",
+        f"seed_{seed}",
+    )
+    os.makedirs(dir_path, exist_ok=True)
+    data_dict = {
+        "weights": weights,
+        "values": [v.tolist() for v in values],  # Convert numpy arrays to lists
+        "ccs_list": ccs_list
+    }   
+    data_dict = convert_ndarray_to_list(data_dict)
+    filename = f"morl_logs_ols.json"
+    filepath = os.path.join(dir_path, filename)
 
-    # Create a 3D scatter plot
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
 
-    # Plot each point with its corresponding label
-    for i in range(num_obj):
-        x, y, z = final_ccs[i]
-        ax.scatter(x, y, z, marker='o')
-        label = f"{weights_array[i]}"
-        ax.text(x, y, z, label)
+    with open(filepath, "w") as json_file:
+        json.dump(data_dict, json_file, indent=4)
 
-    # Set labels for axes
-    ax.set_xlabel('Reward Dimension 1')
-    ax.set_ylabel('Reward Dimension 2')
-    ax.set_zlabel('Reward Dimension 3')
 
-    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

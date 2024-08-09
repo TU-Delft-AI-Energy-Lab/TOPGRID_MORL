@@ -66,28 +66,20 @@ class CustomGymEnv(GymEnv):
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
             Observation, reward, done flag, and additional info.
         """
+        tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         cum_reward = np.zeros(self.reward_dim)
         line_reward = np.zeros(self.reward_dim)
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
-            if not done: 
-                #print(g2op_act)
-                g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
-                line_reward = np.array(
-                    [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                    dtype=np.float64,
-                )   
-                self.steps += 1
-                tmp_steps +=1 
-                #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
-                self.reconnect_line = []
+            self.reconnect_line = []
 
         
         cum_reward += line_reward
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         self.steps += 1
+        tmp_steps +=1 
 
         # Create reward array
         reward = np.array(
@@ -106,11 +98,12 @@ class CustomGymEnv(GymEnv):
                 dtype=np.float64,
             )
             self.steps += 1
+            tmp_steps +=1 
             cum_reward += tmp_reward
 
          # Accumulate the rewards
 
-        info["steps"] = self.steps
+        info["steps"] = tmp_steps
 
         # Handle opponent attack
         if info.get("opponent_attack_duration", 0) == 1:
