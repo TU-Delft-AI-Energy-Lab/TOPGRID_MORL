@@ -30,12 +30,12 @@
         "act_fct": "relu"
     },
     "weight_vectors": [
-        [1, 0, 0], [0, 1, 0], [0, 0, 1], [0.33, 0.33, 0.33]
+        [1, 0, 0]
     ],
-    "max_gym_steps": 3072,
+    "max_gym_steps": 2048,
     "rewards": {
         "first": "ScaledLinesCapacity",
-        "second": "L2RPN",
+        "second": "ScaledL2RPN",
         "third": "ScaledTopoDepth"
     }
 

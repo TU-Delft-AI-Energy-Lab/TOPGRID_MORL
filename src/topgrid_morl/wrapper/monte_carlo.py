@@ -129,7 +129,7 @@ class MOPPOTrainer:
                 reward_list=self.reward_list,
                 seed=self.seed
             )
-        return eval_data_dict
+        return eval_data_dict, agent 
 
   
 
