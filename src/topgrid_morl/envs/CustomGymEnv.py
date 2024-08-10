@@ -105,7 +105,7 @@ class CustomGymEnv(GymEnv):
                      {"set_line_status": [(line_id, +1)]}
                 )
                     
-                self.reconnect_line.append(lines_act)
+                self.reconnect_line.append(lines_act) #edit reconnection
 
         
             
