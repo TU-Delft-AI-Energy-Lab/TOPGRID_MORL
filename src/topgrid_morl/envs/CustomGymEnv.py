@@ -86,7 +86,24 @@ class CustomGymEnv(GymEnv):
             [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
             dtype=np.float64,
         )
+        
+        
+        #reconnect lines
+        to_reco = info["disc_lines"]
+        self.reconnect_line = []
+        if np.any(to_reco == 0):
+        # Get the indices of elements that are 0
+            reco_id = np.where(to_reco == 0)[0]
+            
+            for line_id in reco_id:
+                lines_act = self.init_env.action_space(
+                     {"set_line_status": [(line_id, +1)]}
+                )
+                    
+                self.reconnect_line.append(lines_act) #edit reconnection
+
         cum_reward += reward
+
 
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
