@@ -122,7 +122,7 @@ def evaluate_agent(
     eval_done = False
     eval_state = gym_env.reset(options={"max step": eval_steps})
     total_eval_steps = 0
-
+    
     while not eval_done:
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
         eval_state, eval_reward, eval_done, eval_info = gym_env.step(eval_action)

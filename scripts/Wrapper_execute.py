@@ -3,13 +3,15 @@ import json
 import os
 
 import numpy as np
+import matplotlib.pyplot as plt     
+from mpl_toolkits.mplot3d import Axes3D
 
 from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent class
     DoNothingAgent,
 )
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
-from topgrid_morl.wrapper.monte_carlo import train_agent
+from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
 
 def sum_rewards(rewards):
         rewards_np = np.array(rewards)
@@ -49,7 +51,7 @@ def main(seed: int, config: str) -> None:
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
     
-
+    agent_params["log"] = False
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
@@ -83,14 +85,14 @@ def main(seed: int, config: str) -> None:
         max_rho = max_rho
         
     )
-
+    print(agent_params)
     # Reset the environment to verify dimensions
     gym_env.reset()
     gym_env_val.reset()
     weights = np.array([1,0,0])
     # Step 5: Train Agent
-    eval_data = train_agent(
-        weights=weights,
+    trainer = MOPPOTrainer(
+        iterations=5,
         max_gym_steps=max_gym_steps,
         seed=seed,
         results_dir=results_dir,
@@ -99,7 +101,7 @@ def main(seed: int, config: str) -> None:
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
-        run_name=config_name,
+        run_name="runMC",
         project_name=project_name,
         net_arch=net_arch,
         g2op_env=g2op_env, 
@@ -107,17 +109,53 @@ def main(seed: int, config: str) -> None:
         reward_list = reward_list,
         **agent_params
     )
-    print(eval_data)
-    # Access the rewards for eval_data_0
-    rewards_eval_data_0 = eval_data['eval_data_0']['eval_rewards']
-
-    # Access the rewards for eval_data_1
-    rewards_eval_data_1 = eval_data['eval_data_1']['eval_rewards']
+    eval_rewards, results_dict = trainer.runMC_MOPPO()
+    print(results_dict)
     
-    summed_rewards1 = sum_rewards(rewards=rewards_eval_data_0)
-    summed_rewards2 = sum_rewards(rewards=rewards_eval_data_1)
-        
-    print(summed_rewards1)
+    # Extracting weights and mean rewards
+    weights = list(results_dict.keys())
+    mean_rewards = list(results_dict.values())
+
+    # Convert to numpy arrays for easier manipulation
+    weights_array = np.array(weights)
+    mean_rewards_array = np.array(mean_rewards)
+
+    # Create a 3D scatter plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot each point with its corresponding label
+    for i in range(len(weights_array)):
+        x, y, z = mean_rewards_array[i]
+        ax.scatter(x, y, z, marker='o')
+        label = f"{weights_array[i]}"
+        ax.text(x, y, z, label)
+
+    # Set labels for axes
+    ax.set_xlabel('Reward Dimension 1')
+    ax.set_ylabel('Reward Dimension 2')
+    ax.set_zlabel('Reward Dimension 3')
+
+    plt.show()
+    """
+    iterations=2
+        max_gym_steps=max_gym_steps,
+        seed=seed,
+        results_dir=results_dir,
+        env=gym_env,
+        env_val=gym_env_val,
+        obs_dim=obs_dim,
+        action_dim=action_dim,
+        reward_dim=reward_dim,
+        run_name="runMC",
+        project_name=project_name,
+        net_arch=net_arch,
+        g2op_env=g2op_env, 
+        g2op_env_val= g2op_env_val,
+        reward_list = reward_list,
+        **agent_params
+    print(eval_data)
+    """
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
