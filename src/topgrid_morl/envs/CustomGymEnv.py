@@ -68,45 +68,41 @@ class CustomGymEnv(GymEnv):
         """
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
-        # Reconnect lines if necessary
+        cum_reward = np.zeros(self.reward_dim)
+        line_reward = np.zeros(self.reward_dim)
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
             self.reconnect_line = []
 
-        cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
-
+        
+        cum_reward += line_reward
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-        
-        
-
-        #         self.reconnect_line.append(g2op_act)
-        tmp_steps +=1 
         self.steps += 1
+        tmp_steps +=1 
 
         # Create reward array
         reward = np.array(
             [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
             dtype=np.float64,
         )
+        cum_reward += reward
 
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
             action = 0
             do_nothing = self.action_space.from_gym(action)
             g2op_obs, reward1, done, info = self.init_env.step(do_nothing)
-            reward = np.array(
+            tmp_reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                 dtype=np.float64,
             )
             self.steps += 1
             tmp_steps +=1 
-            cum_reward += reward
+            cum_reward += tmp_reward
 
-            if done:
-                break  # Exit the loop if done is True
+         # Accumulate the rewards
 
-        reward += cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
 
         # Handle opponent attack
@@ -118,4 +114,4 @@ class CustomGymEnv(GymEnv):
             self.reconnect_line.append(g2op_act)
 
         gym_obs = self.observation_space.to_gym(g2op_obs)
-        return gym_obs, reward, done, info
+        return gym_obs, cum_reward, done, info

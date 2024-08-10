@@ -1,9 +1,10 @@
-from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
 import json
 import os
-import h5py
+from copy import deepcopy
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import gymnasium as gym
+import h5py
 import mo_gymnasium as mo_gym
 import numpy as np
 import numpy.typing as npt
@@ -19,6 +20,7 @@ from typing_extensions import override
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.utils.Dataloader import DataLoader
 from topgrid_morl.utils.Grid2op_eval import evaluate_agent
+
 
 class PPOReplayBuffer:
     """
@@ -233,7 +235,7 @@ class MOPPONet(nn.Module):
         action_dim: int,
         reward_dim: int,
         net_arch: List[int] = [64, 64],
-        act_fcn=nn.ReLU
+        act_fcn=nn.ReLU,
     ) -> None:
         """
         Initialize the neural network.
@@ -333,13 +335,13 @@ class MOPPO(MOPolicy):
 
     def __init__(
         self,
-        id: int,
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
         env_val: CustomGymEnv,
-        g2op_env: Any, 
-        g2op_env_val: Any, 
+        g2op_env: Any,
+        g2op_env_val: Any,
+        id: int = 1,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -393,7 +395,7 @@ class MOPPO(MOPolicy):
         self.id = id
         self.env = env
         self.env_val = env_val
-        self.g2op_env = g2op_env, 
+        self.g2op_env = (g2op_env,)
         self.g2op_env_val = g2op_env_val
         self.networks = networks
         self.device = device
@@ -419,7 +421,7 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
-        
+
         self.training_rewards = []
         self.evaluation_rewards = []
 
@@ -437,9 +439,8 @@ class MOPPO(MOPolicy):
         # Add logs for state-action pairs and rewards
         self.state_action_log = []
         self.rewards_log = []
-        
+
         self.generate_reward = generate_reward
-        
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
@@ -458,7 +459,7 @@ class MOPPO(MOPolicy):
             self.weights.detach().cpu().numpy(),
             self.env,
             self.env_val,
-            self.g2op_env, 
+            self.g2op_env,
             self.g2op_env_val,
             self.log,
             self.steps_per_iteration,
@@ -481,7 +482,7 @@ class MOPPO(MOPolicy):
             self.generate_reward,
             self.np_random,
         )
-        
+
         copied.global_step = self.global_step
         copied.eval_step = self.eval_step
         copied.optimizer = optim.Adam(
@@ -535,7 +536,7 @@ class MOPPO(MOPolicy):
         """
         for gym_step in range(self.batch_size):
             if done:
-                self.env.reset(options={"max step": 7*288})  # One week
+                self.env.reset(options={"max step": 7 * 288})  # One week
                 self.chronic_steps = 0
 
             with th.no_grad():
@@ -569,12 +570,11 @@ class MOPPO(MOPolicy):
 
         return obs, done, self.batch.rewards.mean().item()
 
-
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
-        Compute advantages and returns.
+        Compute advantages and returns
 
         Args:
             next_obs (th.Tensor): Next observation.
@@ -662,7 +662,7 @@ class MOPPO(MOPolicy):
         Update the policy and value function.
         """
         eval_done = False
-        eval_state = self.env_val.reset(options={"max step": 7*288})
+        eval_state = self.env_val.reset(options={"max step": 7 * 288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
 
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
@@ -734,11 +734,11 @@ class MOPPO(MOPolicy):
                 and approx_kl > self.target_kl
             ):
                 break
-            
+
             # Evaluate and log evaluation rewards
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
-        eval_rewards= []
-        eval_steps= []
+        eval_rewards = []
+        eval_steps = []
         for idx, chronic in enumerate(chronics):
             eval_data = evaluate_agent(
                 agent=self,
@@ -746,35 +746,31 @@ class MOPPO(MOPolicy):
                 g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_val,
                 weights=self.weights,
-                eval_steps=7*288,
+                eval_steps=7 * 288,
                 eval_counter=self.eval_counter,
-                global_step=self.global_step,
-                reward_dim=self.networks.reward_dim,
                 chronic=chronic,
                 idx=idx,
-                reward_list = self.reward_list,
-                
+                reward_list=self.reward_list,
+                seed=self.seed,
             )
-            eval_rewards.append(th.stack(eval_data['eval_rewards']).mean(dim=0))
-            eval_steps.append(eval_data['eval_steps'])
-            
+            eval_rewards.append(th.stack(eval_data["eval_rewards"]).mean(dim=0))
+            eval_steps.append(eval_data["eval_steps"])
+
         eval_rewards = th.stack(eval_rewards).mean(dim=0)
-        eval_steps =np.array(eval_steps).mean()
-        
+        eval_steps = np.array(eval_steps).mean()
+
         self.evaluation_rewards.append(eval_rewards.cpu().numpy())
-        
-        
+
         if self.log:
             log_rew_data = {
-                f"eval/reward_{self.reward_list_ext[i]}": eval_rewards[i].item() for i in range(self.networks.reward_dim)
+                f"eval/reward_{self.reward_list_ext[i]}": eval_rewards[i].item()
+                for i in range(self.networks.reward_dim)
             }
-            log_step_data = {
-                f"eval/steps": eval_steps
-            }
+            log_step_data = {f"eval/steps": eval_steps}
             wandb.log(log_rew_data, step=self.global_step)
             wandb.log(log_step_data, step=self.global_step)
-    
-        self.eval_counter+=1
+
+        self.eval_counter += 1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -783,7 +779,9 @@ class MOPPO(MOPolicy):
             wandb.log(
                 {
                     f"losses_{self.id}/value_loss": v_loss.item(),
-                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0]["lr"],
+                    f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
+                        "lr"
+                    ],
                     f"losses_{self.id}/policy_loss": pg_loss.item(),
                     f"losses_{self.id}/entropy": entropy_loss.item(),
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
@@ -807,27 +805,30 @@ class MOPPO(MOPolicy):
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
-        self.reward_list =reward_list
-        self.reward_list_ext = ['ScaledLinesCapacity', self.reward_list[0], self.reward_list[1]]
-        state = self.env.reset(options={"max step": 7*288})
+        self.reward_list = reward_list
+        self.reward_list_ext = [
+            "ScaledLinesCapacity",
+            self.reward_list[0],
+            self.reward_list[1],
+        ]
+        state = self.env.reset(options={"max step": 7 * 288})
         self.chronic_steps = 0
         next_obs = th.Tensor(state).to(self.device)
         done = False
-    
+
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step = 0
         self.global_step = 0
-        self.eval_counter = 0 
+        self.eval_counter = 0
         for trainings in range(num_trainings):
-            if done: 
-                state = self.env.reset(options={"max step": 7*288})
+            if done:
+                state = self.env.reset(options={"max step": 7 * 288})
                 self.chronic_steps = 0
                 next_obs = th.Tensor(state).to(self.device)
                 done = False
 
-            next_obs, done, _ = self.__collect_samples(
-                next_obs, done)
-            
+            next_obs, done, _ = self.__collect_samples(next_obs, done)
+
             self.returns, self.advantages = self.__compute_advantages(next_obs, done)
             self.update()
 
@@ -836,7 +837,7 @@ class MOPPO(MOPolicy):
                 new_lr = self.learning_rate * frac
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
-                    
+
         directory_name = f"5bus_maxgymsteps_{max_gym_steps}"
         directory_path_log = os.path.join("data", "runs", directory_name)
         directory_path_rew = os.path.join("data", "rewards", directory_name)
@@ -845,12 +846,39 @@ class MOPPO(MOPolicy):
         os.makedirs(directory_path_rew, exist_ok=True)
 
         # Save the logs and NumPy arrays in the created directories
-        filename_prefix = os.path.join(directory_path_log, f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}")
+        filename_prefix = os.path.join(
+            directory_path_log,
+            f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}",
+        )
         dataloader = DataLoader()
         dataloader.save_logs_json(path=filename_prefix)
-        if self.generate_reward: 
-            np.save(os.path.join(directory_path_rew, f"generate_training_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
-            np.save(os.path.join(directory_path_rew, f"generate_evaluation_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
-        else: 
-            np.save(os.path.join(directory_path_rew, f"training_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.training_rewards))
-            np.save(os.path.join(directory_path_rew, f"evaluation_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy"), np.array(self.evaluation_rewards))
+        if self.generate_reward:
+            np.save(
+                os.path.join(
+                    directory_path_rew,
+                    f"generate_training_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
+                ),
+                np.array(self.training_rewards),
+            )
+            np.save(
+                os.path.join(
+                    directory_path_rew,
+                    f"generate_evaluation_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
+                ),
+                np.array(self.evaluation_rewards),
+            )
+        else:
+            np.save(
+                os.path.join(
+                    directory_path_rew,
+                    f"training_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
+                ),
+                np.array(self.training_rewards),
+            )
+            np.save(
+                os.path.join(
+                    directory_path_rew,
+                    f"evaluation_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
+                ),
+                np.array(self.evaluation_rewards),
+            )

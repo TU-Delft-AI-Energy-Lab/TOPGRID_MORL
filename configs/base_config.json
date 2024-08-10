@@ -1,8 +1,11 @@
 {
+    "config_name": "base",
+    "project_name": "TOPGRID_MORL_5bus",
+
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 36,
+        "steps_per_iteration": 16,
         "num_minibatches": 2,
         "update_epochs": 5,
         "learning_rate": 5e-4,
@@ -29,11 +32,11 @@
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 128,
+    "max_gym_steps": 32,
     "rewards": {
         "first": "ScaledLinesCapacity",
-        "second": "ScaledDistance",
-        "third": "TopoAction"
+        "second": "ScaledL2RPN",
+        "third": "ScaledTopoDepth"
     }
 
     

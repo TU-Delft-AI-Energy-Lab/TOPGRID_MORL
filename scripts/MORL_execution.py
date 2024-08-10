@@ -27,6 +27,8 @@ def main(seed: int, config: str) -> None:
     with open(config_path, "r") as config_file:
         config = json.load(config_file)
 
+    config_name = config['config_name']
+    project_name = config['project_name']
     agent_params = config["agent_params"]
     weight_vectors = config["weight_vectors"]
     weights = np.array(weight_vectors)  # Convert to numpy array for consistency
@@ -88,7 +90,8 @@ def main(seed: int, config: str) -> None:
         obs_dim=obs_dim,
         action_dim=action_dim,
         reward_dim=reward_dim,
-        run_name="Run",
+        run_name=config_name,
+        project_name=project_name,
         net_arch=net_arch,
         g2op_env=g2op_env, 
         g2op_env_val= g2op_env_val,
