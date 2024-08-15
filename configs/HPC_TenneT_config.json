@@ -8,7 +8,7 @@
         "steps_per_iteration": 256,
         "num_minibatches": 2,
         "update_epochs": 15,
-        "learning_rate": 5e-4,
+        "learning_rate": 1e-3,
         "gamma": 0.99,
         "anneal_lr": false,
         "clip_coef": 0.2,
@@ -30,7 +30,7 @@
         "act_fct": "relu"
     },
     "weight_vectors": [
-        [1, 0, 0]
+        [0, 1, 0]
     ],
     "max_gym_steps": 2048,
     "rewards": {
