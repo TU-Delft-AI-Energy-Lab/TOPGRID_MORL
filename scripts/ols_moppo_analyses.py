@@ -1,11 +1,11 @@
 import os
 import json
+
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
-import matplotlib.cm as cm  # Import cm directly from matplotlib
+import matplotlib.cm as cm
 import plotly.express as px
 
 def load_json_data(relative_path):
@@ -89,10 +89,9 @@ def calculate_hypervolumes_for_all_projections(seed_paths):
 
     for seed_path in seed_paths:
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list']
+        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
 
-        last_ccs = ccs_list[-1]
-        x_all, y_all, z_all = extract_coordinates(last_ccs)
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Define reference points based on minimum values
         reference_point_xy = (min(x_all), min(y_all))
@@ -128,11 +127,9 @@ def plot_2d_projections_seeds(seed_paths):
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list']
+        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
 
-        last_ccs = ccs_list[-1]
-
-        x_all, y_all, z_all = extract_coordinates(last_ccs)
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Calculate Pareto frontier for X vs Y
         x_pareto_xy, y_pareto_xy, is_efficient_xy = pareto_frontier_2d(x_all, y_all)
@@ -231,10 +228,9 @@ def plot_all_seeds(seed_paths):
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list']
+        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
         
-        last_ccs = ccs_list[-1]
-        x_all, y_all, z_all = extract_coordinates(last_ccs)
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Plot 3D scatter
         plot_3d_scatter(x_all, y_all, z_all, f'Seed {i+1}', ax_3d, color=colors[i % len(colors)])
@@ -246,9 +242,9 @@ def plot_all_seeds(seed_paths):
     plot_2d_projections_seeds(seed_paths)
 
 def main():
-    base_path = r"morl_logs\OLS\rte_case5_example\2024-08-11\['ScaledL2RPN', 'ScaledTopoDepth']"
-    seed_dirs = [f'seed_{i}' for i in range(0, 5)]  # Adjust the range as needed
-    seed_paths = [os.path.join(base_path, seed_dir, f'morl_logs_ols{seed_dirs.index(seed_dir)}.json') for seed_dir in seed_dirs]
+    base_path = r"morl_logs\OLS\rte_case5_example\2024-08-15\['ScaledL2RPN', 'ScaledTopoDepth']"
+    seed_dirs = [f'seed_42']  # Adjust this list if you have more seeds
+    seed_paths = [os.path.join(base_path, seed_dir, 'morl_logs_ols.json') for seed_dir in seed_dirs]
     plot_all_seeds(seed_paths)
 
 if __name__ == "__main__":

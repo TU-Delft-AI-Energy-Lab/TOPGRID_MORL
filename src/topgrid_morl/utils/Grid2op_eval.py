@@ -122,7 +122,8 @@ def evaluate_agent(
     eval_done = False
     eval_state = gym_env.reset(options={"max step": eval_steps})
     total_eval_steps = 0
-    
+    discount_factor = 0.995
+
     while not eval_done:
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
         eval_state, eval_reward, eval_done, eval_info = gym_env.step(eval_action)
@@ -131,7 +132,7 @@ def evaluate_agent(
         eval_reward = (
             th.tensor(eval_reward).to(agent.device).view(agent.networks.reward_dim)
         )
-        eval_rewards.append(eval_reward.cpu())
+        eval_rewards.append(eval_reward)
         eval_actions.append(
             eval_action.tolist()
             if isinstance(eval_action, (list, np.ndarray))
@@ -143,9 +144,16 @@ def evaluate_agent(
             else eval_state
         )
 
+    # Calculate the discounted reward
+    discounted_rewards = []
+    running_add = th.zeros_like(eval_rewards[0])
+    for reward in reversed(eval_rewards):
+        running_add = reward + discount_factor * running_add
+        discounted_rewards.insert(0, running_add)
+
     eval_data = {
         "eval_chronic": chronic,
-        "eval_rewards": eval_rewards,
+        "eval_rewards": discounted_rewards,  # Storing PyTorch tensors
         "eval_actions": eval_actions,
         "eval_states": eval_states,
         "eval_steps": total_eval_steps,
