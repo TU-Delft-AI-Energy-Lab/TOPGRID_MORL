@@ -1,8 +1,12 @@
 import os
 import json
 import matplotlib.pyplot as plt
+from scipy.spatial import ConvexHull
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import pandas as pd
+import matplotlib.cm as cm  # Import cm directly from matplotlib
+import plotly.express as px
 
 def load_json_data(relative_path):
     """Loads JSON data from a given relative path."""
@@ -23,7 +27,6 @@ def is_pareto_efficient(costs):
     is_efficient = np.ones(costs.shape[0], dtype=bool)
     for i, c in enumerate(costs):
         if is_efficient[i]:
-            # Maximize: look for points where all coordinates are less than or equal to the current point
             is_efficient[is_efficient] = np.any(costs[is_efficient] >= c, axis=1)
             is_efficient[i] = True
     return is_efficient
@@ -35,9 +38,37 @@ def pareto_frontier_2d(x_values, y_values):
     x_pareto = np.array(x_values)[is_efficient]
     y_pareto = np.array(y_values)[is_efficient]
     
-    # Sort the points by the first dimension to plot lines in order
     sorted_indices = np.argsort(x_pareto)
     return x_pareto[sorted_indices], y_pareto[sorted_indices], is_efficient
+
+def calculate_hypervolume(pareto_points, reference_point):
+    """
+    Calculate the hypervolume dominated by the Pareto frontier in 2D.
+    
+    Parameters:
+    - pareto_points: List of tuples representing the Pareto points (sorted by the first objective).
+    - reference_point: A tuple representing the reference point.
+    
+    Returns:
+    - The calculated hypervolume.
+    """
+    pareto_points = np.array(pareto_points)
+    hypervolume = 0.0
+
+    # Ensure the points are sorted by the first objective (x-axis)
+    pareto_points = pareto_points[np.argsort(pareto_points[:, 0])]
+
+    # Calculate the hypervolume
+    for i in range(len(pareto_points)):
+        if i == 0:
+            width = pareto_points[i, 0] - reference_point[0]
+        else:
+            width = pareto_points[i, 0] - pareto_points[i - 1, 0]
+        
+        height = pareto_points[i, 1] - reference_point[1]
+        hypervolume += width * height
+
+    return hypervolume
 
 def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
     """Creates a 3D scatter plot for given x, y, z values with a specific label and color."""
@@ -46,54 +77,107 @@ def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
         ax = fig.add_subplot(111, projection='3d')
     ax.scatter(x_values, y_values, z_values, label=label, color=color)
     
-    # Label the axes
     ax.set_xlabel('ScaledLinesCapacity')
     ax.set_ylabel('ScaledL2RPN')
     ax.set_zlabel('ScaledTopoDepth')
     
     return ax
 
+def calculate_hypervolumes_for_all_projections(seed_paths):
+    """Calculates the hypervolume for X vs Y, X vs Z, and Y vs Z projections for each seed."""
+    hypervolumes = []
+
+    for seed_path in seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list']
+
+        last_ccs = ccs_list[-1]
+        x_all, y_all, z_all = extract_coordinates(last_ccs)
+
+        # Define reference points based on minimum values
+        reference_point_xy = (min(x_all), min(y_all))
+        reference_point_xz = (min(x_all), min(z_all))
+        reference_point_yz = (min(y_all), min(z_all))
+
+        # Calculate Pareto frontiers
+        x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+        # Calculate hypervolumes for each 2D projection
+        hv_xy = calculate_hypervolume(list(zip(x_pareto_xy, y_pareto_xy)), reference_point_xy)
+        hv_xz = calculate_hypervolume(list(zip(x_pareto_xz, z_pareto_xz)), reference_point_xz)
+        hv_yz = calculate_hypervolume(list(zip(y_pareto_yz, z_pareto_yz)), reference_point_yz)
+
+        hypervolumes.append({
+            "Hypervolume XY": hv_xy,
+            "Hypervolume XZ": hv_xz,
+            "Hypervolume YZ": hv_yz
+        })
+
+    return hypervolumes
+
 def plot_2d_projections_seeds(seed_paths):
-    """Plots X vs Y, X vs Z, and Y vs Z in separate 2D plots with Pareto frontier, labeling seeds."""
+    """Plots X vs Y, X vs Z, and Y vs Z in separate 2D plots, highlighting Pareto frontier points and calculating hypervolumes."""
     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
 
-    colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']  # Colors for each seed
+    colors = cm.tab10.colors  # A built-in colormap
+
+    table_data = []
+    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths)
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list']
 
-        # Only take the last array from the ccs_list
         last_ccs = ccs_list[-1]
 
-        # Extract coordinates from the last CCS list
         x_all, y_all, z_all = extract_coordinates(last_ccs)
 
-        # Plot X vs Y
-        x_pareto, y_pareto, is_efficient = pareto_frontier_2d(x_all, y_all)
-        axs[0].scatter(np.array(x_all)[~is_efficient], np.array(y_all)[~is_efficient], 
-                       label=f'Seed {i+1}', color=colors[i % len(colors)], alpha=0.3)
-        axs[0].scatter(x_pareto, y_pareto, color=colors[i % len(colors)], 
-                       edgecolor='k', linewidth=1.5, s=80)
-        axs[0].plot(x_pareto, y_pareto, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+        # Calculate Pareto frontier for X vs Y
+        x_pareto_xy, y_pareto_xy, is_efficient_xy = pareto_frontier_2d(x_all, y_all)
+        pareto_points_xy = len(x_pareto_xy)
 
-        # Plot X vs Z
-        x_pareto, z_pareto, is_efficient = pareto_frontier_2d(x_all, z_all)
-        axs[1].scatter(np.array(x_all)[~is_efficient], np.array(z_all)[~is_efficient], 
-                       label=f'Seed {i+1}', color=colors[i % len(colors)], alpha=0.3)
-        axs[1].scatter(x_pareto, z_pareto, color=colors[i % len(colors)], 
-                       edgecolor='k', linewidth=1.5, s=80)
-        axs[1].plot(x_pareto, z_pareto, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+        # Calculate Pareto frontier for X vs Z
+        x_pareto_xz, z_pareto_xz, is_efficient_xz = pareto_frontier_2d(x_all, z_all)
+        pareto_points_xz = len(x_pareto_xz)
 
-        # Plot Y vs Z
-        y_pareto, z_pareto, is_efficient = pareto_frontier_2d(y_all, z_all)
-        axs[2].scatter(np.array(y_all)[~is_efficient], np.array(z_all)[~is_efficient], 
-                       label=f'Seed {i+1}', color=colors[i % len(colors)], alpha=0.3)
-        axs[2].scatter(y_pareto, z_pareto, color=colors[i % len(colors)], 
-                       edgecolor='k', linewidth=1.5, s=80)
-        axs[2].plot(y_pareto, z_pareto, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+        # Calculate Pareto frontier for Y vs Z
+        y_pareto_yz, z_pareto_yz, is_efficient_yz = pareto_frontier_2d(y_all, z_all)
+        pareto_points_yz = len(y_pareto_yz)
 
-    # Set labels and titles
+        # Append hypervolume data to the table
+        table_data.append({
+            "Seed": f"Seed {i+1}",
+            "Min ScaledLinesCapacity": min(x_all),
+            "Max ScaledLinesCapacity": max(x_all),
+            "Min ScaledL2RPN": min(y_all),
+            "Max ScaledL2RPN": max(y_all),
+            "Min ScaledTopoDepth": min(z_all),
+            "Max ScaledTopoDepth": max(z_all),
+            "Pareto Points XY": pareto_points_xy,
+            "Pareto Points XZ": pareto_points_xz,
+            "Pareto Points YZ": pareto_points_yz,
+            "Hypervolume XY": hypervolumes[i]["Hypervolume XY"],
+            "Hypervolume XZ": hypervolumes[i]["Hypervolume XZ"],
+            "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"]
+        })
+
+        # Plot X vs Y, highlight Pareto points, and draw lines between them
+        axs[0].scatter(x_all, y_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
+        axs[0].scatter(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
+        axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+
+        # Plot X vs Z, highlight Pareto points, and draw lines between them
+        axs[1].scatter(x_all, z_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
+        axs[1].scatter(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
+        axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+
+        # Plot Y vs Z, highlight Pareto points, and draw lines between them
+        axs[2].scatter(y_all, z_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
+        axs[2].scatter(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
+        axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
+
     axs[0].set_xlabel('ScaledLinesCapacity')
     axs[0].set_ylabel('ScaledL2RPN')
     axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
@@ -106,49 +190,65 @@ def plot_2d_projections_seeds(seed_paths):
     axs[2].set_ylabel('ScaledTopoDepth')
     axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
 
-    # Add legends to each subplot
     for ax in axs:
         ax.legend()
 
     plt.show()
 
+    # Convert to DataFrame for easier analysis
+    df = pd.DataFrame(table_data)
+
+    # Calculate mean and std for each metric across all seeds
+    mean_df = df.mean(numeric_only=True).rename('Mean')
+    std_df = df.std(numeric_only=True).rename('Std')
+    
+    # Add the mean and std as new rows to the DataFrame using pd.concat
+    df = pd.concat([df, mean_df.to_frame().T, std_df.to_frame().T], ignore_index=True)
+    
+    # Label these rows as "Mean" and "Std"
+    df.at[df.index[-2], 'Seed'] = 'Mean'
+    df.at[df.index[-1], 'Seed'] = 'Std'
+
+    # Display the DataFrame
+    print(df)
+
+    # Create an interactive table using Plotly
+    fig = px.imshow(df.transpose(), text_auto=True, aspect='auto', title="Seed Metrics with Mean and Std")
+    fig.update_xaxes(side="top", tickangle=-45)
+    fig.update_layout(
+        height=600,
+        margin=dict(l=20, r=20, t=50, b=20),
+        template="plotly_white"
+    )
+    fig.show()
+
 def plot_all_seeds(seed_paths):
-    """Plots the data for all seeds in 3D and 2D projections."""
+    """Plots the data for all seeds in 3D and 2D projections, and shows a table with min and max values."""
     fig_3d = plt.figure()
     ax_3d = fig_3d.add_subplot(111, projection='3d')
 
-    colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']  # Colors for each seed
+    colors = cm.tab10.colors # A built-in colormap
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list']
         
-        # Only take the last array from the ccs_list
         last_ccs = ccs_list[-1]
-
-        # Extract coordinates from the last CCS list
         x_all, y_all, z_all = extract_coordinates(last_ccs)
 
-        # Plot points for the current seed in 3D
+        # Plot 3D scatter
         plot_3d_scatter(x_all, y_all, z_all, f'Seed {i+1}', ax_3d, color=colors[i % len(colors)])
 
     ax_3d.legend()
     plt.show()
 
-    # Plot combined 2D projections for all seeds with labels
+    # Plot 2D projections and generate table
     plot_2d_projections_seeds(seed_paths)
 
 def main():
-    # Base path for the JSON files
     base_path = r"morl_logs\OLS\rte_case5_example\2024-08-11\['ScaledL2RPN', 'ScaledTopoDepth']"
-    
-    # List of seed directories
     seed_dirs = [f'seed_{i}' for i in range(0, 5)]  # Adjust the range as needed
-    
-    # Construct paths for each seed JSON file
     seed_paths = [os.path.join(base_path, seed_dir, f'morl_logs_ols{seed_dirs.index(seed_dir)}.json') for seed_dir in seed_dirs]
-    
-    # Plot combined data for all seeds
     plot_all_seeds(seed_paths)
 
 if __name__ == "__main__":
