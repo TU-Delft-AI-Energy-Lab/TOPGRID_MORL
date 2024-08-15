@@ -21,8 +21,10 @@ class MOPPOTrainer:
                  seed: int,
                  env: Any,
                  env_val: Any,
+                 env_test: Any, 
                  g2op_env: Any, 
                  g2op_env_val: Any, 
+                 g2op_env_test: Any,
                  obs_dim: Tuple[int],
                  action_dim: int,
                  reward_dim: int,
@@ -39,8 +41,10 @@ class MOPPOTrainer:
         self.seed = seed
         self.env = env
         self.env_val = env_val
+        self.env_test = env_test
         self.g2op_env = g2op_env
         self.g2op_env_val = g2op_env_val
+        self.g2op_env_test = g2op_env_test
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.reward_dim = reward_dim
@@ -129,7 +133,26 @@ class MOPPOTrainer:
                 reward_list=self.reward_list,
                 seed=self.seed
             )
-        return eval_data_dict, agent 
+            
+        test_data_dict = {}
+        weights = th.tensor(weights).cpu().to(agent.device)
+        chronics = self.g2op_env_test.chronics_handler.available_chronics()
+        
+        for idx, chronic in enumerate(chronics):
+            key = f'eval_data_{idx}'
+            test_data_dict[key] = evaluate_agent(
+                agent=agent,
+                env=self.env_test,
+                g2op_env=self.g2op_env_val,
+                g2op_env_val=self.g2op_env_test,
+                weights=weights,
+                eval_steps=7 * 288,
+                chronic=chronic,
+                idx=idx,
+                reward_list=self.reward_list,
+                seed=self.seed
+            )
+        return eval_data_dict, test_data_dict, agent 
 
   
 
