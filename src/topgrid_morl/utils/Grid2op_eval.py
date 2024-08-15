@@ -61,32 +61,59 @@ def log_evaluation_data(
     idx: int,
     eval_data: Dict[str, Any],
     rewards_list,
+    eval:bool = True,
     seed=42,
 ) -> None:
     current_date = datetime.now().strftime("%Y-%m-%d")
-    dir_path = os.path.join(
-        "eval_logs",
-        env_name,
-        f"{current_date}",
-        f"{rewards_list}",
-        f"weights_{weights_str}",
-        f"seed_{seed}",
-    )
-    os.makedirs(dir_path, exist_ok=True)
+    if eval: 
+        dir_path = os.path.join(
+            "eval_logs",
+            env_name,
+            f"{current_date}",
+            f"{rewards_list}",
+            f"weights_{weights_str}",
+            f"seed_{seed}",
+        )
+        os.makedirs(dir_path, exist_ok=True)
 
-    filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
-    filepath = os.path.join(dir_path, filename)
+        filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
+        filepath = os.path.join(dir_path, filename)
 
-    eval_data_serializable = {
-        "eval_chronic": eval_data["eval_chronic"],
-        "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
-        "eval_actions": eval_data["eval_actions"],
-        "eval_states": eval_data["eval_states"],
-        "eval_steps": eval_data["eval_steps"],
-    }
+        eval_data_serializable = {
+            "eval_chronic": eval_data["eval_chronic"],
+            "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
+            "eval_actions": eval_data["eval_actions"],
+            "eval_states": eval_data["eval_states"],
+            "eval_steps": eval_data["eval_steps"],
+        }
 
-    with open(filepath, "w") as json_file:
-        json.dump(eval_data_serializable, json_file, indent=4)
+        with open(filepath, "w") as json_file:
+            json.dump(eval_data_serializable, json_file, indent=4)
+            
+    else: 
+        dir_path = os.path.join(
+            "test_logs",
+            env_name,
+            f"{current_date}",
+            f"{rewards_list}",
+            f"weights_{weights_str}",
+            f"seed_{seed}",
+        )
+        os.makedirs(dir_path, exist_ok=True)
+
+        filename = f"test_data_weights_{weights_str}_{idx}.json"
+        filepath = os.path.join(dir_path, filename)
+
+        eval_data_serializable = {
+            "test_chronic": eval_data["eval_chronic"],
+            "test_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
+            "test_actions": eval_data["eval_actions"],
+            "test_states": eval_data["eval_states"],
+            "test_steps": eval_data["eval_steps"],
+        }
+
+        with open(filepath, "w") as json_file:
+            json.dump(eval_data_serializable, json_file, indent=4)
 
 
 def evaluate_agent(
@@ -100,7 +127,8 @@ def evaluate_agent(
     idx,
     reward_list,
     seed,
-    eval_counter: int = 1
+    eval_counter: int = 1,
+    eval=True
 ) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
     rewards_list = reward_list
@@ -171,6 +199,9 @@ def evaluate_agent(
         eval_data,
         rewards_list=reward_list,
         seed=seed,
+        eval=eval
     )
 
     return eval_data
+
+

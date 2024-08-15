@@ -558,7 +558,7 @@ class MOPPO(MOPolicy):
             obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
                 next_done
             ).float().to(self.device)
-
+            
             # Log the training reward for each step
             log_data = {
                 f"train/reward_{self.reward_list_ext[i]}": reward[i].item()

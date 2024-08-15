@@ -21,7 +21,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
-from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
+from topgrid_morl.wrapper.ols_moppo import MOPPOTrainer
 
 # Recursive function to convert all numpy arrays to lists
 def convert_ndarray_to_list(data):
@@ -121,6 +121,18 @@ def main(seed: int, config: str) -> None:
         env_type="_val",
         max_rho=max_rho
     )
+    
+    gym_env_test, _, _, _, g2op_env_test = setup_environment(
+        env_name=env_name,
+        test=False,
+        seed=seed,
+        action_space=53,
+        first_reward=ScaledLinesCapacityReward,
+        rewards_list=reward_list,
+        actions_file=actions_file,
+        env_type="_test",
+        max_rho=max_rho
+    )
     print(agent_params)
     # Reset the environment to verify dimensions
     gym_env.reset()
@@ -145,7 +157,7 @@ def main(seed: int, config: str) -> None:
         f"seed_{seed}",
     )
     os.makedirs(dir_path, exist_ok=True)
-
+    i=0
     while not ols.ended():
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
@@ -158,6 +170,7 @@ def main(seed: int, config: str) -> None:
             results_dir=results_dir,
             env=gym_env,
             env_val=gym_env_val,
+            env_test=gym_env_test,
             obs_dim=obs_dim,
             action_dim=action_dim,
             reward_dim=reward_dim,
@@ -166,10 +179,12 @@ def main(seed: int, config: str) -> None:
             net_arch=net_arch,
             g2op_env=g2op_env, 
             g2op_env_val=g2op_env_val,
+            g2op_env_test=g2op_env_test,
             reward_list=reward_list,
             **agent_params
         )
-        eval_data, agent = trainer.train_agent(weights=w)
+        eval_data, test_data, agent = trainer.train_agent(weights=w)
+        i+=1
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
         mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
