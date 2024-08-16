@@ -241,11 +241,40 @@ def plot_all_seeds(seed_paths):
     # Plot 2D projections and generate table
     plot_2d_projections_seeds(seed_paths)
 
+def find_matching_weights_and_agent(ccs_list, ccs_data):
+        matching_entries = []
+
+        for ccs_entry in ccs_list:
+            for data_entry in ccs_data:
+                if np.allclose(ccs_entry, data_entry['returns'], atol=1e-8):
+                    matching_entries.append({
+                        "returns": ccs_entry,
+                        "weights": data_entry['weights'],
+                        "agent_file": data_entry['agent_file']
+                    })
+                    break  # If you assume each returns value has a unique match, break after finding it
+
+        return matching_entries
+
 def main():
     base_path = r"morl_logs\OLS\rte_case5_example\2024-08-15\['ScaledL2RPN', 'ScaledTopoDepth']"
     seed_dirs = [f'seed_42']  # Adjust this list if you have more seeds
     seed_paths = [os.path.join(base_path, seed_dir, 'morl_logs_ols.json') for seed_dir in seed_dirs]
-    plot_all_seeds(seed_paths)
+    #
+    for seed_path in seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
+        ccs_data = data['ccs_data']
 
+        # Find matching weights and agent files
+        matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
+        
+        # Display or further process the matching entries
+        for entry in matching_entries:
+            print(f"Returns: {entry['returns']}")
+            print(f"Weights: {entry['weights']}")
+            print(f"Agent File: {entry['agent_file']}")
+            print("----")
+    plot_all_seeds(seed_paths)
 if __name__ == "__main__":
     main()

@@ -31,6 +31,8 @@ def convert_ndarray_to_list(data):
         return [convert_ndarray_to_list(element) for element in data]
     elif isinstance(data, np.ndarray):
         return data.tolist()
+    elif isinstance(data, th.Tensor):  # Handle PyTorch tensors
+        return data.tolist()
     else:
         return data
 
@@ -184,7 +186,8 @@ def main(seed: int, config: str) -> None:
             **agent_params
         )
         eval_data, test_data, agent = trainer.train_agent(weights=w)
-        i+=1
+        
+        
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
         mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
@@ -198,14 +201,26 @@ def main(seed: int, config: str) -> None:
         ccs_list.append(ccs)  # ccs should already be a list
         # Save the agent and corresponding weights for each CCS entry
         agent_filename, weights_filename = save_agent(agent, w, dir_path, len(ccs_list) - 1)
+        
+        test_data_0 = test_data.get("test_data_0")
 
-        # Store the agent filename and weights filename in the ccs_data structure
+        # Convert the numpy arrays/tensors to lists
+        test_data_0_conv = convert_ndarray_to_list(test_data_0)
+
+        # Add the converted data to ccs_data
         ccs_data.append({
-            "weights": weights_array,  # Ensure weights are lists
+            "weights": weights_array,
             "returns": mean_rewards_array,
             "agent_file": agent_filename,
-            "weights_file": weights_filename
+            "weights_file": weights_filename,
+            "test_chronic": test_data_0_conv.get("eval_chronic"),
+            "test_rewards": test_data_0_conv.get("eval_rewards"),
+            "test_actions": test_data_0_conv.get("eval_actions"),
+            "test_states": test_data_0_conv.get("eval_states"),
+            "test_steps": test_data_0_conv.get("eval_steps"),
         })
+                
+        i+=1
         
     # Ensure all numpy arrays are converted to lists
     values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]

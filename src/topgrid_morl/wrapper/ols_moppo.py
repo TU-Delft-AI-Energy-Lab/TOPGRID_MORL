@@ -125,7 +125,7 @@ class MOPPOTrainer:
         chronics = self.g2op_env_test.chronics_handler.available_chronics()
         
         for idx, chronic in enumerate(chronics):
-            key = f'eval_data_{idx}'
+            key = f'test_data_{idx}'
             test_data_dict[key] = evaluate_agent(
                 agent=agent,
                 env=self.env_test,

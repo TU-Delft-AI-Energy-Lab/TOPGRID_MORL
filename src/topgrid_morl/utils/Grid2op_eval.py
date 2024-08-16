@@ -186,7 +186,7 @@ def evaluate_agent(
         "eval_states": eval_states,
         "eval_steps": total_eval_steps,
     }
-
+    
     env_name = (
         gym_env.init_env.name if hasattr(gym_env.init_env, "name") else "default_env"
     )
