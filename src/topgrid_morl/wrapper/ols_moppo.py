@@ -12,7 +12,8 @@ def sum_rewards(rewards):
     summed_rewards = rewards_np.sum(axis=0)
     return summed_rewards.tolist()
 
-class MCMOPPOTrainer:
+
+class MOPPOTrainer:
     def __init__(self, 
                  iterations: int,
                  max_gym_steps: int,
@@ -54,25 +55,25 @@ class MCMOPPOTrainer:
         self.reward_list = reward_list
         self.agent_params = agent_params
         self.np_random = np.random.RandomState(seed)
+        self.weight_range = [0, 1]  # Assuming some default range for weights
+        self.num_samples = 5      # Assuming a default number of samples for weights
     
-    def sample_weights(self, num_samples: int) -> np.ndarray:
-        """Samples random weight vectors from a uniform distribution."""
-        weight_vectors = []
-        for _ in range(num_samples):
-            weights = np.random.uniform(0, 1, self.reward_dim)
-            normalized_weights = weights / np.sum(weights)
-            weight_vectors.append(normalized_weights)
-        return np.array(weight_vectors)
+    def sample_weights(self):
+        weights = np.random.rand(self.reward_dim)
+        normalized_weights = weights / np.sum(weights)
+        rounded_weights = np.round(normalized_weights, 2)
+        return rounded_weights
 
-    def run(self, num_samples: int = 5):
-        """Runs MOPPO for randomly sampled weight vectors."""
-        weight_vectors = self.sample_weights(num_samples)
-        for i, weights in tqdm(enumerate(weight_vectors), total=num_samples):
-            print(f"Running MOPPO for weight vector {i + 1}/{num_samples}")
+    def run(self):
+        weight_vectors = self.sample_weights()
+        for i, weights in tqdm(enumerate(weight_vectors), total=self.num_samples):
+            print(f"Running MOPPO for weight vector {i + 1}/{self.num_samples}")
             self.run_single(weights)
 
-    def run_single(self, weights: np.array) -> None:
-        """Trains and evaluates the agent with the given weight vector."""
+    def train_agent(
+        self,
+        weights: np.array
+    ) -> None:
         os.makedirs(self.results_dir, exist_ok=True)
         weights_str = "_".join(map(str, weights))
         agent = initialize_agent(
@@ -101,8 +102,8 @@ class MCMOPPOTrainer:
         agent.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list)
         if self.agent_params['log']:
             run.finish()
-        
         eval_data_dict = {}
+        weights = th.tensor(weights).cpu().to(agent.device)
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
         for idx, chronic in enumerate(chronics):
             key = f'eval_data_{idx}'
@@ -139,3 +140,5 @@ class MCMOPPOTrainer:
                 eval=False
             )
         return eval_data_dict, test_data_dict, agent 
+
+  
