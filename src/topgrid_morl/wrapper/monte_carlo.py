@@ -64,9 +64,9 @@ class MOPPOTrainer:
         for i in range(self.iterations):
             weights = self.sample_weights()
             print(weights)
-            eval_data = self.train_agent(weights)
-            eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
-            eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
+            eval_data_dict, test_data_dict, agent  = self.train_agent(weights)
+            eval_rewards_1 = np.array(sum_rewards(eval_data_dict['eval_data_0']['eval_rewards']))
+            eval_rewards_2 = np.array(sum_rewards(eval_data_dict['eval_data_1']['eval_rewards']))
             mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
             eval_rewards[i] = mean_rewards
             results_dict[tuple(weights)] = mean_rewards
