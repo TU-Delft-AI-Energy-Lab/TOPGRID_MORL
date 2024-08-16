@@ -5,9 +5,9 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 16,
+        "steps_per_iteration": 8,
         "num_minibatches": 2,
-        "update_epochs": 5,
+        "update_epochs": 1,
         "learning_rate": 5e-4,
         "gamma": 0.99,
         "anneal_lr": false,
@@ -32,7 +32,7 @@
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 32,
+    "max_gym_steps": 16,
     "rewards": {
         "first": "ScaledLinesCapacity",
         "second": "ScaledL2RPN",

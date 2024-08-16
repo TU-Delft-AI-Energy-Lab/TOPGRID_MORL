@@ -4,11 +4,12 @@ import mo_gymnasium as mo_gym
 from topgrid_morl.wrapper.ols import LinearSupport
 from morl_baselines.single_policy.ser.mo_q_learning import MOQLearning
 
-
+import torch as th
 from datetime import datetime
 import argparse
 import json
 import os
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt     
@@ -20,7 +21,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
-from topgrid_morl.wrapper.monte_carlo import MOPPOTrainer
+from topgrid_morl.wrapper.ols_moppo import MOPPOTrainer
 
 # Recursive function to convert all numpy arrays to lists
 def convert_ndarray_to_list(data):
@@ -30,18 +31,36 @@ def convert_ndarray_to_list(data):
         return [convert_ndarray_to_list(element) for element in data]
     elif isinstance(data, np.ndarray):
         return data.tolist()
+    elif isinstance(data, th.Tensor):  # Handle PyTorch tensors
+        return data.tolist()
     else:
         return data
 
 def sum_rewards(rewards):
-        rewards_np = np.array(rewards)
-        summed_rewards = rewards_np.sum(axis=0)
-        return summed_rewards.tolist()
+    rewards_np = np.array(rewards)
+    summed_rewards = rewards_np.sum(axis=0)
+    return summed_rewards.tolist()
     
 def mean_rewards(rewards1, rewards2):
-        concat_rewards = np.concatenate(rewards1, rewards2)
+    concat_rewards = np.concatenate(rewards1, rewards2)
+    return concat_rewards
     
-        return concat_rewards
+def save_agent(agent, weights, directory, index):
+    # Save the entire agent object using pickle
+    agent_filename = f"agent_{index}.pkl"
+    agent_path = os.path.join(directory, agent_filename)
+    with open(agent_path, "wb") as f:
+        pickle.dump(agent, f)
+    
+    # Save the corresponding weights
+    weights_filename = f"weights_{index}.json"
+    weights_path = os.path.join(directory, weights_filename)
+    with open(weights_path, "w") as f:
+        json.dump(weights.tolist(), f, indent=4)
+    
+    print(f"Saved agent and weights at index {index}")
+    
+    return agent_filename, weights_filename
 
 def main(seed: int, config: str) -> None:
     """
@@ -90,7 +109,7 @@ def main(seed: int, config: str) -> None:
         first_reward=ScaledLinesCapacityReward,
         rewards_list=reward_list,
         actions_file=actions_file,
-        max_rho = max_rho
+        max_rho=max_rho
     )
 
     gym_env_val, _, _, _, g2op_env_val = setup_environment(
@@ -102,8 +121,19 @@ def main(seed: int, config: str) -> None:
         rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_val",
-        max_rho = max_rho
-        
+        max_rho=max_rho
+    )
+    
+    gym_env_test, _, _, _, g2op_env_test = setup_environment(
+        env_name=env_name,
+        test=False,
+        seed=seed,
+        action_space=53,
+        first_reward=ScaledLinesCapacityReward,
+        rewards_list=reward_list,
+        actions_file=actions_file,
+        env_type="_test",
+        max_rho=max_rho
     )
     print(agent_params)
     # Reset the environment to verify dimensions
@@ -114,10 +144,22 @@ def main(seed: int, config: str) -> None:
     GAMMA = 0.99
     
     ols = LinearSupport(num_objectives=num_obj, epsilon=0.01, verbose=True)
-    agents = []
-    weights = []
+    ccs_data = []  # This will store the agent and weights for each CCS entry
     values = []
     ccs_list = []
+
+    # Initialize the necessary directories
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    dir_path = os.path.join(
+        "morl_logs",
+        "OLS",
+        env_name,
+        f"{current_date}",
+        f"{reward_list}",
+        f"seed_{seed}",
+    )
+    os.makedirs(dir_path, exist_ok=True)
+    i=0
     while not ols.ended():
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
@@ -130,6 +172,7 @@ def main(seed: int, config: str) -> None:
             results_dir=results_dir,
             env=gym_env,
             env_val=gym_env_val,
+            env_test=gym_env_test,
             obs_dim=obs_dim,
             action_dim=action_dim,
             reward_dim=reward_dim,
@@ -137,55 +180,63 @@ def main(seed: int, config: str) -> None:
             project_name=project_name,
             net_arch=net_arch,
             g2op_env=g2op_env, 
-            g2op_env_val= g2op_env_val,
-            reward_list = reward_list,
+            g2op_env_val=g2op_env_val,
+            g2op_env_test=g2op_env_test,
+            reward_list=reward_list,
             **agent_params
         )
-        eval_data, agent = trainer.train_agent(weights=w)
+        eval_data, test_data, agent = trainer.train_agent(weights=w)
+        
+        
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
         mean_rewards = (eval_rewards_1 + eval_rewards_2) / 2
-        weights_array = np.array(w)
-        mean_rewards_array = np.array(mean_rewards)
-        print(f"this is mean rewards{mean_rewards_array}")
-        #policies.append(new_policy)
-       
+        
+        # Convert numpy arrays to lists where necessary
+        weights_array = w.tolist()
+        mean_rewards_array = mean_rewards.tolist()
+
         removed_inds, ccs = ols.add_solution(mean_rewards_array, w)
-        agents.append(agent)
         values.append(mean_rewards_array)
-        weights.append(w)
-        ccs_list.append(ccs)
-    
+        ccs_list.append(ccs)  # ccs should already be a list
+        # Save the agent and corresponding weights for each CCS entry
+        agent_filename, weights_filename = save_agent(agent, w, dir_path, len(ccs_list) - 1)
+        
+        test_data_0 = test_data.get("test_data_0")
 
-    weights_array = np.array(weights)
-    values = np.array(values)
-    final_ccs = ccs_list[-1]
-    print(final_ccs)
-    
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    dir_path = os.path.join(
-        "morl_logs",
-        "OLS",
-        env_name,
-        f"{current_date}",
-        f"{reward_list}",
-        f"seed_{seed}",
-    )
-    os.makedirs(dir_path, exist_ok=True)
+        # Convert the numpy arrays/tensors to lists
+        test_data_0_conv = convert_ndarray_to_list(test_data_0)
+
+        # Add the converted data to ccs_data
+        ccs_data.append({
+            "weights": weights_array,
+            "returns": mean_rewards_array,
+            "agent_file": agent_filename,
+            "weights_file": weights_filename,
+            "test_chronic": test_data_0_conv.get("eval_chronic"),
+            "test_rewards": test_data_0_conv.get("eval_rewards"),
+            "test_actions": test_data_0_conv.get("eval_actions"),
+            "test_states": test_data_0_conv.get("eval_states"),
+            "test_steps": test_data_0_conv.get("eval_steps"),
+        })
+                
+        i+=1
+        
+    # Ensure all numpy arrays are converted to lists
+    values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
+    ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
+
     data_dict = {
-        "weights": weights,
-        "values": [v.tolist() for v in values],  # Convert numpy arrays to lists
-        "ccs_list": ccs_list
-    }   
-    data_dict = convert_ndarray_to_list(data_dict)
-    filename = f"morl_logs_ols.json"
+        "ccs_data": ccs_data,
+        "values": values,  # Already converted to lists
+        "ccs_list": ccs_list  # Already converted to lists
+    } 
+    
+    filename = f"morl_logs_ols{seed}.json"
     filepath = os.path.join(dir_path, filename)
-
-
+    
     with open(filepath, "w") as json_file:
         json.dump(data_dict, json_file, indent=4)
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

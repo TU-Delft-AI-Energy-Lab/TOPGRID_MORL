@@ -68,24 +68,23 @@ class CustomGymEnv(GymEnv):
         """
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
-        cum_reward = np.zeros(self.reward_dim)
-        line_reward = np.zeros(self.reward_dim)
-        if self.reconnect_line:
-            for line in self.reconnect_line:
-                g2op_act += line
-            self.reconnect_line = []
-
+        # Reconnect lines if necessary      
         
-        cum_reward += line_reward
+        cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
+        #print(g2op_act)
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-        self.steps += 1
+        
+        gym_obs = self.observation_space.to_gym(g2op_obs)
+
         tmp_steps +=1 
+        self.steps += 1
 
         # Create reward array
         reward = np.array(
             [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
             dtype=np.float64,
         )
+        cum_reward+=reward
         
         
         #reconnect lines
@@ -96,20 +95,34 @@ class CustomGymEnv(GymEnv):
             reco_id = np.where(to_reco == 0)[0]
             
             for line_id in reco_id:
-                lines_act = self.init_env.action_space(
+                g2op_act = self.init_env.action_space(
                      {"set_line_status": [(line_id, +1)]}
                 )
                     
-                self.reconnect_line.append(lines_act) #edit reconnection
-
-        cum_reward += reward
-
-
+                self.reconnect_line.append(g2op_act)
+        
+        if self.reconnect_line:
+            for line in self.reconnect_line:
+                g2op_act += line
+            if not done: 
+                #print(g2op_act)
+                g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
+                tmp_reward = np.array(
+                    [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                    dtype=np.float64,
+                )   
+                self.steps += 1
+                tmp_steps +=1 
+                #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
+                self.reconnect_line = []
+            
+            
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
-            action = 0
-            do_nothing = self.action_space.from_gym(action)
-            g2op_obs, reward1, done, info = self.init_env.step(do_nothing)
+            do_nothing = 0                    
+            action = self.action_space.from_gym(do_nothing)          
+                
+            g2op_obs, reward1, done, info = self.init_env.step(action=action)
             tmp_reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                 dtype=np.float64,
@@ -118,17 +131,24 @@ class CustomGymEnv(GymEnv):
             tmp_steps +=1 
             cum_reward += tmp_reward
 
-         # Accumulate the rewards
+            if done:
+                break  # Exit the loop if done is True
 
+        #reward += cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
-
+        
+        
+            
+        reward = cum_reward  # Accumulate the rewards
+        info["steps"] = tmp_steps
         # Handle opponent attack
+        """
         if info.get("opponent_attack_duration", 0) == 1:
             line_id_attacked = np.argwhere(info["opponent_attack_line"]).flatten()[0]
             g2op_act = self.init_env.action_space(
                 {"set_line_status": [(line_id_attacked, 1)]}
             )
             self.reconnect_line.append(g2op_act)
-
-        gym_obs = self.observation_space.to_gym(g2op_obs)
-        return gym_obs, cum_reward, done, info
+        """
+        
+        return gym_obs, reward, done, info

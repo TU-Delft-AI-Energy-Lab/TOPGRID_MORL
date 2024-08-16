@@ -61,32 +61,59 @@ def log_evaluation_data(
     idx: int,
     eval_data: Dict[str, Any],
     rewards_list,
+    eval:bool = True,
     seed=42,
 ) -> None:
     current_date = datetime.now().strftime("%Y-%m-%d")
-    dir_path = os.path.join(
-        "eval_logs",
-        env_name,
-        f"{current_date}",
-        f"{rewards_list}",
-        f"weights_{weights_str}",
-        f"seed_{seed}",
-    )
-    os.makedirs(dir_path, exist_ok=True)
+    if eval: 
+        dir_path = os.path.join(
+            "eval_logs",
+            env_name,
+            f"{current_date}",
+            f"{rewards_list}",
+            f"weights_{weights_str}",
+            f"seed_{seed}",
+        )
+        os.makedirs(dir_path, exist_ok=True)
 
-    filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
-    filepath = os.path.join(dir_path, filename)
+        filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
+        filepath = os.path.join(dir_path, filename)
 
-    eval_data_serializable = {
-        "eval_chronic": eval_data["eval_chronic"],
-        "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
-        "eval_actions": eval_data["eval_actions"],
-        "eval_states": eval_data["eval_states"],
-        "eval_steps": eval_data["eval_steps"],
-    }
+        eval_data_serializable = {
+            "eval_chronic": eval_data["eval_chronic"],
+            "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
+            "eval_actions": eval_data["eval_actions"],
+            "eval_states": eval_data["eval_states"],
+            "eval_steps": eval_data["eval_steps"],
+        }
 
-    with open(filepath, "w") as json_file:
-        json.dump(eval_data_serializable, json_file, indent=4)
+        with open(filepath, "w") as json_file:
+            json.dump(eval_data_serializable, json_file, indent=4)
+            
+    else: 
+        dir_path = os.path.join(
+            "test_logs",
+            env_name,
+            f"{current_date}",
+            f"{rewards_list}",
+            f"weights_{weights_str}",
+            f"seed_{seed}",
+        )
+        os.makedirs(dir_path, exist_ok=True)
+
+        filename = f"test_data_weights_{weights_str}_{idx}.json"
+        filepath = os.path.join(dir_path, filename)
+
+        eval_data_serializable = {
+            "test_chronic": eval_data["eval_chronic"],
+            "test_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
+            "test_actions": eval_data["eval_actions"],
+            "test_states": eval_data["eval_states"],
+            "test_steps": eval_data["eval_steps"],
+        }
+
+        with open(filepath, "w") as json_file:
+            json.dump(eval_data_serializable, json_file, indent=4)
 
 
 def evaluate_agent(
@@ -100,7 +127,8 @@ def evaluate_agent(
     idx,
     reward_list,
     seed,
-    eval_counter: int = 1
+    eval_counter: int = 1,
+    eval=True
 ) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
     rewards_list = reward_list
@@ -122,7 +150,8 @@ def evaluate_agent(
     eval_done = False
     eval_state = gym_env.reset(options={"max step": eval_steps})
     total_eval_steps = 0
-    
+    discount_factor = 0.995
+
     while not eval_done:
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
         eval_state, eval_reward, eval_done, eval_info = gym_env.step(eval_action)
@@ -131,7 +160,7 @@ def evaluate_agent(
         eval_reward = (
             th.tensor(eval_reward).to(agent.device).view(agent.networks.reward_dim)
         )
-        eval_rewards.append(eval_reward.cpu())
+        eval_rewards.append(eval_reward)
         eval_actions.append(
             eval_action.tolist()
             if isinstance(eval_action, (list, np.ndarray))
@@ -143,14 +172,21 @@ def evaluate_agent(
             else eval_state
         )
 
+    # Calculate the discounted reward
+    discounted_rewards = []
+    running_add = th.zeros_like(eval_rewards[0])
+    for reward in reversed(eval_rewards):
+        running_add = reward + discount_factor * running_add
+        discounted_rewards.insert(0, running_add)
+
     eval_data = {
         "eval_chronic": chronic,
-        "eval_rewards": eval_rewards,
+        "eval_rewards": discounted_rewards,  # Storing PyTorch tensors
         "eval_actions": eval_actions,
         "eval_states": eval_states,
         "eval_steps": total_eval_steps,
     }
-
+    
     env_name = (
         gym_env.init_env.name if hasattr(gym_env.init_env, "name") else "default_env"
     )
@@ -163,6 +199,9 @@ def evaluate_agent(
         eval_data,
         rewards_list=reward_list,
         seed=seed,
+        eval=eval
     )
 
     return eval_data
+
+
