@@ -153,5 +153,7 @@ cython_debug/
 #eval logs 
 eval_logs/ 
 
+#ignor morl_logs
+morl_logs/ 
 #ignore wandb
 wandb/
