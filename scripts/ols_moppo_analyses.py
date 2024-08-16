@@ -1,6 +1,5 @@
 import os
 import json
-
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 import numpy as np
@@ -83,13 +82,16 @@ def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
     
     return ax
 
-def calculate_hypervolumes_for_all_projections(seed_paths):
+def calculate_hypervolumes_for_all_projections(seed_paths,wrapper):
     """Calculates the hypervolume for X vs Y, X vs Z, and Y vs Z projections for each seed."""
     hypervolumes = []
 
     for seed_path in seed_paths:
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
+        ccs_list = data['ccs_list'][-1] 
+        if wrapper == 'mc':
+            ccs_list = data['ccs_list']
+          # Use the last CCS list
 
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
@@ -116,18 +118,20 @@ def calculate_hypervolumes_for_all_projections(seed_paths):
 
     return hypervolumes
 
-def plot_2d_projections_seeds(seed_paths):
+def plot_2d_projections_seeds(seed_paths, wrapper):
     """Plots X vs Y, X vs Z, and Y vs Z in separate 2D plots, highlighting Pareto frontier points and calculating hypervolumes."""
     fig, axs = plt.subplots(1, 3, figsize=(18, 5))
 
     colors = cm.tab10.colors  # A built-in colormap
 
     table_data = []
-    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths)
+    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]  # Use the last CCS list
+        if wrapper == 'mc':
+            ccs_list = data['ccs_list']
 
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
@@ -210,6 +214,7 @@ def plot_2d_projections_seeds(seed_paths):
     print(df)
 
     # Create an interactive table using Plotly
+    """
     fig = px.imshow(df.transpose(), text_auto=True, aspect='auto', title="Seed Metrics with Mean and Std")
     fig.update_xaxes(side="top", tickangle=-45)
     fig.update_layout(
@@ -218,8 +223,9 @@ def plot_2d_projections_seeds(seed_paths):
         template="plotly_white"
     )
     fig.show()
+    """
 
-def plot_all_seeds(seed_paths):
+def plot_all_seeds(seed_paths, wrapper):
     """Plots the data for all seeds in 3D and 2D projections, and shows a table with min and max values."""
     fig_3d = plt.figure()
     ax_3d = fig_3d.add_subplot(111, projection='3d')
@@ -228,8 +234,10 @@ def plot_all_seeds(seed_paths):
 
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
         
+        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
+        if wrapper == 'mc':
+            ccs_list = data['ccs_list']
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Plot 3D scatter
@@ -239,58 +247,73 @@ def plot_all_seeds(seed_paths):
     plt.show()
 
     # Plot 2D projections and generate table
-    plot_2d_projections_seeds(seed_paths)
+    plot_2d_projections_seeds(seed_paths, wrapper=wrapper)
 
 def find_matching_weights_and_agent(ccs_list, ccs_data):
-        matching_entries = []
+    matching_entries = []
 
-        for ccs_entry in ccs_list:
-            for data_entry in ccs_data:
-                if np.allclose(ccs_entry, data_entry['returns'], atol=1e-8):
-                    matching_entries.append({
-                        "weights": data_entry['weights'], 
-                        "returns": ccs_entry,
-                        "agent_file": data_entry['agent_file'],
-                        "test_steps": data_entry["test_steps"], 
-                        "test_actions": data_entry['test_actions']
-                    })
-                    break  # If you assume each returns value has a unique match, break after finding it
+    for ccs_entry in ccs_list:
+        found_match = False
+        for data_entry in ccs_data:
+            print(data_entry['returns'])
+            print(ccs_entry)
+            # Ensure both are numpy arrays for consistent comparison
+            ccs_entry_array = np.array(ccs_entry)
+            returns_array = np.array(data_entry['returns'])
 
-        return matching_entries
+            if np.allclose(ccs_entry_array, returns_array, atol=1e-3):
+                matching_entries.append({
+                    "weights": data_entry['weights'], 
+                    "returns": ccs_entry,
+                    "agent_file": data_entry['agent_file'],
+                    "test_steps": data_entry["test_steps"], 
+                    "test_actions": data_entry['test_actions']
+                })
+                found_match = True
+                break  # Assuming each returns value has a unique match, break after finding it
+        
+        if not found_match:
+            print(f"No match found for CCS entry: {ccs_entry}")
+
+    return matching_entries
 
 def main():
-    base_path = r"morl_logs\OLS\rte_case5_example\2024-08-16\['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [0,1,3,4]
-    seed_paths = [os.path.join(base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
-    #
-    for seed_path in seed_paths:
-        data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
-        ccs_data = data['ccs_data']
+    ols_base_path = r"morl_logs\OLS\rte_case5_example\2024-08-16\['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs\MC\rte_case5_example\2024-08-16\['ScaledL2RPN', 'ScaledTopoDepth']"
+    
+    seeds = [0,1]
+    ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
+    mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
-        # Find matching weights and agent files
-        matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
-        
-        df_ccs_matching = pd.DataFrame(matching_entries)
-        # Display or further process the matching entries
-        for entry in matching_entries:
-            print(f"Returns: {entry['returns']}")
-            print(f"Weights: {entry['weights']}")
-            print(f"Agent File: {entry['agent_file']}")
-            print(f'Test_Steps: {entry["test_steps"]}')
-            print(f'Actions: {entry["test_actions"]}')
-            print("----")     
-            
+    # Process OLS data
+    print("Processing OLS Data...")
+    process_data(ols_seed_paths, 'ols')
+    
+    # Process MC data
+    print("Processing MC Data...")
+    process_data(mc_seed_paths, 'mc')
+
+def process_data(seed_paths, wrapper):
     all_data = []  # List to store all the data for the DataFrame
-
+    
     for seed_path in seed_paths:
-        data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
-        ccs_data = data['ccs_data']
+        if not os.path.exists(seed_path):
+            print(f"File not found: {seed_path}")
+            continue
 
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        if wrapper=='mc': 
+            ccs_list = data['ccs_list']  # Use the last CCS list
+        
+        # Debugging: Print the contents of ccs_list
+        #print(f"ccs_list contents: {ccs_list}")
+        
+
+        ccs_data = data['ccs_data']
         # Find matching weights and agent files
         matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
-
+        print(matching_entries)
         # Collect data for DataFrame
         for entry in matching_entries:
             row_data = {
@@ -302,131 +325,22 @@ def main():
             all_data.append(row_data)
 
     # Create the DataFrame
-    df_ccs_matching = pd.DataFrame(all_data)
+    if all_data:
+        df_ccs_matching = pd.DataFrame(all_data)
+    else:
+        print("No data found for the given seeds.")
+        df_ccs_matching = pd.DataFrame()
 
     # Display the DataFrame
     print(df_ccs_matching)
 
     # Further processing or saving the DataFrame
-    df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)  # Exa  
-    plot_all_seeds(seed_paths)
+    if not df_ccs_matching.empty:
+        df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)  # Example of saving to a CSV file
+    
+    # Plot all seeds in 3D and 2D
+    
+    plot_all_seeds(seed_paths, wrapper=wrapper)
+
 if __name__ == "__main__":
     main()
-''' 
-def plot_2d_projections_seeds(seed_paths):
-    """Plots X vs Y, X vs Z, and Y vs Z in separate 2D plots, highlighting Pareto frontier points and annotating with test_steps and test_actions."""
-    fig, axs = plt.subplots(1, 3, figsize=(18, 5))
-
-    colors = cm.tab10.colors  # A built-in colormap
-
-    table_data = []
-    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths)
-
-    for i, seed_path in enumerate(seed_paths):
-        data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
-        ccs_data = data['ccs_data']
-
-        x_all, y_all, z_all = extract_coordinates(ccs_list)
-
-        # Find matching weights and agent files
-        matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
-
-        # Extract test_steps and test_actions for annotation
-        test_steps_all = [entry['test_steps'] for entry in matching_entries]
-        test_actions_all = [entry['test_actions'] for entry in matching_entries]
-
-        # Calculate Pareto frontier for X vs Y
-        x_pareto_xy, y_pareto_xy, is_efficient_xy = pareto_frontier_2d(x_all, y_all)
-        pareto_points_xy = len(x_pareto_xy)
-
-        # Calculate Pareto frontier for X vs Z
-        x_pareto_xz, z_pareto_xz, is_efficient_xz = pareto_frontier_2d(x_all, z_all)
-        pareto_points_xz = len(x_pareto_xz)
-
-        # Calculate Pareto frontier for Y vs Z
-        y_pareto_yz, z_pareto_yz, is_efficient_yz = pareto_frontier_2d(y_all, z_all)
-        pareto_points_yz = len(y_pareto_yz)
-
-        # Append hypervolume data to the table
-        table_data.append({
-            "Seed": f"Seed {i+1}",
-            "Min ScaledLinesCapacity": min(x_all),
-            "Max ScaledLinesCapacity": max(x_all),
-            "Min ScaledL2RPN": min(y_all),
-            "Max ScaledL2RPN": max(y_all),
-            "Min ScaledTopoDepth": min(z_all),
-            "Max ScaledTopoDepth": max(z_all),
-            "Pareto Points XY": pareto_points_xy,
-            "Pareto Points XZ": pareto_points_xz,
-            "Pareto Points YZ": pareto_points_yz,
-            "Hypervolume XY": hypervolumes[i]["Hypervolume XY"],
-            "Hypervolume XZ": hypervolumes[i]["Hypervolume XZ"],
-            "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"]
-        })
-
-        # Plot X vs Y, highlight Pareto points, and annotate with test_steps and test_actions
-        axs[0].scatter(x_all, y_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
-        for x, y, steps, actions in zip(x_pareto_xy, y_pareto_xy, test_steps_all, test_actions_all):
-            axs[0].scatter(x, y, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
-            axs[0].annotate(f'Steps: {steps}\nActions: {actions}', (x, y), textcoords="offset points", xytext=(5,5), ha='center', fontsize=8)
-        axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
-
-        # Plot X vs Z, highlight Pareto points, and annotate with test_steps and test_actions
-        axs[1].scatter(x_all, z_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
-        for x, z, steps, actions in zip(x_pareto_xz, z_pareto_xz, test_steps_all, test_actions_all):
-            axs[1].scatter(x, z, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
-            axs[1].annotate(f'Steps: {steps}\nActions: {actions}', (x, z), textcoords="offset points", xytext=(5,5), ha='center', fontsize=8)
-        axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
-
-        # Plot Y vs Z, highlight Pareto points, and annotate with test_steps and test_actions
-        axs[2].scatter(y_all, z_all, label=f'Seed {i+1} (Non-Pareto)', color=colors[i % len(colors)], alpha=0.3)
-        for y, z, steps, actions in zip(y_pareto_yz, z_pareto_yz, test_steps_all, test_actions_all):
-            axs[2].scatter(y, z, color=colors[i % len(colors)], edgecolor='black', s=80, label=f'Seed {i+1} (Pareto)')
-            axs[2].annotate(f'Steps: {steps}\nActions: {actions}', (y, z), textcoords="offset points", xytext=(5,5), ha='center', fontsize=8)
-        axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], linestyle='dotted', linewidth=1)
-
-    axs[0].set_xlabel('ScaledLinesCapacity')
-    axs[0].set_ylabel('ScaledL2RPN')
-    axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
-
-    axs[1].set_xlabel('ScaledLinesCapacity')
-    axs[1].set_ylabel('ScaledTopoDepth')
-    axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
-
-    axs[2].set_xlabel('ScaledL2RPN')
-    axs[2].set_ylabel('ScaledTopoDepth')
-    axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
-
-    for ax in axs:
-        ax.legend()
-
-    plt.show()
-
-    # Convert to DataFrame for easier analysis
-    df = pd.DataFrame(table_data)
-
-    # Calculate mean and std for each metric across all seeds
-    mean_df = df.mean(numeric_only=True).rename('Mean')
-    std_df = df.std(numeric_only=True).rename('Std')
-    
-    # Add the mean and std as new rows to the DataFrame using pd.concat
-    df = pd.concat([df, mean_df.to_frame().T, std_df.to_frame().T], ignore_index=True)
-    
-    # Label these rows as "Mean" and "Std"
-    df.at[df.index[-2], 'Seed'] = 'Mean'
-    df.at[df.index[-1], 'Seed'] = 'Std'
-
-    # Display the DataFrame
-    print(df)
-
-    # Create an interactive table using Plotly
-    fig = px.imshow(df.transpose(), text_auto=True, aspect='auto', title="Seed Metrics with Mean and Std")
-    fig.update_xaxes(side="top", tickangle=-45)
-    fig.update_layout(
-        height=600,
-        margin=dict(l=20, r=20, t=50, b=20),
-        template="plotly_white"
-    )
-    fig.show()
-    '''

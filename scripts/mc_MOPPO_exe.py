@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import pickle
+from scipy.spatial import ConvexHull
 
 import numpy as np
 import matplotlib.pyplot as plt     
@@ -62,6 +63,12 @@ def save_agent(agent, weights, directory, index):
     
     return agent_filename, weights_filename
 
+def is_point_in_hull(point, hull):
+    return all(
+        (np.dot(eq[:-1], point) + eq[-1] <= 0.000001)  # Added tolerance for numerical stability
+        for eq in hull.equations
+    )
+    
 def main(seed: int, config: str, num_samples: int) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
@@ -178,6 +185,12 @@ def main(seed: int, config: str, num_samples: int) -> None:
         **agent_params
     )
     
+    # Initialize variables
+    values = []
+    ccs_list = []
+    ccs_data = []
+
+    # Sample weights and evaluate
     for i in range(num_samples):
         weights = trainer.sample_weights(1)[0]  # Sample one weight vector
         eval_data, test_data, agent = trainer.run_single(weights=weights)
@@ -189,9 +202,20 @@ def main(seed: int, config: str, num_samples: int) -> None:
         # Convert numpy arrays to lists where necessary
         weights_array = weights.tolist()
         mean_rewards_array = mean_rewards.tolist()
-
-        values.append(mean_rewards_array)
-        ccs_list.append(mean_rewards_array)  # Using mean_rewards as CCS entry in this case
+        
+        # Check if the current mean_rewards should be added to the CCS
+        points = np.array(values + [mean_rewards_array])  # Combine existing points with the new point
+        if len(points) > 2:
+            hull = ConvexHull(points)
+            if is_point_in_hull(mean_rewards, hull):
+                values.append(mean_rewards_array)
+                ccs_list.append(mean_rewards_array)  # Add to CCS list
+            else:
+                print(f"Point {mean_rewards_array} is not in the convex hull, skipping.")
+                continue  # Skip adding to CCS
+        else:
+            values.append(mean_rewards_array)
+            ccs_list.append(mean_rewards_array)  # Add to CCS list
         
         # Save the agent and corresponding weights for each CCS entry
         agent_filename, weights_filename = save_agent(agent, weights, dir_path, i)
@@ -201,7 +225,7 @@ def main(seed: int, config: str, num_samples: int) -> None:
         # Convert the numpy arrays/tensors to lists
         test_data_0_conv = convert_ndarray_to_list(test_data_0)
 
-        # Add the converted data to ccs_data
+        # Add the converted data to ccs_data only if it belongs to the CCS
         ccs_data.append({
             "weights": weights_array,
             "returns": mean_rewards_array,
@@ -213,7 +237,7 @@ def main(seed: int, config: str, num_samples: int) -> None:
             "test_states": test_data_0_conv.get("eval_states"),
             "test_steps": test_data_0_conv.get("eval_steps"),
         })
-        
+
     # Ensure all numpy arrays are converted to lists
     values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
     ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
@@ -223,10 +247,10 @@ def main(seed: int, config: str, num_samples: int) -> None:
         "values": values,  # Already converted to lists
         "ccs_list": ccs_list  # Already converted to lists
     } 
-    
+
     filename = f"morl_logs_mc{seed}.json"
     filepath = os.path.join(dir_path, filename)
-    
+
     with open(filepath, "w") as json_file:
         json.dump(data_dict, json_file, indent=4)
 
@@ -244,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=10,
+        default=2,
         help="Number of weight vectors to sample"
     )
     args = parser.parse_args()
