@@ -205,7 +205,8 @@ def main(seed: int, config: str, num_samples: int) -> None:
         
         # Check if the current mean_rewards should be added to the CCS
         points = np.array(values + [mean_rewards_array])  # Combine existing points with the new point
-        if len(points) > 2:
+        
+        if len(points) > 3:  # Only attempt ConvexHull if there are enough points
             hull = ConvexHull(points)
             if is_point_in_hull(mean_rewards, hull):
                 values.append(mean_rewards_array)
@@ -238,6 +239,7 @@ def main(seed: int, config: str, num_samples: int) -> None:
             "test_steps": test_data_0_conv.get("eval_steps"),
         })
 
+
     # Ensure all numpy arrays are converted to lists
     values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
     ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
@@ -268,7 +270,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=2,
+        default=4,
         help="Number of weight vectors to sample"
     )
     args = parser.parse_args()
