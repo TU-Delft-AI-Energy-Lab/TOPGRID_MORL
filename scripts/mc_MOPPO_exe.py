@@ -95,7 +95,7 @@ def main(seed: int, config: str, num_samples: int) -> None:
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
     
-    agent_params["log"] = False
+    agent_params["log"] = True
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
@@ -270,7 +270,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=4,
+        default=5,
         help="Number of weight vectors to sample"
     )
     args = parser.parse_args()
