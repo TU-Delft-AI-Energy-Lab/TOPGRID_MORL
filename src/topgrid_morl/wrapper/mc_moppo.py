@@ -28,7 +28,7 @@ class MCMOPPOTrainer:
                  action_dim: int,
                  reward_dim: int,
                  run_name: str,
-                 project_name: str = "TOPGrid_MORL_5",
+                 project_name: str = "TOPGrid_MORL_5_mc",
                  net_arch: List[int] = [64, 64],
                  generate_reward: bool = False,
                  reward_list: List[str] = ["ScaledEpisodeDuration", "ScaledTopoAction"],
@@ -94,7 +94,7 @@ class MCMOPPOTrainer:
         if self.agent_params['log']: 
             run = wandb.init(
                 project=self.project_name,
-                name=f"{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
+                name=f"MonteCarlo_{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
                 tags=[self.run_name]
             )
