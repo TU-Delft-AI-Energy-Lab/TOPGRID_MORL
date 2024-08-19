@@ -101,7 +101,7 @@ def calculate_hypervolumes_for_all_projections(seed_paths,wrapper):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1] 
         if wrapper == 'mc':
-            ccs_list = data['ccs_list']
+            ccs_list = data['ccs_list'][-1]
           # Use the last CCS list
 
         x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -151,7 +151,7 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]  # Use the last CCS list
         if wrapper == 'mc':
-            ccs_list = data['ccs_list']
+            ccs_list = data['ccs_list'][-1]
 
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
@@ -229,30 +229,62 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
     # Convert to DataFrame for easier analysis
     df = pd.DataFrame(table_data)
 
+    df = pd.DataFrame(table_data)
+
     # Remove "Test Steps" and "Test Actions" from DataTable display
     df_display = df.drop(columns=["Test Steps", "Test Actions"])
 
+    # Calculate min and max for each return (X, Y, Z) for each seed
+    df_display['Min X'] = df_display.groupby('Seed')['X'].transform('min')
+    df_display['Max X'] = df_display.groupby('Seed')['X'].transform('max')
+
+    df_display['Min Y'] = df_display.groupby('Seed')['Y'].transform('min')
+    df_display['Max Y'] = df_display.groupby('Seed')['Y'].transform('max')
+
+    df_display['Min Z'] = df_display.groupby('Seed')['Z'].transform('min')
+    df_display['Max Z'] = df_display.groupby('Seed')['Z'].transform('max')
+
+    # Now, we want to keep only the necessary information for each seed:
+    # 1. The mean of hypervolumes
+    # 2. The min of the min rewards (X, Y, Z)
+    # 3. The max of the max rewards (X, Y, Z)
+
+    # Group by seed and compute the required statistics
+    df_summary = df_display.groupby('Seed').agg({
+        'Hypervolume XY': 'mean',
+        'Hypervolume XZ': 'mean',
+        'Hypervolume YZ': 'mean',
+        'Min X': 'min',
+        'Max X': 'max',
+        'Min Y': 'min',
+        'Max Y': 'max',
+        'Min Z': 'min',
+        'Max Z': 'max'
+    }).reset_index()
+
     # Calculate mean, std, min, and max for each metric across all seeds
-    mean_df = df_display.mean(numeric_only=True).rename('Mean')
-    std_df = df_display.std(numeric_only=True).rename('Std')
-    min_df = df_display.min(numeric_only=True).rename('Min')
-    max_df = df_display.max(numeric_only=True).rename('Max')
+    mean_df = df_summary.mean(numeric_only=True).rename('Mean')
+    std_df = df_summary.std(numeric_only=True).rename('Std')
+    min_df = df_summary.min(numeric_only=True).rename('Min')
+    max_df = df_summary.max(numeric_only=True).rename('Max')
 
     # Add the mean, std, min, and max as new rows to the DataFrame using pd.concat
-    df_display = pd.concat([df_display, mean_df.to_frame().T, std_df.to_frame().T, min_df.to_frame().T, max_df.to_frame().T], ignore_index=True)
+    df_summary = pd.concat([df_summary, mean_df.to_frame().T, std_df.to_frame().T, min_df.to_frame().T, max_df.to_frame().T], ignore_index=True)
 
     # Label these rows as "Mean", "Std", "Min", and "Max"
-    df_display.at[df_display.index[-4], 'Seed'] = 'Mean'
-    df_display.at[df_display.index[-3], 'Seed'] = 'Std'
-    df_display.at[df_display.index[-2], 'Seed'] = 'Min'
-    df_display.at[df_display.index[-1], 'Seed'] = 'Max'
+    df_summary.at[df_summary.index[-4], 'Seed'] = 'Mean'
+    df_summary.at[df_summary.index[-3], 'Seed'] = 'Std'
+    df_summary.at[df_summary.index[-2], 'Seed'] = 'Min'
+    df_summary.at[df_summary.index[-1], 'Seed'] = 'Max'
 
-    # Round all float values to 1 decimal place
+    # Optionally, round the DataFrame for better readability
+    df_summary = df_summary.round(2)
+
+    # Print the DataFrame to ensure it is populated correctly
+    print(df_summary)
+
+    # Optionally, round the DataFrame for better readability
     df_display = df_display.round(1)
-
-    # Print the DataFrame to ensure it is populated
-    print(df_display)
-
     # Display the DataFrame in Dash
     app = dash.Dash(__name__)
 
@@ -327,7 +359,9 @@ def plot_all_seeds(seed_paths, wrapper):
         
         ccs_list = data['ccs_list'][-1]  # Use the last CCS list
         if wrapper == 'mc':
-            ccs_list = data['ccs_list']
+            ccs_list = data['ccs_list'][-1][0]
+            
+        print(ccs_list)
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Plot 3D scatter
@@ -369,19 +403,19 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
 
 def main():
     ols_base_path = r"morl_logs\OLS\rte_case5_example\2024-08-17\['ScaledL2RPN', 'ScaledTopoDepth']"
-    #mc_base_path = r"morl_logs\MC\rte_case5_example\2024-08-16\['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs\MC\rte_case5_example\2024-08-19\['ScaledL2RPN', 'ScaledTopoDepth']"
     
-    seeds = [0,1,2,3,4]
+    seeds = [0,1,2,3]
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
-    #mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
+    mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
     # Process OLS data
-    print("Processing OLS Data...")
+    # print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
     
     
     # Process MC data
-    #print("Processing MC Data...")
+    print("Processing MC Data...")
     #process_data(mc_seed_paths, 'mc')
 
 def process_data(seed_paths, wrapper):
@@ -395,7 +429,7 @@ def process_data(seed_paths, wrapper):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
         if wrapper=='mc': 
-            ccs_list = data['ccs_list']  # Use the last CCS list
+            ccs_list = data['ccs_list'][-1] # Use the last CCS list
         
         # Debugging: Print the contents of ccs_list
         #print(f"ccs_list contents: {ccs_list}")
@@ -423,7 +457,7 @@ def process_data(seed_paths, wrapper):
         df_ccs_matching = pd.DataFrame()
 
     # Display the DataFrame
-    #print(df_ccs_matching)
+    print(df_ccs_matching)
 
     # Further processing or saving the DataFrame
     if not df_ccs_matching.empty:
