@@ -270,7 +270,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=4,
+        default=5,
         help="Number of weight vectors to sample"
     )
     args = parser.parse_args()

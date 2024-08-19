@@ -32,7 +32,7 @@
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 2048,
+    "max_gym_steps": 1024,
     "rewards": {
         "first": "ScaledLinesCapacity",
         "second": "ScaledL2RPN",
