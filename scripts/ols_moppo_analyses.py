@@ -25,11 +25,30 @@ def load_json_data(relative_path):
 
 
 def extract_coordinates(ccs_list):
-    """Extracts x, y, z coordinates from a list of CCS points."""
-    x_values = [coord[0] for coord in ccs_list]  # ScaledLinesCapacity
-    y_values = [coord[1] for coord in ccs_list]  # ScaledL2RPN
-    z_values = [coord[2] for coord in ccs_list]  # ScaledTopoDepth
+    """
+    Extracts x, y, z coordinates from a list of CCS points.
+    Handles both nested list shapes (lists of lists) and flat lists of floats.
+    """
+    # If ccs_list contains only a flat list of 3 values, treat it as (x, y, z)
+    if len(ccs_list) == 3 and all(isinstance(coord, float) for coord in ccs_list):
+        return [ccs_list[0]], [ccs_list[1]], [ccs_list[2]]  # Single point case
+
+    x_values = []
+    y_values = []
+    z_values = []
+
+    for item in ccs_list:
+        if isinstance(item, (list, tuple)) and len(item) == 3:
+            # If the item is a list or tuple of 3 elements (x, y, z coordinates)
+            x_values.append(item[0])  # ScaledLinesCapacity
+            y_values.append(item[1])  # ScaledL2RPN
+            z_values.append(item[2])  # ScaledTopoDepth
+        elif isinstance(item, float):
+            raise ValueError("Expected a list of (x, y, z) coordinates but found floats instead.")
+
     return x_values, y_values, z_values
+
+
 
 
 # ---- Pareto Calculations ----
@@ -317,9 +336,11 @@ def process_data(seed_paths, wrapper):
 
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
+        if wrapper == 'mc':
+            ccs_list = data['ccs_list']
         ccs_data = data['ccs_data']
         matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
-
+        print(matching_entries)
         # Collect data for DataFrame
         for entry in matching_entries:
             actions = entry['test_actions'] # Assuming test_actions is a list of actions
@@ -367,15 +388,15 @@ def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
 
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
-    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-19/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [0, 1, 2, 3]
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
+    seeds = [42]
 
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
     mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
-    print("Processing OLS Data...")
-    process_data(ols_seed_paths, 'ols')
+    #print("Processing OLS Data...")
+    #process_data(ols_seed_paths, 'ols')
 
     print("Processing MC Data...")
     process_data(mc_seed_paths, 'mc')
