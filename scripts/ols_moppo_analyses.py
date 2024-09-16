@@ -331,15 +331,18 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
     ])
 
     @app.callback(
-        Output('output-data-click', 'children'),
-        [Input('2d-projections', 'clickData')]
+    Output('output-data-click', 'children'),
+    [Input('2d-projections', 'clickData')]
     )
     def display_click_data(clickData):
         if clickData:
-            point_index = clickData['points'][0]['customdata']
-            selected_row = df.iloc[point_index]
+            point_index = clickData['points'][0]['customdata']  # Retrieve the index of the clicked point
+            selected_row = df.iloc[point_index]  # Access the original df to get Test Steps and Test Actions
             return [
                 html.P(f"Seed: {selected_row['Seed']}"),
+                html.P(f"X: {selected_row['X']}"),
+                html.P(f"Y: {selected_row['Y']}"),
+                html.P(f"Z: {selected_row['Z']}"),
                 html.P(f"Test Steps: {selected_row['Test Steps']}"),
                 html.P(f"Test Actions: {selected_row['Test Actions']}")
             ]
@@ -410,13 +413,13 @@ def main():
     mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
     # Process OLS data
-    # print("Processing OLS Data...")
+    print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
     
     
     # Process MC data
     print("Processing MC Data...")
-    #process_data(mc_seed_paths, 'mc')
+    process_data(mc_seed_paths, 'mc')
 
 def process_data(seed_paths, wrapper):
     all_data = []  # List to store all the data for the DataFrame
@@ -469,4 +472,5 @@ def process_data(seed_paths, wrapper):
 
 if __name__ == "__main__":
     main()
+    
     
