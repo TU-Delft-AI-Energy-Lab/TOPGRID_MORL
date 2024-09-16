@@ -12,6 +12,7 @@ from dash import html, dcc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.spatial.distance import pdist, squareform
+from topgrid_morl.utils.MORL_analysis_utils import create_action_to_substation_mapping
 
 
 # ---- Utility Functions ----
@@ -48,7 +49,7 @@ def pareto_frontier_2d(x_values, y_values):
     is_efficient = is_pareto_efficient(points)
     x_pareto = np.array(x_values)[is_efficient]
     y_pareto = np.array(y_values)[is_efficient]
-    
+
     sorted_indices = np.argsort(x_pareto)
     return x_pareto[sorted_indices], y_pareto[sorted_indices], is_efficient
 
@@ -89,7 +90,7 @@ def calculate_sparsity(pareto_points):
 
     # Compute the average pairwise distance as the sparsity metric
     sparsity_metric = np.mean(distances)
-    
+
     return sparsity_metric
 
 
@@ -254,11 +255,11 @@ def create_dash_app(fig, df_display):
     ])
 
     @app.callback(
-        Output('output-data-click', 'children'),
-        [Input('2d-projections', 'clickData')]
+    Output('output-data-click', 'children'),
+    [Input('2d-projections', 'clickData')]
     )
     def display_click_data(clickData):
-        """Callback to display clicked point details."""
+        """Callback to display clicked point details, including substation."""
         if clickData:
             # Extract custom data index from the clicked point
             point_index = clickData['points'][0]['customdata']
@@ -268,6 +269,7 @@ def create_dash_app(fig, df_display):
                 html.P(f"X: {selected_row['X']}"),
                 html.P(f"Y: {selected_row['Y']}"),
                 html.P(f"Z: {selected_row['Z']}"),
+                html.P(f"Substation: {selected_row['Substation']}"),  # Display the substation
                 html.P(f"Hypervolume XY: {selected_row['Hypervolume XY']}"),
                 html.P(f"Hypervolume XZ: {selected_row['Hypervolume XZ']}"),
                 html.P(f"Hypervolume YZ: {selected_row['Hypervolume YZ']}")
@@ -304,6 +306,10 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
 def process_data(seed_paths, wrapper):
     """Processes the data for all seeds and generates the 3D and 2D plots."""
     all_data = []
+    
+    # Create the action-to-substation mapping using the gym environment
+    action_to_substation_mapping = create_action_to_substation_mapping()
+
     for seed_path in seed_paths:
         if not os.path.exists(seed_path):
             print(f"File not found: {seed_path}")
@@ -316,11 +322,15 @@ def process_data(seed_paths, wrapper):
 
         # Collect data for DataFrame
         for entry in matching_entries:
+            actions = entry['test_actions'] # Assuming test_actions is a list of actions
+            substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
+
             all_data.append({
                 "Weights": entry['weights'],
                 "Returns": entry['returns'],
                 "Test Steps": entry['test_steps'],
-                "Test Actions": entry['test_actions']
+                "Test Actions": entry['test_actions'],
+                "Substation": substations  # Add the substation to the data
             })
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
@@ -329,11 +339,11 @@ def process_data(seed_paths, wrapper):
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
         print(df_ccs_matching)
 
-    plot_all_seeds(seed_paths, wrapper)
+    plot_all_seeds(seed_paths, wrapper, df_ccs_matching)
 
 
-def plot_all_seeds(seed_paths, wrapper):
-    """Plots all seeds in 3D and 2D projections."""
+def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
+    """Plots all seeds in 3D and 2D projections, and integrates substation information."""
     fig_3d = plt.figure()
     ax_3d = fig_3d.add_subplot(111, projection='3d')
     colors = cm.tab10.colors
@@ -348,6 +358,10 @@ def plot_all_seeds(seed_paths, wrapper):
     plt.show()
 
     fig, df_display = plot_2d_projections_seeds(seed_paths, wrapper=wrapper)
+
+    # Add substation information to the Dash app
+    df_display['Substation'] = df_ccs_matching['Substation']
+    
     create_dash_app(fig, df_display)
 
 
