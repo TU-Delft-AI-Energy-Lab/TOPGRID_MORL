@@ -76,7 +76,7 @@ class TopoDepthReward(BaseReward):
 class ScaledTopoDepthReward(BaseReward):
     """
     Reward class that penalizes based on the depth of topology changes and scales the reward.
-
+    
     Attributes:
         last_reward (float): The last computed reward.
         reward_min (float): Minimum reward value.
@@ -118,7 +118,7 @@ class ScaledTopoDepthReward(BaseReward):
             is_ambiguous (bool): Whether the action is ambiguous.
 
         Returns:
-            float: The computed and scaled reward.
+            float: The computed and scaled reward between 0 and 1.
         """
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
@@ -133,10 +133,13 @@ class ScaledTopoDepthReward(BaseReward):
         # Calculate the reward, penalized by the number of elements connected to busbar 2
         r = busbar2 / len(topo) * -self.penalize
 
-        # Scale the reward
+        # Scale the reward, initially between -1 and 0, then shift to 0-1 range
         norm_r = r / 500
 
-        return norm_r
+        # Shift the reward from [-1, 0] to [0, 1]
+        scaled_r = norm_r + 1.0
+
+        return scaled_r
 
 
 class MaxTopoDepthReward(BaseReward):
