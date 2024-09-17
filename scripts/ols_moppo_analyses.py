@@ -765,6 +765,120 @@ def benchmark_ols_against_mc(ols_seed_paths, mc_seed_paths):
 
     return results
 
+def calculate_all_metrics(seed_paths, wrapper):
+    """
+    Calculates all metrics for each seed and the superseed set:
+    - 2D Hypervolumes (XY, XZ, YZ)
+    - 3D Hypervolume
+    - 2D Sparsities (XY, XZ, YZ)
+    - 3D Sparsity
+    - Min/Max Returns for X, Y, Z
+    - Pareto Points Count
+    - Mean and Std of each metric across all seeds (except superseed)
+    """
+    return calculate_hypervolumes_and_sparsities(seed_paths, wrapper)
+
+def calculate_3d_metrics_only(seed_paths, wrapper):
+    """
+    Calculates only 3D Hypervolumes and 3D Sparsities for each seed and the superseed set.
+    This is for both OLS and MC seeds.
+    """
+    all_x, all_y, all_z = [], [], []
+    results = []
+
+    # Calculate 3D hypervolume and sparsity for each seed
+    for i, seed_path in enumerate(seed_paths):
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        all_x.extend(x_all)  # Aggregate data for superseed set
+        all_y.extend(y_all)
+        all_z.extend(z_all)
+
+        # Calculate 3D hypervolume and sparsity for each seed
+        pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+        reference_point_3d = (min(x_all), min(y_all), min(z_all))
+        hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+        sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+
+        # Append results for each seed
+        results.append({
+            "Seed": f"Seed {i+1}",
+            "Hypervolume 3D": hv_3d,
+            "Sparsity 3D": sparsity_3d
+        })
+
+    # Calculate for the superseed set
+    pareto_points_superseed_3d = np.column_stack((all_x, all_y, all_z))
+    reference_point_superseed_3d = (min(all_x), min(all_y), min(all_z))
+    hv_superseed_3d = calculate_3d_hypervolume(pareto_points_superseed_3d, reference_point_superseed_3d)
+    sparsity_superseed_3d = calculate_3d_sparsity(pareto_points_superseed_3d)
+
+    # Append results for the superseed set
+    results.append({
+        "Seed": "Superseed",
+        "Hypervolume 3D": hv_superseed_3d,
+        "Sparsity 3D": sparsity_superseed_3d
+    })
+
+    # Convert results to DataFrame
+    df_results_3d = pd.DataFrame(results)
+
+    return df_results_3d
+
+def calculate_3d_metrics_only_for_mc(mc_seed_path):
+    """
+    Calculates 3D Hypervolume and Sparsity for the MC seed (single seed case).
+    This is for the MC dataset, which consists of only one seed.
+    """
+    # Load MC seed data
+    data = load_json_data(mc_seed_path)
+    ccs_list = data['ccs_list']
+    x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+    # Calculate 3D hypervolume and sparsity for the MC seed
+    pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+    reference_point_3d = (min(x_all), min(y_all), min(z_all))
+    hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+    sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+
+    # Store results for MC
+    results_mc = {
+        "Seed": "MC",
+        "Hypervolume 3D": hv_3d,
+        "Sparsity 3D": sparsity_3d
+    }
+
+    # Convert to DataFrame
+    df_results_mc = pd.DataFrame([results_mc])
+
+    return df_results_mc
+
+def process_data_both(ols_seed_paths, mc_seed_paths):
+    """
+    Processes the data for OLS and MC seeds, compares OLS against the MC benchmark, and
+    returns two DataFrames:
+    1. DataFrame with all metrics (2D and 3D hypervolumes, sparsities, min/max returns, etc.).
+    2. DataFrame with only 3D hypervolume and sparsity.
+    """
+    # Step 1: Process the full metrics for OLS seeds
+    df_all_metrics_ols = calculate_all_metrics(ols_seed_paths, 'ols')
+
+    # Step 2: Process only 3D metrics for OLS and MC seeds
+    df_3d_metrics_ols = calculate_3d_metrics_only(ols_seed_paths, 'ols')
+    df_3d_metrics_mc = calculate_3d_metrics_only_for_mc(mc_seed_paths)
+
+    # Save both DataFrames to CSV (optional)
+    df_all_metrics_ols.to_csv("ols_all_metrics.csv", index=False)
+    df_3d_metrics_ols.to_csv("ols_3d_metrics.csv", index=False)
+    df_3d_metrics_mc.to_csv("mc_3d_metrics.csv", index=False)
+
+    print("DataFrames created successfully and saved to CSV.")
+
+    # Return both DataFrames for further analysis or visualization
+    return df_all_metrics_ols, df_3d_metrics_ols, df_3d_metrics_mc
+
 def process_data_benchmark(ols_seed_paths, mc_seed_paths):
     """Processes the data for OLS and MC seeds, compares OLS against the MC benchmark."""
     # Step 1: Benchmark OLS seeds against MC superseed set
@@ -783,17 +897,26 @@ def main():
     ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-19/['ScaledL2RPN', 'ScaledTopoDepth']"
     seeds = [0,1,2,3,4]
-
+    seed_folder = "seed_0"
+    json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
-    mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
+    mc_seed_paths = os.path.join(mc_base_path, seed_folder, json_filename) 
 
-    process_data_benchmark(ols_seed_paths, mc_seed_paths)
+    # Generate both DataFrames
+    df_all_metrics, df_3d_metrics_ols, df_3d_metrics_mc = process_data_both(ols_seed_paths, mc_seed_paths)
+
+    print("All metrics (OLS):")
+    print(df_all_metrics)
+    print("\n3D Metrics (OLS):")
+    print(df_3d_metrics_ols)
+    print("\n3D Metrics (MC):")
+    print(df_3d_metrics_mc)
     
     print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
 
     print("Processing MC Data...")
-    process_data(mc_seed_paths, 'mc')
+    #process_data(mc_seed_paths, 'mc')
 
 
 if __name__ == "__main__":
