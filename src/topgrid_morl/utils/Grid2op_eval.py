@@ -143,9 +143,19 @@ def evaluate_agent(
     ]
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet)
 
-    env_name = "rte_case5_example"
+    env_name = "l2rpn_case14_sandbox"
+    
+    if env_name == "rte_case5_example":
+        results_dir = "training_results_5bus_4094"
+        action_dim = 53
+        actions_file = "filtered_actions.json"
+    elif env_name == "l2rpn_case14_sandbox":
+        results_dir = "training_results_14bus_4096"
+        action_dim = 134
+        actions_file = "medha_actions.json"
+        
     gym_env.action_space = load_action_space(env_name, g2op_env)
-
+    
     eval_rewards, eval_actions, eval_states = [], [], []
     eval_done = False
     eval_state = gym_env.reset(options={"max step": eval_steps})

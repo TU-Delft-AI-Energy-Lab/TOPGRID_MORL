@@ -113,5 +113,6 @@ def setup_environment(
 
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
+    print(gym_env.action_space)
 
     return gym_env, gym_env.observation_space.shape, action_space, reward_dim, g2op_env

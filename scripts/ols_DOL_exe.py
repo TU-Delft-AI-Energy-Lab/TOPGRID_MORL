@@ -67,7 +67,7 @@ def main(seed: int, config: str) -> None:
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
-    env_name = "rte_case5_example"
+    env_name = "l2rpn_case14_sandbox"
 
     config_path = os.path.join(os.getcwd(), "configs", config)
     # Load configuration from file
@@ -105,7 +105,7 @@ def main(seed: int, config: str) -> None:
         env_name=env_name,
         test=False,
         seed=seed,
-        action_space=53,
+        action_space=action_dim,
         first_reward=ScaledLinesCapacityReward,
         rewards_list=reward_list,
         actions_file=actions_file,
@@ -116,7 +116,7 @@ def main(seed: int, config: str) -> None:
         env_name=env_name,
         test=False,
         seed=seed,
-        action_space=53,
+        action_space=action_dim,
         first_reward=ScaledLinesCapacityReward,
         rewards_list=reward_list,
         actions_file=actions_file,
@@ -128,7 +128,7 @@ def main(seed: int, config: str) -> None:
         env_name=env_name,
         test=False,
         seed=seed,
-        action_space=53,
+        action_space=action_dim,
         first_reward=ScaledLinesCapacityReward,
         rewards_list=reward_list,
         actions_file=actions_file,
