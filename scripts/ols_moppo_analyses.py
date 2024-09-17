@@ -715,16 +715,80 @@ def calculate_hypervolume_and_sparsity_superseed(all_x, all_y, all_z):
         "Sparsity XZ": sparsity_xz,
         "Sparsity YZ": sparsity_yz,
     }
+def calculate_mc_superseed_pareto(mc_seed_paths):
+    """Calculates the MC superseed set's Pareto frontier for benchmarking."""
+    all_x, all_y, all_z = [], [], []
+    
+    # Step 1: Load and combine data from all MC seeds
+    for seed_path in mc_seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]  # Assuming we use the last CCS data entry
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        all_x.extend(x_all)
+        all_y.extend(y_all)
+        all_z.extend(z_all)
+
+    # Step 2: Calculate the Pareto frontier for the combined superseed set
+    pareto_points_3d = np.column_stack((all_x, all_y, all_z))
+    reference_point_3d = (min(all_x), min(all_y), min(all_z))  # Minimum reference point for hypervolume
+
+    return pareto_points_3d, reference_point_3d
+
+def benchmark_ols_against_mc(ols_seed_paths, mc_seed_paths):
+    """Benchmark OLS seed sets against the MC superseed Pareto frontier."""
+    # Step 1: Calculate the MC superseed benchmark
+    mc_pareto_points_3d, mc_reference_point_3d = calculate_mc_superseed_pareto(mc_seed_paths)
+
+    # Step 2: Iterate over each OLS seed and benchmark it against the MC superseed set
+    results = []
+    for seed_path in ols_seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        # Combine OLS seed points
+        pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+
+        # Step 3: Calculate hypervolume of OLS seed set with respect to the MC benchmark
+        ols_hv_vs_mc = calculate_3d_hypervolume(pareto_points_3d, mc_reference_point_3d)
+
+        # Step 4: Calculate sparsity of OLS seed set
+        ols_sparsity_vs_mc = calculate_3d_sparsity(pareto_points_3d)
+
+        # Step 5: Save results
+        results.append({
+            "Seed Path": seed_path,
+            "Hypervolume vs MC": ols_hv_vs_mc,
+            "Sparsity vs MC": ols_sparsity_vs_mc
+        })
+
+    return results
+
+def process_data_benchmark(ols_seed_paths, mc_seed_paths):
+    """Processes the data for OLS and MC seeds, compares OLS against the MC benchmark."""
+    # Step 1: Benchmark OLS seeds against MC superseed set
+    benchmark_results = benchmark_ols_against_mc(ols_seed_paths, mc_seed_paths)
+    
+    # Step 2: Print or save benchmark results
+    for result in benchmark_results:
+        print(f"Seed: {result['Seed Path']}, Hypervolume vs MC: {result['Hypervolume vs MC']}, Sparsity vs MC: {result['Sparsity vs MC']}")
+    
+    # You can also save the results to a CSV file if needed:
+    df_results = pd.DataFrame(benchmark_results)
+    df_results.to_csv("ols_vs_mc_benchmark_results.csv", index=False)
 
 # ---- Main Function ----
 def main():
     ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
-    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-19/['ScaledL2RPN', 'ScaledTopoDepth']"
     seeds = [0,1,2,3,4]
 
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
     mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
+    process_data_benchmark(ols_seed_paths, mc_seed_paths)
+    
     print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
 
