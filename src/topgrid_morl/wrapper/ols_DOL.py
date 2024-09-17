@@ -29,7 +29,7 @@ class MOPPOTrainer:
                  action_dim: int,
                  reward_dim: int,
                  run_name: str,
-                 reuse: str = "none",  # Added reuse type parameter
+                 reuse: str = "none",  # Added reuse type parameter (none, partial, full)
                  project_name: str = "TOPGrid_MORL_5_OLS",
                  net_arch: List[int] = [64, 64],
                  generate_reward: bool = False,
