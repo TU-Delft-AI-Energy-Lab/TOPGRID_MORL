@@ -1,7 +1,6 @@
 import os
 import json
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
@@ -9,15 +8,14 @@ import plotly.express as px
 import dash
 from dash import dash_table
 from dash.dependencies import Input, Output
-from dash import html
 from dash import html, dcc
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pandas as pd
-from dash import dash_table, dcc, html
+from scipy.spatial.distance import pdist, squareform
+from topgrid_morl.utils.MORL_analysis_utils import create_action_to_substation_mapping
 
 
-
+# ---- Utility Functions ----
 def load_json_data(relative_path):
     """Loads JSON data from a given relative path."""
     absolute_path = os.path.abspath(relative_path)
@@ -25,13 +23,35 @@ def load_json_data(relative_path):
         data = json.load(file)
     return data
 
+
 def extract_coordinates(ccs_list):
-    """Extracts x, y, z coordinates from a list of CCS points."""
-    x_values = [coord[0] for coord in ccs_list]  # ScaledLinesCapacity
-    y_values = [coord[1] for coord in ccs_list]  # ScaledL2RPN
-    z_values = [coord[2] for coord in ccs_list]  # ScaledTopoDepth
+    """
+    Extracts x, y, z coordinates from a list of CCS points.
+    Handles both nested list shapes (lists of lists) and flat lists of floats.
+    """
+    # If ccs_list contains only a flat list of 3 values, treat it as (x, y, z)
+    if len(ccs_list) == 3 and all(isinstance(coord, float) for coord in ccs_list):
+        return [ccs_list[0]], [ccs_list[1]], [ccs_list[2]]  # Single point case
+
+    x_values = []
+    y_values = []
+    z_values = []
+
+    for item in ccs_list:
+        if isinstance(item, (list, tuple)) and len(item) == 3:
+            # If the item is a list or tuple of 3 elements (x, y, z coordinates)
+            x_values.append(item[0])  # ScaledLinesCapacity
+            y_values.append(item[1])  # ScaledL2RPN
+            z_values.append(item[2])  # ScaledTopoDepth
+        elif isinstance(item, float):
+            raise ValueError("Expected a list of (x, y, z) coordinates but found floats instead.")
+
     return x_values, y_values, z_values
 
+
+
+
+# ---- Pareto Calculations ----
 def is_pareto_efficient(costs):
     """Finds the Pareto-efficient points with maximization in mind."""
     is_efficient = np.ones(costs.shape[0], dtype=bool)
@@ -41,27 +61,20 @@ def is_pareto_efficient(costs):
             is_efficient[i] = True
     return is_efficient
 
+
 def pareto_frontier_2d(x_values, y_values):
     """Computes the Pareto frontier for 2D points considering maximization."""
     points = np.column_stack((x_values, y_values))
     is_efficient = is_pareto_efficient(points)
     x_pareto = np.array(x_values)[is_efficient]
     y_pareto = np.array(y_values)[is_efficient]
-    
+
     sorted_indices = np.argsort(x_pareto)
     return x_pareto[sorted_indices], y_pareto[sorted_indices], is_efficient
 
+
 def calculate_hypervolume(pareto_points, reference_point):
-    """
-    Calculate the hypervolume dominated by the Pareto frontier in 2D.
-    
-    Parameters:
-    - pareto_points: List of tuples representing the Pareto points (sorted by the first objective).
-    - reference_point: A tuple representing the reference point.
-    
-    Returns:
-    - The calculated hypervolume.
-    """
+    """Calculate the hypervolume dominated by the Pareto frontier in 2D."""
     pareto_points = np.array(pareto_points)
     hypervolume = 0.0
 
@@ -70,40 +83,77 @@ def calculate_hypervolume(pareto_points, reference_point):
 
     # Calculate the hypervolume
     for i in range(len(pareto_points)):
-        if i == 0:
-            width = pareto_points[i, 0] - reference_point[0]
-        else:
-            width = pareto_points[i, 0] - pareto_points[i - 1, 0]
-        
+        width = pareto_points[i, 0] - (reference_point[0] if i == 0 else pareto_points[i - 1, 0])
         height = pareto_points[i, 1] - reference_point[1]
         hypervolume += width * height
 
     return hypervolume
 
-def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
-    """Creates a 3D scatter plot for given x, y, z values with a specific label and color."""
-    if ax is None:
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(x_values, y_values, z_values, label=label, color=color)
-    
-    ax.set_xlabel('ScaledLinesCapacity')
-    ax.set_ylabel('ScaledL2RPN')
-    ax.set_zlabel('ScaledTopoDepth')
-    
-    return ax
+# ---- Sparsity Calculation Function ----
 
-def calculate_hypervolumes_for_all_projections(seed_paths,wrapper):
-    """Calculates the hypervolume for X vs Y, X vs Z, and Y vs Z projections for each seed."""
-    hypervolumes = []
+def calculate_sparsity(pareto_points):
+    """
+    Calculate the sparsity of a set of Pareto points by measuring the spread of the points.
 
+    Parameters:
+        pareto_points (List[Tuple[float, float]]): The list of Pareto frontier points (in 2D space).
+
+    Returns:
+        float: The sparsity metric, computed as the average pairwise distance between all points.
+    """
+    if len(pareto_points) <= 1:
+        return 0.0  # If only one or no points, sparsity is zero
+
+    # Calculate pairwise distances between all Pareto points
+    distances = pdist(pareto_points, metric='euclidean')  # Use Euclidean distance between points
+
+    # Compute the average pairwise distance as the sparsity metric
+    sparsity_metric = np.mean(distances)
+
+    return sparsity_metric
+
+
+def calculate_sparsities_for_all_projections(seed_paths, wrapper):
+    """
+    Calculate sparsities for X vs Y, X vs Z, and Y vs Z projections for each seed.
+
+    Parameters:
+        seed_paths (List[str]): A list of file paths to the seed data.
+        wrapper (str): A string identifier for the wrapper type ('mc' or others).
+
+    Returns:
+        List[Dict[str, float]]: A list of dictionaries with sparsity metrics for each projection (XY, XZ, YZ).
+    """
+    sparsities = []
     for seed_path in seed_paths:
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1] 
-        if wrapper == 'mc':
-            ccs_list = data['ccs_list'][-1]
-          # Use the last CCS list
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
 
+        # Calculate Pareto frontiers
+        x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+        # Calculate sparsity for each Pareto frontier
+        sparsity_xy = calculate_sparsity(list(zip(x_pareto_xy, y_pareto_xy)))
+        sparsity_xz = calculate_sparsity(list(zip(x_pareto_xz, z_pareto_xz)))
+        sparsity_yz = calculate_sparsity(list(zip(y_pareto_yz, z_pareto_yz)))
+
+        sparsities.append({
+            "Sparsity XY": sparsity_xy,
+            "Sparsity XZ": sparsity_xz,
+            "Sparsity YZ": sparsity_yz
+        })
+
+    return sparsities
+
+def calculate_hypervolumes_for_all_projections(seed_paths, wrapper):
+    """Calculates the hypervolume for X vs Y, X vs Z, and Y vs Z projections for each seed."""
+    hypervolumes = []
+    for seed_path in seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
         # Define reference points based on minimum values
@@ -111,12 +161,11 @@ def calculate_hypervolumes_for_all_projections(seed_paths,wrapper):
         reference_point_xz = (min(x_all), min(z_all))
         reference_point_yz = (min(y_all), min(z_all))
 
-        # Calculate Pareto frontiers
+        # Calculate Pareto frontiers and hypervolumes
         x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
         x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
         y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
 
-        # Calculate hypervolumes for each 2D projection
         hv_xy = calculate_hypervolume(list(zip(x_pareto_xy, y_pareto_xy)), reference_point_xy)
         hv_xz = calculate_hypervolume(list(zip(x_pareto_xz, z_pareto_xz)), reference_point_xz)
         hv_yz = calculate_hypervolume(list(zip(y_pareto_yz, z_pareto_yz)), reference_point_yz)
@@ -130,172 +179,82 @@ def calculate_hypervolumes_for_all_projections(seed_paths,wrapper):
     return hypervolumes
 
 
+# ---- Visualization Functions ----
+def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
+    """Creates a 3D scatter plot for given x, y, z values with a specific label and color."""
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(x_values, y_values, z_values, label=label, color=color)
+    ax.set_xlabel('ScaledLinesCapacity')
+    ax.set_ylabel('ScaledL2RPN')
+    ax.set_zlabel('ScaledTopoDepth')
+    return ax
+
+
 def plot_2d_projections_seeds(seed_paths, wrapper):
     """Plots X vs Y, X vs Z, and Y vs Z in interactive 2D plots, highlighting Pareto frontier points and calculating hypervolumes."""
-
     colors = px.colors.qualitative.T10  # A built-in colormap
-
-    table_data = []
     hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
+    sparsities = calculate_sparsities_for_all_projections(seed_paths, wrapper=wrapper)
 
-    # Create a subplot with 1 row and 3 columns for the 3 projections
     fig = make_subplots(rows=1, cols=3, subplot_titles=[
         'ScaledLinesCapacity vs ScaledL2RPN',
         'ScaledLinesCapacity vs ScaledTopoDepth',
         'ScaledL2RPN vs ScaledTopoDepth'
     ])
 
-    row_indices = []
-
+    table_data = []
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
-        if wrapper == 'mc':
-            ccs_list = data['ccs_list'][-1]
-
+        ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
-        # Calculate Pareto frontier for X vs Y
+        # Pareto frontiers
         x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
-        pareto_points_xy = len(x_pareto_xy)
-
-        # Calculate Pareto frontier for X vs Z
         x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
-        pareto_points_xz = len(x_pareto_xz)
-
-        # Calculate Pareto frontier for Y vs Z
         y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
-        pareto_points_yz = len(y_pareto_yz)
 
-        for idx, (x, y, z) in enumerate(zip(x_all, y_all, z_all)):
+        # Custom data to match the index with the table data
+        row_indices = list(range(len(x_all)))
+
+        # Add traces for each 2D projection
+        fig.add_trace(go.Scatter(x=x_all, y=y_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=1)
+        fig.add_trace(go.Scatter(x=x_pareto_xy, y=y_pareto_xy, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=x_all, y=z_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=2)
+        fig.add_trace(go.Scatter(x=x_pareto_xz, y=z_pareto_xz, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=2)
+        fig.add_trace(go.Scatter(x=y_all, y=z_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=3)
+        fig.add_trace(go.Scatter(x=y_pareto_yz, y=z_pareto_yz, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=3)
+
+        # Append row data for the table
+        for idx in range(len(x_all)):
             table_data.append({
                 "Seed": f"Seed {i+1}",
-                "X": x,
-                "Y": y,
-                "Z": z,
-                "Test Steps": data['ccs_data'][idx]['test_steps'],
-                "Test Actions": str(data['ccs_data'][idx]['test_actions']),  # Convert complex data to string
-                "Pareto Points XY": pareto_points_xy,
-                "Pareto Points XZ": pareto_points_xz,
-                "Pareto Points YZ": pareto_points_yz,
+                "X": x_all[idx],
+                "Y": y_all[idx],
+                "Z": z_all[idx],
                 "Hypervolume XY": hypervolumes[i]["Hypervolume XY"],
                 "Hypervolume XZ": hypervolumes[i]["Hypervolume XZ"],
-                "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"]
+                "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"],
+                "Sparsity XY": sparsities[i]["Sparsity XY"],
+                "Sparsity XZ": sparsities[i]["Sparsity XZ"],
+                "Sparsity YZ": sparsities[i]["Sparsity YZ"],
             })
-            row_indices.append(len(table_data) - 1)  # Track the index of each point
 
-        # Add traces for X vs Y
-        fig.add_trace(go.Scatter(x=x_all, y=y_all, mode='markers',
-                                 marker=dict(color=colors[i % len(colors)], opacity=0.3),
-                                 name=f'Seed {i+1} (Non-Pareto)',
-                                 customdata=row_indices[-len(x_all):],
-                                 legendgroup=f'Seed {i+1}'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x_pareto_xy, y=y_pareto_xy, mode='markers+lines',
-                                 marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
-                                 name=f'Seed {i+1} (Pareto)',
-                                 legendgroup=f'Seed {i+1}'), row=1, col=1)
-
-        # Add traces for X vs Z
-        fig.add_trace(go.Scatter(x=x_all, y=z_all, mode='markers',
-                                 marker=dict(color=colors[i % len(colors)], opacity=0.3),
-                                 name=f'Seed {i+1} (Non-Pareto)',
-                                 customdata=row_indices[-len(x_all):],
-                                 legendgroup=f'Seed {i+1}', showlegend=False), row=1, col=2)
-        fig.add_trace(go.Scatter(x=x_pareto_xz, y=z_pareto_xz, mode='markers+lines',
-                                 marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
-                                 name=f'Seed {i+1} (Pareto)',
-                                 legendgroup=f'Seed {i+1}', showlegend=False), row=1, col=2)
-
-        # Add traces for Y vs Z
-        fig.add_trace(go.Scatter(x=y_all, y=z_all, mode='markers',
-                                 marker=dict(color=colors[i % len(colors)], opacity=0.3),
-                                 name=f'Seed {i+1} (Non-Pareto)',
-                                 customdata=row_indices[-len(x_all):],
-                                 legendgroup=f'Seed {i+1}', showlegend=False), row=1, col=3)
-        fig.add_trace(go.Scatter(x=y_pareto_yz, y=z_pareto_yz, mode='markers+lines',
-                                 marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
-                                 name=f'Seed {i+1} (Pareto)',
-                                 legendgroup=f'Seed {i+1}', showlegend=False), row=1, col=3)
-
-    # Update layout for better visualization
-    fig.update_layout(
-        height=600,
-        width=1200,
-        title_text="2D Projections of Seeds",
-        template="plotly_white",
-        showlegend=True
-    )
-
-    # Convert to DataFrame for easier analysis
+    fig.update_layout(height=600, width=1200, title_text="2D Projections of Seeds", template="plotly_white", showlegend=True)
     df = pd.DataFrame(table_data)
+    return fig, df
 
-    df = pd.DataFrame(table_data)
 
-    # Remove "Test Steps" and "Test Actions" from DataTable display
-    df_display = df.drop(columns=["Test Steps", "Test Actions"])
-
-    # Calculate min and max for each return (X, Y, Z) for each seed
-    df_display['Min X'] = df_display.groupby('Seed')['X'].transform('min')
-    df_display['Max X'] = df_display.groupby('Seed')['X'].transform('max')
-
-    df_display['Min Y'] = df_display.groupby('Seed')['Y'].transform('min')
-    df_display['Max Y'] = df_display.groupby('Seed')['Y'].transform('max')
-
-    df_display['Min Z'] = df_display.groupby('Seed')['Z'].transform('min')
-    df_display['Max Z'] = df_display.groupby('Seed')['Z'].transform('max')
-
-    # Now, we want to keep only the necessary information for each seed:
-    # 1. The mean of hypervolumes
-    # 2. The min of the min rewards (X, Y, Z)
-    # 3. The max of the max rewards (X, Y, Z)
-
-    # Group by seed and compute the required statistics
-    df_summary = df_display.groupby('Seed').agg({
-        'Hypervolume XY': 'mean',
-        'Hypervolume XZ': 'mean',
-        'Hypervolume YZ': 'mean',
-        'Min X': 'min',
-        'Max X': 'max',
-        'Min Y': 'min',
-        'Max Y': 'max',
-        'Min Z': 'min',
-        'Max Z': 'max'
-    }).reset_index()
-
-    # Calculate mean, std, min, and max for each metric across all seeds
-    mean_df = df_summary.mean(numeric_only=True).rename('Mean')
-    std_df = df_summary.std(numeric_only=True).rename('Std')
-    min_df = df_summary.min(numeric_only=True).rename('Min')
-    max_df = df_summary.max(numeric_only=True).rename('Max')
-
-    # Add the mean, std, min, and max as new rows to the DataFrame using pd.concat
-    df_summary = pd.concat([df_summary, mean_df.to_frame().T, std_df.to_frame().T, min_df.to_frame().T, max_df.to_frame().T], ignore_index=True)
-
-    # Label these rows as "Mean", "Std", "Min", and "Max"
-    df_summary.at[df_summary.index[-4], 'Seed'] = 'Mean'
-    df_summary.at[df_summary.index[-3], 'Seed'] = 'Std'
-    df_summary.at[df_summary.index[-2], 'Seed'] = 'Min'
-    df_summary.at[df_summary.index[-1], 'Seed'] = 'Max'
-
-    # Optionally, round the DataFrame for better readability
-    df_summary = df_summary.round(2)
-
-    # Print the DataFrame to ensure it is populated correctly
-    print(df_summary)
-
-    # Optionally, round the DataFrame for better readability
-    df_display = df_display.round(1)
-    # Display the DataFrame in Dash
+def create_dash_app(fig, df_display):
+    """Creates the Dash app for visualizing the data and projections."""
     app = dash.Dash(__name__)
 
     app.layout = html.Div([
         dcc.Tabs([
             dcc.Tab(label='Graph', children=[
                 html.H1("Seed Metrics and Projections", style={'textAlign': 'center', 'color': '#007BFF'}),
-                dcc.Graph(
-                    id='2d-projections',
-                    figure=fig
-                ),
+                dcc.Graph(id='2d-projections', figure=fig),
                 html.Div(id='output-data-click', style={'fontSize': 20, 'marginTop': '20px'}),
             ]),
             dcc.Tab(label='Data Table', children=[
@@ -306,121 +265,70 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
                     data=df_display.to_dict('records'),
                     page_size=10,
                     style_table={'overflowX': 'auto', 'marginBottom': '20px'},
-                    style_cell={
-                        'textAlign': 'center',
-                        'backgroundColor': '#f9f9f9',
-                        'color': 'black',
-                        'border': '1px solid #ddd',
-                        'minWidth': '0px', 'maxWidth': '180px',
-                        'whiteSpace': 'normal',
-                    },
-                    style_header={
-                        'backgroundColor': '#007BFF',
-                        'fontWeight': 'bold',
-                        'color': 'white'
-                    },
-                    style_data_conditional=[
-                        {
-                            'if': {'row_index': 'odd'},
-                            'backgroundColor': '#f2f2f2'
-                        }
-                    ]
+                    style_cell={'textAlign': 'center', 'backgroundColor': '#f9f9f9', 'color': 'black', 'border': '1px solid #ddd'},
+                    style_header={'backgroundColor': '#007BFF', 'fontWeight': 'bold', 'color': 'white'},
+                    style_data_conditional=[{'if': {'row_index': 'odd'}, 'backgroundColor': '#f2f2f2'}]
                 )
             ])
         ])
     ])
 
     @app.callback(
-        Output('output-data-click', 'children'),
-        [Input('2d-projections', 'clickData')]
+    Output('output-data-click', 'children'),
+    [Input('2d-projections', 'clickData')]
     )
     def display_click_data(clickData):
+        """Callback to display clicked point details, including substation."""
         if clickData:
+            # Extract custom data index from the clicked point
             point_index = clickData['points'][0]['customdata']
-            selected_row = df.iloc[point_index]
+            selected_row = df_display.iloc[point_index]
             return [
                 html.P(f"Seed: {selected_row['Seed']}"),
-                html.P(f"Test Steps: {selected_row['Test Steps']}"),
-                html.P(f"Test Actions: {selected_row['Test Actions']}")
+                html.P(f"X: {selected_row['X']}"),
+                html.P(f"Y: {selected_row['Y']}"),
+                html.P(f"Z: {selected_row['Z']}"),
+                html.P(f"Substation: {selected_row['Substation']}"),  # Display the substation
+                html.P(f"Hypervolume XY: {selected_row['Hypervolume XY']}"),
+                html.P(f"Hypervolume XZ: {selected_row['Hypervolume XZ']}"),
+                html.P(f"Hypervolume YZ: {selected_row['Hypervolume YZ']}")
             ]
         return "Click on a point in the graph to see its details."
 
     app.run_server(debug=True)
 
-def plot_all_seeds(seed_paths, wrapper):
-    """Plots the data for all seeds in 3D and 2D projections, and shows a table with min and max values."""
-    fig_3d = plt.figure()
-    ax_3d = fig_3d.add_subplot(111, projection='3d')
 
-    colors = cm.tab10.colors # A built-in colormap
-
-    for i, seed_path in enumerate(seed_paths):
-        data = load_json_data(seed_path)
-        
-        ccs_list = data['ccs_list'][-1]  # Use the last CCS list
-        if wrapper == 'mc':
-            ccs_list = data['ccs_list'][-1][0]
-            
-        print(ccs_list)
-        x_all, y_all, z_all = extract_coordinates(ccs_list)
-
-        # Plot 3D scatter
-        plot_3d_scatter(x_all, y_all, z_all, f'Seed {i+1}', ax_3d, color=colors[i % len(colors)])
-
-    ax_3d.legend()
-    plt.show()
-
-    # Plot 2D projections and generate table
-    plot_2d_projections_seeds(seed_paths, wrapper=wrapper)
-
+# ---- Data Processing ----
 def find_matching_weights_and_agent(ccs_list, ccs_data):
+    """Finds matching weights and agent information from CCS list and data."""
     matching_entries = []
-
     for ccs_entry in ccs_list:
         found_match = False
         for data_entry in ccs_data:
-            #print(data_entry['returns'])
-            #print(ccs_entry)
-            # Ensure both are numpy arrays for consistent comparison
             ccs_entry_array = np.array(ccs_entry)
             returns_array = np.array(data_entry['returns'])
-
             if np.allclose(ccs_entry_array, returns_array, atol=1e-3):
                 matching_entries.append({
-                    "weights": data_entry['weights'], 
+                    "weights": data_entry['weights'],
                     "returns": ccs_entry,
                     "agent_file": data_entry['agent_file'],
-                    "test_steps": data_entry["test_steps"], 
+                    "test_steps": data_entry["test_steps"],
                     "test_actions": data_entry['test_actions']
                 })
                 found_match = True
-                break  # Assuming each returns value has a unique match, break after finding it
-        
+                break  # Stop once a match is found
         if not found_match:
             print(f"No match found for CCS entry: {ccs_entry}")
-
     return matching_entries
 
-def main():
-    ols_base_path = r"morl_logs\OLS\rte_case5_example\2024-08-17\['ScaledL2RPN', 'ScaledTopoDepth']"
-    mc_base_path = r"morl_logs\MC\rte_case5_example\2024-08-19\['ScaledL2RPN', 'ScaledTopoDepth']"
-    
-    seeds = [0,1,2,3]
-    ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
-    mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
-
-    # Process OLS data
-    # print("Processing OLS Data...")
-    process_data(ols_seed_paths, 'ols')
-    
-    
-    # Process MC data
-    print("Processing MC Data...")
-    #process_data(mc_seed_paths, 'mc')
 
 def process_data(seed_paths, wrapper):
-    all_data = []  # List to store all the data for the DataFrame
+    """Processes the data for all seeds and generates the 3D and 2D plots."""
+    all_data = []
     
+    # Create the action-to-substation mapping using the gym environment
+    action_to_substation_mapping = create_action_to_substation_mapping()
+
     for seed_path in seed_paths:
         if not os.path.exists(seed_path):
             print(f"File not found: {seed_path}")
@@ -428,45 +336,71 @@ def process_data(seed_paths, wrapper):
 
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
-        if wrapper=='mc': 
-            ccs_list = data['ccs_list'][-1] # Use the last CCS list
-        
-        # Debugging: Print the contents of ccs_list
-        #print(f"ccs_list contents: {ccs_list}")
-        
-
+        if wrapper == 'mc':
+            ccs_list = data['ccs_list']
         ccs_data = data['ccs_data']
-        # Find matching weights and agent files
         matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
-        #print(matching_entries)
+        print(matching_entries)
         # Collect data for DataFrame
         for entry in matching_entries:
-            row_data = {
+            actions = entry['test_actions'] # Assuming test_actions is a list of actions
+            substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
+
+            all_data.append({
                 "Weights": entry['weights'],
                 "Returns": entry['returns'],
                 "Test Steps": entry['test_steps'],
-                "Test Actions": entry['test_actions']
-            }
-            all_data.append(row_data)
+                "Test Actions": entry['test_actions'],
+                "Substation": substations  # Add the substation to the data
+            })
 
-    # Create the DataFrame
-    if all_data:
-        df_ccs_matching = pd.DataFrame(all_data)
-    else:
-        print("No data found for the given seeds.")
-        df_ccs_matching = pd.DataFrame()
+    df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
 
-    # Display the DataFrame
-    print(df_ccs_matching)
-
-    # Further processing or saving the DataFrame
     if not df_ccs_matching.empty:
-        df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)  # Example of saving to a CSV file
+        df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
+        print(df_ccs_matching)
 
-    # Plot all seeds in 3D and 2D
+    plot_all_seeds(seed_paths, wrapper, df_ccs_matching)
+
+
+def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
+    """Plots all seeds in 3D and 2D projections, and integrates substation information."""
+    fig_3d = plt.figure()
+    ax_3d = fig_3d.add_subplot(111, projection='3d')
+    colors = cm.tab10.colors
+
+    for i, seed_path in enumerate(seed_paths):
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+        plot_3d_scatter(x_all, y_all, z_all, f'Seed {i+1}', ax_3d, color=colors[i % len(colors)])
+
+    ax_3d.legend()
+    plt.show()
+
+    fig, df_display = plot_2d_projections_seeds(seed_paths, wrapper=wrapper)
+
+    # Add substation information to the Dash app
+    df_display['Substation'] = df_ccs_matching['Substation']
     
-    plot_all_seeds(seed_paths, wrapper=wrapper)
+    create_dash_app(fig, df_display)
+
+
+# ---- Main Function ----
+def main():
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
+    seeds = [42]
+
+    ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
+    mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
+
+    #print("Processing OLS Data...")
+    #process_data(ols_seed_paths, 'ols')
+
+    print("Processing MC Data...")
+    process_data(mc_seed_paths, 'mc')
+
 
 if __name__ == "__main__":
     main()
-    

@@ -21,7 +21,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
 from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
-from topgrid_morl.wrapper.ols_moppo import MOPPOTrainer
+from topgrid_morl.wrapper.ols_DOL import MOPPOTrainer
 
 # Recursive function to convert all numpy arrays to lists
 def convert_ndarray_to_list(data):
@@ -183,9 +183,10 @@ def main(seed: int, config: str) -> None:
             g2op_env_val=g2op_env_val,
             g2op_env_test=g2op_env_test,
             reward_list=reward_list,
+            reuse="partial",
             **agent_params
         )
-        eval_data, test_data, agent = trainer.train_agent(weights=w)
+        eval_data, test_data, agent = trainer.run_single(weights=w)
         
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))

@@ -7,14 +7,12 @@ import grid2op
 from grid2op.Action import BaseAction
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
 from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
+from grid2op.Opponent import RandomLineOpponent  # Import the desired opponent class
 from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import L2RPNReward, ScaledL2RPNReward, ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward,  ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
-
-
-
+from topgrid_morl.envs.GridRewards import L2RPNReward, ScaledL2RPNReward, ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
 
 
 class CustomDiscreteActions(Discrete):
@@ -44,39 +42,30 @@ def setup_environment(
     rewards_list: List[str] = ["EpisodeDuration", "TopoAction"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
-    max_rho: float = 0.95
+    max_rho: float = 0.95,
+    use_opponent: bool = True,  # Enable opponent
+    opponent_class=RandomLineOpponent,  # Default opponent class
+    opponent_kwargs: dict = None,  # Parameters for opponent
+    line_names_to_attack: List[str] = None  # List of lines opponent can attack
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
-    Sets up the Grid2Op environment with the specified rewards and
-    returns the Gym-compatible environment and reward dim
-
-    Args:
-        env_name (str): Name of the Grid2Op environment.
-        test (bool): Whether to use the test version of the environment.
-        action_space (int): Dimension of the action space.
-        seed (int): Random seed for reproducibility.
-        frist_reward (L2RPNReward): The primary reward class.
-        rewards_list (List[str]): List of reward names to be included in the environment.
-
-    Returns:
-        Tuple[GymEnv, Tuple[int], int, int]: Gym-compatible environment instance,
-        observation space shape, action space dimension, and reward dimension.
+    Sets up the Grid2Op environment with the specified rewards, opponent,
+    and returns the Gym-compatible environment and reward dim.
     """
     
-   
     print(rewards_list)
     # Create environment
     g2op_env = grid2op.make(
-        env_name+env_type,
+        env_name + env_type,
         test=test,
         backend=LightSimBackend(),
         reward_class=first_reward,
         other_rewards={
             reward_name: globals()[reward_name + "Reward"]
             for reward_name in rewards_list
-        },
+        }
     )
-    
+
     g2op_env.seed(seed=seed)
     g2op_env.reset()
 
@@ -114,7 +103,7 @@ def setup_environment(
             )
         )
 
-    # add do nothing action
+    # Add do nothing action
     do_nothing_action = g2op_env.action_space({})
     all_actions.insert(0, do_nothing_action)
 
@@ -124,6 +113,5 @@ def setup_environment(
 
     # Calculate reward dimension
     reward_dim = len(rewards_list) + 1
-
 
     return gym_env, gym_env.observation_space.shape, action_space, reward_dim, g2op_env
