@@ -358,7 +358,10 @@ def process_data(seed_paths, wrapper):
     if not df_ccs_matching.empty:
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
         print(df_ccs_matching)
-
+    # Call the function to calculate hypervolumes and sparsities and output the DataFrame
+    df_metrics = calculate_hypervolumes_and_sparsities(seed_paths, wrapper)
+    print(df_metrics)
+    
     plot_2d_projections_matplotlib(seed_paths, wrapper)   # Matplotlib-based visualization
     # Call the plotting functions
     #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
@@ -450,7 +453,148 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
 
     plt.tight_layout()
     plt.show()
-    
+def calculate_3d_hypervolume(pareto_points, reference_point):
+    """Calculate the 3D hypervolume dominated by the Pareto frontier."""
+    pareto_points = np.array(pareto_points)
+    hypervolume = 0.0
+
+    # Ensure the points are sorted by the first objective (x-axis)
+    pareto_points = pareto_points[np.argsort(pareto_points[:, 0])]
+
+    # Calculate the 3D hypervolume (the volume in between Pareto points and the reference point)
+    for i in range(len(pareto_points)):
+        width = pareto_points[i, 0] - (reference_point[0] if i == 0 else pareto_points[i - 1, 0])
+        length = pareto_points[i, 1] - reference_point[1]
+        height = pareto_points[i, 2] - reference_point[2]
+        hypervolume += width * length * height
+
+    return hypervolume
+
+def calculate_3d_sparsity(pareto_points):
+    """Calculate the sparsity of a set of Pareto points in 3D space."""
+    if len(pareto_points) <= 1:
+        return 0.0  # If only one or no points, sparsity is zero
+
+    # Calculate pairwise distances between all Pareto points in 3D
+    distances = pdist(pareto_points, metric='euclidean')  # Use Euclidean distance in 3D
+
+    # Compute the average pairwise distance as the sparsity metric
+    sparsity_metric = np.mean(distances)
+
+    return sparsity_metric
+
+def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
+    """Calculates the 2D and 3D hypervolumes and sparsities for each seed and the superseed set."""
+    all_x, all_y, all_z = [], [], []
+    results = []
+
+    # Calculate hypervolume and sparsity for each seed
+    for i, seed_path in enumerate(seed_paths):
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        all_x.extend(x_all)  # Combine all data for the superseed set
+        all_y.extend(y_all)
+        all_z.extend(z_all)
+
+        # Calculate 2D Pareto frontiers and reference points for each seed
+        reference_point_xy = (min(x_all), min(y_all))
+        reference_point_xz = (min(x_all), min(z_all))
+        reference_point_yz = (min(y_all), min(z_all))
+
+        x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+        # Calculate 2D hypervolume and sparsity for each seed
+        hv_xy = calculate_hypervolume(list(zip(x_pareto_xy, y_pareto_xy)), reference_point_xy)
+        hv_xz = calculate_hypervolume(list(zip(x_pareto_xz, z_pareto_xz)), reference_point_xz)
+        hv_yz = calculate_hypervolume(list(zip(y_pareto_yz, z_pareto_yz)), reference_point_yz)
+
+        sparsity_xy = calculate_sparsity(list(zip(x_pareto_xy, y_pareto_xy)))
+        sparsity_xz = calculate_sparsity(list(zip(x_pareto_xz, z_pareto_xz)))
+        sparsity_yz = calculate_sparsity(list(zip(y_pareto_yz, z_pareto_yz)))
+
+        # For 3D, calculate the Pareto frontier and reference point
+        pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+        reference_point_3d = (min(x_all), min(y_all), min(z_all))
+        
+        # Calculate 3D hypervolume and sparsity for each seed
+        hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+        sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+
+        # Append results for this seed
+        results.append({
+            "Seed": f"Seed {i+1}",
+            "Hypervolume XY": hv_xy,
+            "Hypervolume XZ": hv_xz,
+            "Hypervolume YZ": hv_yz,
+            "Sparsity XY": sparsity_xy,
+            "Sparsity XZ": sparsity_xz,
+            "Sparsity YZ": sparsity_yz,
+            "Hypervolume 3D": hv_3d,
+            "Sparsity 3D": sparsity_3d
+        })
+
+    # Calculate the hypervolume and sparsity for the superseed set
+    superseed_results = calculate_hypervolume_and_sparsity_superseed(all_x, all_y, all_z)
+
+    # Append results for the superseed set (3D calculation as well)
+    pareto_points_superseed_3d = np.column_stack((all_x, all_y, all_z))
+    reference_point_superseed_3d = (min(all_x), min(all_y), min(all_z))
+    hv_superseed_3d = calculate_3d_hypervolume(pareto_points_superseed_3d, reference_point_superseed_3d)
+    sparsity_superseed_3d = calculate_3d_sparsity(pareto_points_superseed_3d)
+
+    results.append({
+        "Seed": "Superseed",
+        "Hypervolume XY": superseed_results["Hypervolume XY"],
+        "Hypervolume XZ": superseed_results["Hypervolume XZ"],
+        "Hypervolume YZ": superseed_results["Hypervolume YZ"],
+        "Sparsity XY": superseed_results["Sparsity XY"],
+        "Sparsity XZ": superseed_results["Sparsity XZ"],
+        "Sparsity YZ": superseed_results["Sparsity YZ"],
+        "Hypervolume 3D": hv_superseed_3d,
+        "Sparsity 3D": sparsity_superseed_3d
+    })
+
+    # Convert the results to a DataFrame
+    df_results = pd.DataFrame(results)
+
+    return df_results
+# ---- Superseed Calculation Functions ----
+
+def calculate_hypervolume_and_sparsity_superseed(all_x, all_y, all_z):
+    """Calculates the hypervolume and sparsity for the combined superseed set."""
+    # Reference points for hypervolume calculation (minimums from all points)
+    reference_point_xy = (min(all_x), min(all_y))
+    reference_point_xz = (min(all_x), min(all_z))
+    reference_point_yz = (min(all_y), min(all_z))
+
+    # Pareto frontiers for the superseed set
+    superseed_pareto_xy, superseed_pareto_yy, _ = pareto_frontier_2d(all_x, all_y)
+    superseed_pareto_xz, superseed_pareto_zz, _ = pareto_frontier_2d(all_x, all_z)
+    superseed_pareto_yz, superseed_pareto_zz2, _ = pareto_frontier_2d(all_y, all_z)
+
+    # Calculate hypervolumes for superseed set
+    hypervolume_xy = calculate_hypervolume(list(zip(superseed_pareto_xy, superseed_pareto_yy)), reference_point_xy)
+    hypervolume_xz = calculate_hypervolume(list(zip(superseed_pareto_xz, superseed_pareto_zz)), reference_point_xz)
+    hypervolume_yz = calculate_hypervolume(list(zip(superseed_pareto_yz, superseed_pareto_zz2)), reference_point_yz)
+
+    # Calculate sparsities for superseed set
+    sparsity_xy = calculate_sparsity(list(zip(superseed_pareto_xy, superseed_pareto_yy)))
+    sparsity_xz = calculate_sparsity(list(zip(superseed_pareto_xz, superseed_pareto_zz)))
+    sparsity_yz = calculate_sparsity(list(zip(superseed_pareto_yz, superseed_pareto_zz2)))
+
+    return {
+        "Hypervolume XY": hypervolume_xy,
+        "Hypervolume XZ": hypervolume_xz,
+        "Hypervolume YZ": hypervolume_yz,
+        "Sparsity XY": sparsity_xy,
+        "Sparsity XZ": sparsity_xz,
+        "Sparsity YZ": sparsity_yz,
+    }
+
 # ---- Main Function ----
 def main():
     ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
