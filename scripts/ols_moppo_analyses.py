@@ -321,7 +321,6 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
             print(f"No match found for CCS entry: {ccs_entry}")
     return matching_entries
 
-
 def process_data(seed_paths, wrapper):
     """Processes the data for all seeds and generates the 3D and 2D plots."""
     all_data = []
@@ -360,7 +359,11 @@ def process_data(seed_paths, wrapper):
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
         print(df_ccs_matching)
 
-    plot_all_seeds(seed_paths, wrapper, df_ccs_matching)
+    plot_2d_projections_matplotlib(seed_paths, wrapper)   # Matplotlib-based visualization
+    # Call the plotting functions
+    #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
+    
+
 
 
 def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
@@ -385,18 +388,80 @@ def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
     
     create_dash_app(fig, df_display)
 
+# ---- 2D Plotting with Matplotlib (with Superseed Pareto Markings) ----
+def plot_2d_projections_matplotlib(seed_paths, wrapper):
+    """Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points."""
+    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
 
+    all_x, all_y, all_z = [], [], []
+    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
+    sparsities = calculate_sparsities_for_all_projections(seed_paths, wrapper=wrapper)
+    colors = plt.cm.tab10.colors  # Use built-in colormap
+
+    # Aggregate all seed data for superseed calculation
+    for i, seed_path in enumerate(seed_paths):
+        data = load_json_data(seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        all_x.extend(x_all)
+        all_y.extend(y_all)
+        all_z.extend(z_all)
+
+        # Calculate Pareto frontiers
+        x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+        # Plot full dataset and Pareto frontiers for each projection
+        # X vs Y
+        axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
+        axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
+        axs[0].set_xlabel('ScaledLinesCapacity')
+        axs[0].set_ylabel('ScaledL2RPN')
+        axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+
+        # X vs Z
+        axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
+        axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
+        axs[1].set_xlabel('ScaledLinesCapacity')
+        axs[1].set_ylabel('ScaledTopoDepth')
+        axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+
+        # Y vs Z
+        axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
+        axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
+        axs[2].set_xlabel('ScaledL2RPN')
+        axs[2].set_ylabel('ScaledTopoDepth')
+        axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+
+    # Calculate and plot the Pareto frontier for the superseed set
+    superseed_pareto_xy, superseed_pareto_yy, _ = pareto_frontier_2d(all_x, all_y)
+    superseed_pareto_xz, superseed_pareto_zz, _ = pareto_frontier_2d(all_x, all_z)
+    superseed_pareto_yz, superseed_pareto_zz2, _ = pareto_frontier_2d(all_y, all_z)
+
+    axs[0].plot(superseed_pareto_xy, superseed_pareto_yy, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
+    axs[1].plot(superseed_pareto_xz, superseed_pareto_zz, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
+    axs[2].plot(superseed_pareto_yz, superseed_pareto_zz2, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
+
+    for ax in axs:
+        ax.legend()
+        ax.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+    
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
-    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-16/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [42]
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
+    seeds = [0,1,2,3,4]
 
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
     mc_seed_paths = [os.path.join(mc_base_path, f'seed_{seed}', f'morl_logs_mc{seed}.json') for seed in seeds]
 
-    #print("Processing OLS Data...")
-    #process_data(ols_seed_paths, 'ols')
+    print("Processing OLS Data...")
+    process_data(ols_seed_paths, 'ols')
 
     print("Processing MC Data...")
     process_data(mc_seed_paths, 'mc')
@@ -404,3 +469,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
