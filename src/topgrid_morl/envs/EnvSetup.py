@@ -4,7 +4,7 @@ import os
 from typing import Any, List, Tuple
 
 import grid2op
-from grid2op.Action import BaseAction
+from grid2op.Action import BaseAction, PowerlineSetAction
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
 from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
 from grid2op.Opponent import RandomLineOpponent  # Import the desired opponent class
@@ -13,6 +13,12 @@ from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.envs.GridRewards import L2RPNReward, ScaledL2RPNReward, ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
+
+from grid2op.Opponent import (
+    BaseActionBudget,
+    RandomLineOpponent,
+)
+
 
 
 class CustomDiscreteActions(Discrete):
@@ -63,6 +69,20 @@ def setup_environment(
         other_rewards={
             reward_name: globals()[reward_name + "Reward"]
             for reward_name in rewards_list
+        },
+        # kwargs specific to opponents
+        opponent_attack_cooldown= 144, # max 2 attacks per day
+        opponent_attack_duration= 48, # 4 hours in a day
+        opponent_budget_per_ts= 0.333343333333, # taken from blazej, (opponent_attack_duration / opponent_attack_cooldown) + 1e-5
+        opponent_init_budget= 144,
+        opponent_action_class= PowerlineSetAction, 
+        opponent_class= RandomLineOpponent,
+        opponent_budget_class= BaseActionBudget,
+        kwargs_opponent={
+            "lines_attacked": [
+            '0_3_2',
+            '0_4_3'
+            ]
         }
     )
 

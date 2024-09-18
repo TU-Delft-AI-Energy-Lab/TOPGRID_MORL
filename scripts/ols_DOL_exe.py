@@ -251,5 +251,4 @@ if __name__ == "__main__":
         help="Path to the configuration file (default: configs/base_config.json)",
     )
     args = parser.parse_args()
-
     main(args.seed, args.config)
