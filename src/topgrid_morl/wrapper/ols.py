@@ -98,6 +98,12 @@ class LinearSupport:
                 # If all priorities are 0, shuffle the queue to avoid repearting weights every iteration
                 if self.queue[0][0] == 0.0:
                     random.shuffle(self.queue)
+            if len(self.queue) == 0:
+                print("Queue is empty after extrema weights. Generating new random weights for exploration.")
+                random_weights = np.random.rand(self.num_objectives)
+                random_weights /= random_weights.sum()  # Normalize the weights
+                self.queue.append((float("inf"), random_weights))
+                print(f"Random weights added to the queue: {self.queue}")
 
         if self.verbose:
             print("CCS:", self.ccs, "CCS size:", len(self.ccs))
@@ -176,8 +182,6 @@ class LinearSupport:
         self.ccs.append(value)
         self.weight_support.append(w)
         
-        if self.calls_cornerweights>2:
-            self.ols_ended = True
 
         return removed_indx, self.ccs
 
@@ -314,17 +318,14 @@ class LinearSupport:
         return result
 
     def compute_corner_weights(self) -> List[np.ndarray]:
-        """Returns the corner weights for the current set of values.
+        """Returns the corner weights for the current set of values."""
+        self.calls_cornerweights += 1
 
-        See http://roijers.info/pub/thesis.pdf Definition 19.
-        Obs: there is a typo in the definition of the corner weights in the thesis, the >= sign should be <=.
+        # Ensure the current CCS is not empty before computing
+        if len(self.ccs) == 0:
+            print("No values in the CCS to compute corner weights from.")
+            return []
 
-        Returns:
-            List of corner weights.
-        """
-        
-        
-        self.calls_cornerweights+=1
         A = np.vstack(self.ccs)
         A = np.round_(A, decimals=4)  # Round to avoid numerical issues
         A = np.concatenate((A, -np.ones(A.shape[0]).reshape(-1, 1)), axis=1)
@@ -345,6 +346,8 @@ class LinearSupport:
         b[len(self.ccs)] = 1
         b[len(self.ccs) + 1] = -1
 
+        print(f"Current A matrix shape: {A.shape}, Current b vector shape: {b.shape}")
+
         def compute_poly_vertices(A, b):
             vertices = []
             num_constraints = A.shape[0]
@@ -364,6 +367,11 @@ class LinearSupport:
             return vertices
 
         vertices = compute_poly_vertices(A, b)
+
+        if not vertices:
+            print("No vertices were found from the polytope. Something went wrong.")
+            return []
+
         corners = []
         for v in vertices:
             corner_weight = v[:-1]  # Remove the artificial variable
@@ -373,6 +381,7 @@ class LinearSupport:
                 corner_weight /= corner_weight.sum()
             corners.append(corner_weight)
 
+        print(f"Computed corner weights: {corners}")
         return corners
 
     def is_dominated(self, value: np.ndarray) -> bool:

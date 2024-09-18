@@ -835,7 +835,7 @@ def calculate_3d_metrics_only_for_mc(mc_seed_path):
     # Load MC seed data
     data = load_json_data(mc_seed_path)
     ccs_list = data['ccs_list']
-    x_all, y_all, z_all = extract_coordinates(ccs_list)
+    x_all, y_all, z_all = extract_coordinates(ccs_git list)
 
     # Calculate 3D hypervolume and sparsity for the MC seed
     pareto_points_3d = np.column_stack((x_all, y_all, z_all))
