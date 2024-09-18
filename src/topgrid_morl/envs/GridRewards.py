@@ -136,10 +136,7 @@ class ScaledTopoDepthReward(BaseReward):
         # Scale the reward, initially between -1 and 0, then shift to 0-1 range
         norm_r = r / 500
 
-        # Shift the reward from [-1, 0] to [0, 1]
-        scaled_r = norm_r + 1.0
-
-        return scaled_r
+        return norm_r
 
 
 class MaxTopoDepthReward(BaseReward):
