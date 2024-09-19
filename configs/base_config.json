@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 8,
+        "steps_per_iteration": 64,
         "num_minibatches": 2,
         "update_epochs": 1,
         "learning_rate": 5e-4,
@@ -32,10 +32,10 @@
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 16,
+    "max_gym_steps": 256,
     "rewards": {
         "first": "ScaledLinesCapacity",
-        "second": "ScaledL2RPN",
+        "second": "ScaledTopoAction",
         "third": "ScaledTopoDepth"
     }
 
