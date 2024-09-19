@@ -143,7 +143,7 @@ def main(seed: int, config: str) -> None:
     num_obj = 3 
     GAMMA = 0.99
     
-    ols = LinearSupport(num_objectives=num_obj, epsilon=0.01, verbose=True)
+    ols = LinearSupport(num_objectives=num_obj, epsilon=0.00001, verbose=True)
     ccs_data = []  # This will store the agent and weights for each CCS entry
     values = []
     ccs_list = []
@@ -160,11 +160,9 @@ def main(seed: int, config: str) -> None:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<5:
+    while not ols.ended() and i<10:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
-        if ols.ended(): 
-            break
         trainer = MOPPOTrainer(
             iterations=5,
             max_gym_steps=max_gym_steps,
@@ -251,5 +249,4 @@ if __name__ == "__main__":
         help="Path to the configuration file (default: configs/base_config.json)",
     )
     args = parser.parse_args()
-
     main(args.seed, args.config)
