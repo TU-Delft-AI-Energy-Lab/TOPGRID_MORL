@@ -12,7 +12,7 @@ from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
-from topgrid_morl.envs.GridRewards import L2RPNReward, ScaledL2RPNReward, ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
+from topgrid_morl.envs.GridRewards import L2RPNReward, TopoActionDayReward, ScaledL2RPNReward, ScaledMaxTopoDepthReward, ScaledTopoDepthReward, SubstationSwitchingReward, MaxTopoDepthReward, TopoDepthReward, ScaledDistanceReward, DistanceReward, CloseToOverflowReward, N1Reward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, ScaledTopoActionReward, TopoActionReward, LinesCapacityReward
 
 
 class CustomDiscreteActions(Discrete):
