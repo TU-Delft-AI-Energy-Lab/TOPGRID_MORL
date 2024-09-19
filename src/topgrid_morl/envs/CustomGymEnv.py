@@ -5,6 +5,10 @@ import numpy.typing as npt
 from grid2op.Environment import BaseEnv
 from grid2op.gym_compat import GymEnv
 
+from grid2op.Opponent import (
+    BaseActionBudget,
+    RandomLineOpponent,
+)
 
 class CustomGymEnv(GymEnv):
     """Implements a grid2op environment in gym."""

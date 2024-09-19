@@ -278,7 +278,7 @@ def create_dash_app(fig, df_display):
     [Input('2d-projections', 'clickData')]
     )
     def display_click_data(clickData):
-        """Callback to display clicked point details, including substation."""
+        """Callback to display clicked point details, including substation, test actions, and test steps."""
         if clickData:
             # Extract custom data index from the clicked point
             point_index = clickData['points'][0]['customdata']
@@ -288,7 +288,9 @@ def create_dash_app(fig, df_display):
                 html.P(f"X: {selected_row['X']}"),
                 html.P(f"Y: {selected_row['Y']}"),
                 html.P(f"Z: {selected_row['Z']}"),
-                html.P(f"Substation: {selected_row['Substation']}"),  # Display the substation
+                html.P(f"Substation: {selected_row['Substation']}"),
+                html.P(f"Test Actions: {selected_row['Test Actions']}"),  # Display test actions
+                html.P(f"Test Steps: {selected_row['Test Steps']}"),  # Display test steps
                 html.P(f"Hypervolume XY: {selected_row['Hypervolume XY']}"),
                 html.P(f"Hypervolume XZ: {selected_row['Hypervolume XZ']}"),
                 html.P(f"Hypervolume YZ: {selected_row['Hypervolume YZ']}")
@@ -364,7 +366,7 @@ def process_data(seed_paths, wrapper):
     
     plot_2d_projections_matplotlib(seed_paths, wrapper)   # Matplotlib-based visualization
     # Call the plotting functions
-    #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
+    plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
     
 
 
@@ -388,6 +390,8 @@ def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
 
     # Add substation information to the Dash app
     df_display['Substation'] = df_ccs_matching['Substation']
+    df_display['Test Actions'] = df_ccs_matching['Test Actions']
+    df_display['Test Steps'] = df_ccs_matching['Test Steps']
     
     create_dash_app(fig, df_display)
 
@@ -835,7 +839,7 @@ def calculate_3d_metrics_only_for_mc(mc_seed_path):
     # Load MC seed data
     data = load_json_data(mc_seed_path)
     ccs_list = data['ccs_list']
-    x_all, y_all, z_all = extract_coordinates(ccs_git list)
+    x_all, y_all, z_all = extract_coordinates(ccs_list)
 
     # Calculate 3D hypervolume and sparsity for the MC seed
     pareto_points_3d = np.column_stack((x_all, y_all, z_all))
@@ -894,7 +898,7 @@ def process_data_benchmark(ols_seed_paths, mc_seed_paths):
 
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-08-17/['ScaledL2RPN', 'ScaledTopoDepth']"
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-18/['ScaledL2RPN', 'ScaledTopoDepth']"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-19/['ScaledL2RPN', 'ScaledTopoDepth']"
     seeds = [0,1,2,3,4]
     seed_folder = "seed_0"
@@ -909,13 +913,13 @@ def main():
     print(df_all_metrics)
     print("\n3D Metrics (OLS):")
     print(df_3d_metrics_ols)
-    print("\n3D Metrics (MC):")
-    print(df_3d_metrics_mc)
+    #print("\n3D Metrics (MC):")
+    #print(df_3d_metrics_mc)
     
     print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
 
-    print("Processing MC Data...")
+    #print("Processing MC Data...")
     #process_data(mc_seed_paths, 'mc')
 
 
