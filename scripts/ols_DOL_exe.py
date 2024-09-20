@@ -174,7 +174,7 @@ def main(seed: int, config: str) -> None:
             obs_dim=obs_dim,
             action_dim=action_dim,
             reward_dim=reward_dim,
-            run_name="runMC",
+            run_name="OLS_4096",
             project_name=project_name,
             net_arch=net_arch,
             g2op_env=g2op_env, 
