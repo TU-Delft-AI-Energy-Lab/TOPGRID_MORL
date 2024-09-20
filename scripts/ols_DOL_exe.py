@@ -160,7 +160,7 @@ def main(seed: int, config: str) -> None:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<10:
+    while not ols.ended() and i<1:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
         trainer = MOPPOTrainer(

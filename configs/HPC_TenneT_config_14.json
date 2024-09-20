@@ -5,10 +5,10 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 512,
-        "num_minibatches": 2,
+        "steps_per_iteration": 1024,
+        "num_minibatches": 4,
         "update_epochs": 15,
-        "learning_rate": 5e-3,
+        "learning_rate": 1e-3,
         "gamma": 0.99,
         "anneal_lr": false,
         "clip_coef": 0.3,
@@ -26,13 +26,13 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [128,256,256,128],
+        "net_arch": [256,256,256,256],
         "act_fct": "relu"
     },
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 8192,
+    "max_gym_steps": 16384,
     "rewards": {
         "first": "ScaledLinesCapacity",
         "second": "ScaledL2RPN",
