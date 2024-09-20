@@ -366,7 +366,7 @@ def process_data(seed_paths, wrapper):
     
     plot_2d_projections_matplotlib(seed_paths, wrapper)   # Matplotlib-based visualization
     # Call the plotting functions
-    plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
+    #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
     
 
 
@@ -895,17 +895,98 @@ def process_data_benchmark(ols_seed_paths, mc_seed_paths):
     # You can also save the results to a CSV file if needed:
     df_results = pd.DataFrame(benchmark_results)
     df_results.to_csv("ols_vs_mc_benchmark_results.csv", index=False)
+def process_single_seed(seed_path):
+    # Load data for a single seed path
+    data = load_json_data(seed_path)
+    ccs_list = data['ccs_list']  # Assuming you're interested in the last entry of 'ccs_list'
+    
+    # Extract coordinates from ccs_list
+    x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+    # Calculate Pareto frontiers for different projections
+    x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+    x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+    y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+    # Set up the plot
+    fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+    colors = ['blue']  # Using just one color since we are working with one seed
+
+    # Plot for X vs Y
+    axs[0].scatter(x_all, y_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
+    axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[0], marker='o', label=f'Seed (Pareto)')
+    axs[0].set_xlabel('ScaledLinesCapacity')
+    axs[0].set_ylabel('ScaledL2RPN')
+    axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+    axs[0].legend()
+
+    # Plot for X vs Z
+    axs[1].scatter(x_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
+    axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[0], marker='o', label=f'Seed (Pareto)')
+    axs[1].set_xlabel('ScaledLinesCapacity')
+    axs[1].set_ylabel('ScaledTopoDepth')
+    axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+    axs[1].legend()
+
+    # Plot for Y vs Z
+    axs[2].scatter(y_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
+    axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[0], marker='o', label=f'Seed (Pareto)')
+    axs[2].set_xlabel('ScaledL2RPN')
+    axs[2].set_ylabel('ScaledTopoDepth')
+    axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+    axs[2].legend()
+
+    # Display the plots
+    plt.tight_layout()
+    plt.show()
+    
+def process_data_mc(mc_seed_path, wrapper):
+    all_data = []
+    
+    # Create the action-to-substation mapping using the gym environment
+    action_to_substation_mapping = create_action_to_substation_mapping()
+    data = load_json_data(mc_seed_path)
+    ccs_list = data['ccs_list'][-1]
+    if wrapper == 'mc':
+        ccs_list = data['ccs_list']
+    ccs_data = data['ccs_data']
+    matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
+    print(matching_entries)
+    # Collect data for DataFrame
+    for entry in matching_entries:
+        actions = entry['test_actions'] # Assuming test_actions is a list of actions
+        substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
+
+        all_data.append({
+            "Weights": entry['weights'],
+            "Returns": entry['returns'],
+            "Test Steps": entry['test_steps'],
+            "Test Actions": entry['test_actions'],
+            "Substation": substations  # Add the substation to the data
+        })
+
+    df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
+
+    if not df_ccs_matching.empty:
+        df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
+        print(df_ccs_matching)
+    # Call the function to calculate hypervolumes and sparsities and output the DataFrame
+    
+    process_single_seed(mc_seed_path)   # Matplotlib-based visualization
+    # Call the plotting functions
+    #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
 
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-18/['ScaledL2RPN', 'ScaledTopoDepth']"
-    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-08-19/['ScaledL2RPN', 'ScaledTopoDepth']"
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
+    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
     seeds = [0,1,2,3,4]
     seed_folder = "seed_0"
     json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
     mc_seed_paths = os.path.join(mc_base_path, seed_folder, json_filename) 
-
+    if not os.path.exists(mc_seed_paths):
+        raise FileNotFoundError(f"MC file not found at path: {mc_seed_paths}")
     # Generate both DataFrames
     df_all_metrics, df_3d_metrics_ols, df_3d_metrics_mc = process_data_both(ols_seed_paths, mc_seed_paths)
 
@@ -913,14 +994,14 @@ def main():
     print(df_all_metrics)
     print("\n3D Metrics (OLS):")
     print(df_3d_metrics_ols)
-    #print("\n3D Metrics (MC):")
-    #print(df_3d_metrics_mc)
+    print("\n3D Metrics (MC):")
+    print(df_3d_metrics_mc)
     
     print("Processing OLS Data...")
     process_data(ols_seed_paths, 'ols')
 
-    #print("Processing MC Data...")
-    #process_data(mc_seed_paths, 'mc')
+    print("Processing MC Data...")
+    process_data_mc(mc_seed_paths, 'mc')
 
 
 if __name__ == "__main__":
