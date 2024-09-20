@@ -757,9 +757,11 @@ class ScaledEpisodeDurationReward(BaseReward):
 class TopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
         self.penalty_factor = penalty_factor
+        self.calls = 0
         super().__init__(logger)
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        self.calls +=1 
         if has_error or is_illegal or is_ambiguous:
             return -1  # Penalize for illegal or erroneous actions
         """
@@ -773,6 +775,8 @@ class TopoActionReward(BaseReward):
         Returns:
         - reward (float): The computed reward value.
         """
+        
+        
         reward = 0
 
         action_dict = action.as_dict()
@@ -783,6 +787,55 @@ class TopoActionReward(BaseReward):
 
         return reward
 
+
+class TopoActionDayReward(BaseReward):
+    def __init__(self, penalty_factor=10, logger=None):
+        self.penalty_factor = penalty_factor
+        self.calls =0
+        self.switchings_per_day = 0 
+        super().__init__(logger)
+        self.reward_max = 1
+        self.reward_min = 0
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        self.calls +=1 
+        if has_error or is_illegal or is_ambiguous:
+            return -1  # Penalize for illegal or erroneous actions
+        """
+        Compute the reward for the given action in the environment.
+
+        Parameters:
+        - action (BaseAction): The action taken by the agent.
+        - env (BaseEnv): The environment object.
+        - kwargs: Additional arguments if needed.
+
+        Returns:
+        - reward (float): The computed reward value.
+        """
+        
+        if self.calls >= 288:
+            self.switchings_per_day = 0
+            self.calls = 0
+        
+        reward = 0
+
+        action_dict = action.as_dict()
+        if action_dict == {}:
+            reward = 0  # no topo action
+        else:
+            self.switchings_per_day+=1
+        
+        if self.switchings_per_day<=3: 
+            reward =0
+        elif self.switchings_per_day <=5:
+            reward = -0.5
+        elif self.switchings_per_day >5:
+            reward = -1
+
+        
+        reward = reward #penalize if there is more switching actions per day, as it is not desired. 
+        
+        return reward
 
 class ScaledTopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
@@ -815,8 +868,7 @@ class ScaledTopoActionReward(BaseReward):
 
         norm_rew = reward
         return norm_rew
-
-
+    
 class MaxDistanceReward(BaseReward):
     """
     Reward based on the maximum topological deviation from the initial state where everything is connected to bus 1.
