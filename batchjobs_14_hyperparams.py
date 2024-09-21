@@ -35,9 +35,9 @@ batch_dir = "batch_scripts"
 os.makedirs(batch_dir, exist_ok=True)
 
 # Define the hyperparameters to search over
-learning_rates = [1e-3, 5e-4, 1e-4]  # Different learning rates
-vf_coefs = [0.5, 1.0, 1.5]  # Different value function coefficients
-ent_coefs = [0.01, 0.05, 0.1]  # Different entropy coefficients
+learning_rates = [5e-4, 1e-4]  # Different learning rates "vf_coef": 0.5,
+vf_coefs = [0.5, 0.6]  # Different value function coefficients
+ent_coefs = [0.05, 0.1]  # Different entropy coefficients
 
 # Nested loops to generate combinations of hyperparameters
 for lr in learning_rates:
