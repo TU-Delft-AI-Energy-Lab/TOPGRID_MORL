@@ -895,6 +895,7 @@ def process_data_benchmark(ols_seed_paths, mc_seed_paths):
     # You can also save the results to a CSV file if needed:
     df_results = pd.DataFrame(benchmark_results)
     df_results.to_csv("ols_vs_mc_benchmark_results.csv", index=False)
+    
 def process_single_seed(seed_path):
     # Load data for a single seed path
     data = load_json_data(seed_path)

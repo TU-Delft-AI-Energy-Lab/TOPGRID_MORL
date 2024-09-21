@@ -234,7 +234,7 @@ class MOPPONet(nn.Module):
         obs_shape: Tuple[int, ...],
         action_dim: int,
         reward_dim: int,
-        net_arch: List[int] = [64, 64],
+        net_arch: List[int] = [256, 256, 256, 256],
         act_fcn=nn.ReLU,
     ) -> None:
         """
@@ -536,7 +536,7 @@ class MOPPO(MOPolicy):
         """
         for gym_step in range(self.batch_size):
             if done:
-                self.env.reset(options={"max step": 28 * 288})  # One week
+                self.env.reset(options={"max step": 7 * 288})  # One week
                 self.chronic_steps = 0
 
             with th.no_grad():
@@ -662,7 +662,7 @@ class MOPPO(MOPolicy):
         Update the policy and value function.
         """
         eval_done = False
-        eval_state = self.env_val.reset(options={"max step": 28 * 288})
+        eval_state = self.env_val.reset(options={"max step": 7 * 288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
 
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
@@ -746,7 +746,7 @@ class MOPPO(MOPolicy):
                 g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_val,
                 weights=self.weights,
-                eval_steps=28 * 288,
+                eval_steps=7 * 288,
                 eval_counter=self.eval_counter,
                 chronic=chronic,
                 idx=idx,
@@ -811,7 +811,7 @@ class MOPPO(MOPolicy):
             self.reward_list[0],
             self.reward_list[1],
         ]
-        state = self.env.reset(options={"max step": 28 * 288})
+        state = self.env.reset(options={"max step": 7 * 288})
         self.chronic_steps = 0
         next_obs = th.Tensor(state).to(self.device)
         done = False
@@ -821,8 +821,8 @@ class MOPPO(MOPolicy):
         self.global_step = 0
         self.eval_counter = 0
         for trainings in range(num_trainings):
-            if done:
-                state = self.env.reset(options={"max step": 28* 288})
+            if done or self.chronic_steps >= 7 * 288:
+                state = self.env.reset(options={"max step": 7 * 288})
                 self.chronic_steps = 0
                 next_obs = th.Tensor(state).to(self.device)
                 done = False

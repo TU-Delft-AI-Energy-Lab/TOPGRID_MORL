@@ -44,13 +44,36 @@ def load_action_space(env_name: str, g2op_env) -> DiscreteActSpace:
 
 
 def setup_gym_env(
-    g2op_env_val, rewards_list: List[str], obs_tennet: List[str]
+    g2op_env_val, rewards_list: List[str], obs_tennet: List[str], actions_file, env_name
 ) -> CustomGymEnv:
     gym_env = CustomGymEnv(g2op_env_val, safe_max_rho=0.95)
     gym_env.set_rewards(rewards_list=rewards_list)
     gym_env.observation_space = BoxGymObsSpace(
         g2op_env_val.observation_space, attr_to_keep=obs_tennet
     )
+    
+    # Action space setup
+    current_dir = os.getcwd()
+    path = os.path.join(current_dir, "action_spaces", env_name, actions_file)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Action file not found: {path}")
+    
+    with open(path, "rt", encoding="utf-8") as action_set_file:
+        all_actions = list(
+            (
+                g2op_env_val.action_space(action_dict)
+                for action_dict in json.load(action_set_file)
+            )
+        )
+
+    # Add do nothing action
+    do_nothing_action = g2op_env_val.action_space({})
+    all_actions.insert(0, do_nothing_action)
+
+    gym_env.action_space = DiscreteActSpace(
+        g2op_env_val.action_space, action_list=all_actions
+    )
+
     return gym_env
 
 
@@ -141,10 +164,7 @@ def evaluate_agent(
         "p_ex",
         "timestep_overflow",
     ]
-    gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet)
-
     env_name = "l2rpn_case14_sandbox"
-    
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
         action_dim = 53
@@ -153,6 +173,12 @@ def evaluate_agent(
         results_dir = "training_results_14bus_4096"
         action_dim = 134
         actions_file = "medha_actions.json"
+        
+    gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet, actions_file=actions_file, env_name=env_name)
+
+    env_name = "l2rpn_case14_sandbox"
+    
+    
         
     gym_env.action_space = load_action_space(env_name, g2op_env)
     

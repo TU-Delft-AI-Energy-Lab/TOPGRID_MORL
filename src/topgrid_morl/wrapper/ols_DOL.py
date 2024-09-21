@@ -7,6 +7,7 @@ from tqdm import tqdm
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.utils.Grid2op_eval import evaluate_agent
 
+
 def sum_rewards(rewards):
     rewards_np = np.array(rewards)
     summed_rewards = rewards_np.sum(axis=0)
@@ -29,7 +30,7 @@ class MOPPOTrainer:
                  action_dim: int,
                  reward_dim: int,
                  run_name: str,
-                 reuse: str = "none",  # Added reuse type parameter (none, partial, full)
+                 reuse: str = "none",  # "none", "partial", "full"
                  project_name: str = "TOPGrid_MORL_14bus",
                  net_arch: List[int] = [64, 64],
                  generate_reward: bool = False,
@@ -59,28 +60,34 @@ class MOPPOTrainer:
         self.models = {}  # Dictionary to store trained models for reuse
         self.np_random = np.random.RandomState(seed)
         self.weight_range = [0, 1]  # Default range for weights
-        self.num_samples = 5      # Default number of samples for weights
-    
-    def sample_weights(self):
-        weights = np.random.rand(self.reward_dim)
-        normalized_weights = weights / np.sum(weights)
-        rounded_weights = np.round(normalized_weights, 2)
-        return rounded_weights
+        self.num_samples = len(self.agent_params.get('weight_vectors', [[1, 0, 0]]))  # Default number of weight vectors
 
     def run(self):
-        weight_vectors = self.sample_weights()
+        weight_vectors = self.agent_params.get('weight_vectors', [self.sample_weights() for _ in range(self.num_samples)])
+
+        # Loop over the weight vectors to train the agent for each set of weights
         for i, weights in tqdm(enumerate(weight_vectors), total=self.num_samples):
             print(f"Running MOPPO for weight vector {i + 1}/{self.num_samples}")
-            self.run_single(weights)
+            eval_data, test_data, model = self.run_single(weights)
+
+            # Log the rewards to wandb
+            if self.agent_params['log']:
+                wandb.log({"mean_rewards": sum_rewards(eval_data)})
+
+    def sample_weights(self):
+        # Sample weights and normalize to sum to 1
+        weights = np.random.rand(self.reward_dim)
+        normalized_weights = weights / np.sum(weights)
+        return np.round(normalized_weights, 2)
 
     def initialize_or_reuse_model(self, weights):
         """
-        Reuse model parameters based on the reuse strategy specified.
+        Initialize or reuse a model based on the reuse strategy specified.
         """
         weight_key = tuple(weights)
-        
+
         if self.reuse == "none" or weight_key not in self.models:
-            # No reuse, or no existing model for the given weights
+            # No reuse or no existing model for the given weights
             model = initialize_agent(
                 self.env, self.env_val, self.g2op_env, self.g2op_env_val, 
                 weights, self.obs_dim, self.action_dim, self.reward_dim, 
@@ -90,50 +97,64 @@ class MOPPOTrainer:
             # Reuse nearest model
             model = self.models[weight_key]
             if self.reuse == "partial":
-                # Reinitialize the last layer
-                model.reinitialize_last_layer()
-                
+                model.reinitialize_last_layer()  # Reinitialize only the last layer if partial reuse
+
         return model
 
     def run_single(self, weights: np.array):
-        # Check if a model with similar weights already exists for reuse
-        model = self.initialize_or_reuse_model(weights)
-
-        # Set weights for the model
-        model.weights = th.tensor(weights).cpu().to(model.device)
+        """
+        Run training for a single set of weights.
+        """
+        rounded_weights = np.round(weights, 2)
         
-        if self.agent_params['log']: 
-            weights_str = "_".join(map(str, weights))
+        # Initialize or reuse a model for the current weight vector
+        model = self.initialize_or_reuse_model(rounded_weights)
+
+        # Set the model weights
+        model.weights = th.tensor(rounded_weights).cpu().to(model.device)
+
+        if self.agent_params['log']:
+            weights_str = "_".join(map(str, rounded_weights))
+            
+            # Initialize wandb run
             run = wandb.init(
                 project=self.project_name,
                 name=f"OLS_{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
                 tags=[self.run_name]
             )
+            print(self.agent_params)
+            # Log agent params and weights to wandb config
+            wandb.config.update({"rounded_weights": rounded_weights.tolist()})
+            wandb.config.update(self.agent_params)
 
         # Train the agent
         model.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list)
 
         if self.agent_params['log']:
-            run.finish()
+            run.finish()  # Finish the wandb run
 
         # Save the trained model for future reuse if applicable
-        weight_key = tuple(weights)
+        weight_key = tuple(rounded_weights)
         if self.reuse != "none":
             self.models[weight_key] = model
 
-        eval_data_dict, test_data_dict = self.evaluate_model(model, weights)
-        
+        eval_data_dict, test_data_dict = self.evaluate_model(model, rounded_weights)
+
         return eval_data_dict, test_data_dict, model
 
     def evaluate_model(self, agent, weights):
+        """
+        Evaluate the agent using the validation and test environments.
+        """
         eval_data_dict = {}
         test_data_dict = {}
 
+        # Convert weights to tensor and move to the correct device
         weights = th.tensor(weights).cpu().to(agent.device)
-        chronics = self.g2op_env_val.chronics_handler.available_chronics()
-        
+
         # Validation evaluation
+        chronics = self.g2op_env_val.chronics_handler.available_chronics()
         for idx, chronic in enumerate(chronics):
             key = f'eval_data_{idx}'
             eval_data_dict[key] = evaluate_agent(
@@ -142,7 +163,7 @@ class MOPPOTrainer:
                 g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_val,
                 weights=weights,
-                eval_steps=7 * 288,
+                eval_steps=7 * 288,  # Custom step count for evaluations
                 chronic=chronic,
                 idx=idx,
                 reward_list=self.reward_list,
