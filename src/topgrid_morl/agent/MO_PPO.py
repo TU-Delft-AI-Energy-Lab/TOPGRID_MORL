@@ -535,7 +535,7 @@ class MOPPO(MOPolicy):
                                             and average reward.
         """
         for gym_step in range(self.batch_size):
-            if done:
+            if done or self.chronic_steps >= 7 * 288:
                 self.env.reset(options={"max step": 7 * 288})  # One week
                 self.chronic_steps = 0
 

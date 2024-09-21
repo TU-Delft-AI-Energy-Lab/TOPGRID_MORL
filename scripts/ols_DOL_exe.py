@@ -62,7 +62,7 @@ def save_agent(agent, weights, directory, index):
     
     return agent_filename, weights_filename
 
-def main(seed: int, config: str) -> None:
+def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef: float) -> None:
     """
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
@@ -89,6 +89,11 @@ def main(seed: int, config: str) -> None:
     net_arch = network_params["net_arch"]
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
+    
+    # Override agent parameters with command-line arguments
+    agent_params["learning_rate"] = learning_rate
+    agent_params["vf_coef"] = vf_coef
+    agent_params["ent_coef"] = ent_coef
     
     agent_params["log"] = True
     # Step 1: Setup Environment
@@ -248,5 +253,19 @@ if __name__ == "__main__":
         default="base_config.json",
         help="Path to the configuration file (default: configs/base_config.json)",
     )
+    
+    # Add arguments for learning rate, value function coefficient, and entropy coefficient
+    parser.add_argument(
+        "--learning_rate", type=float, default=5e-4, help="Learning rate for the agent"
+    )
+    parser.add_argument(
+        "--vf_coef", type=float, default=0.5, help="Value function coefficient"
+    )
+    parser.add_argument(
+        "--ent_coef", type=float, default=0.05, help="Entropy coefficient"
+    )
+    
     args = parser.parse_args()
-    main(args.seed, args.config)
+
+    # Pass the parsed arguments to the main function
+    main(args.seed, args.config, args.learning_rate, args.vf_coef, args.ent_coef)
