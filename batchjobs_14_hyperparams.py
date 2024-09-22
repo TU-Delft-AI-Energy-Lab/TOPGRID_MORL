@@ -4,10 +4,10 @@ import os
 template = """#!/bin/bash
 
 #SBATCH --job-name="TOPGRID_MORL_5bus_lr{learning_rate}_vf{vf_coef}_ent{ent_coef}"
-#SBATCH --time=10:00:00
+#SBATCH --time=3:00:00
 #SBATCH --partition=compute
-#SBATCH --ntasks=4
-#SBATCH --cpus-per-task=24
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
 #SBATCH --mem-per-cpu=1GB
 #SBATCH --account=research-eemcs-ese
 
