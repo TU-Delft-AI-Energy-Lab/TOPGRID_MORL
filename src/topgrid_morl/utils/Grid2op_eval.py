@@ -86,6 +86,7 @@ def log_evaluation_data(
     rewards_list,
     eval:bool = True,
     seed=42,
+    final=True
 ) -> None:
     current_date = datetime.now().strftime("%Y-%m-%d")
     if eval: 
@@ -96,6 +97,36 @@ def log_evaluation_data(
             f"{rewards_list}",
             f"weights_{weights_str}",
             f"seed_{seed}",
+        )
+        os.makedirs(dir_path, exist_ok=True)
+        # Extract chronic number from eval_data's eval_chronic using regex
+        chronic_match = re.search(r'\\chronics\\(\d+)', eval_data.get('eval_chronic', ''))
+        chronic_string = chronic_match.group(1) if chronic_match else "unknown"
+        filename = f"eval_chronic{chronic_string}_counter_{eval_counter}_{idx}.json"
+        filepath = os.path.join(dir_path, filename)
+
+        eval_data_serializable = {
+            "eval_chronic": eval_data["eval_chronic"],
+            "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
+            "eval_actions": eval_data["eval_actions"],
+            "eval_sub_ids": eval_data['sub_ids'], 
+            'eval_action_timesamps': eval_data['eval_action_timestamp'], 
+            "eval_topo_distance": eval_data['eval_topo_distance'],
+            "eval_rho": eval_data["eval_rho"],
+            "eval_topo_vect": eval_data['eval_topo_vect'], 
+            "eval_steps": eval_data["eval_steps"],
+        }
+
+        with open(filepath, "w") as json_file:
+            json.dump(eval_data_serializable, json_file, indent=4)
+    if final: 
+        dir_path = os.path.join(
+        "final_logs",
+        env_name,
+        f"{current_date}",
+        f"{rewards_list}",
+        f"weights_{weights_str}",
+        f"seed_{seed}",
         )
         os.makedirs(dir_path, exist_ok=True)
         # Extract chronic number from eval_data's eval_chronic using regex
@@ -161,7 +192,8 @@ def evaluate_agent(
     reward_list,
     seed,
     eval_counter: int = 1,
-    eval=True
+    eval=True,
+    final=False
 ) -> Dict[str, Any]:
     g2op_env_val.set_id(chronic)
     rewards_list = reward_list
@@ -268,7 +300,8 @@ def evaluate_agent(
         eval_data,
         rewards_list=reward_list,
         seed=seed,
-        eval=eval
+        eval=eval, 
+        final=final
     )
 
     return eval_data

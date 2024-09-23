@@ -179,7 +179,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             obs_dim=obs_dim,
             action_dim=action_dim,
             reward_dim=reward_dim,
-            run_name="OLS_4096",
+            run_name="OLS",
             project_name=project_name,
             net_arch=net_arch,
             g2op_env=g2op_env, 
@@ -190,7 +190,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             **agent_params
         )
         eval_data, test_data, agent = trainer.run_single(weights=w)
-        
+        print(test_data)
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))

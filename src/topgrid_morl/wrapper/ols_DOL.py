@@ -123,7 +123,7 @@ class MOPPOTrainer:
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
                 tags=[self.run_name]
             )
-            print(self.agent_params)
+            #print(self.agent_params)
             # Log agent params and weights to wandb config
             wandb.config.update({"rounded_weights": rounded_weights.tolist()})
             wandb.config.update(self.agent_params)
@@ -140,7 +140,7 @@ class MOPPOTrainer:
             self.models[weight_key] = model
 
         eval_data_dict, test_data_dict = self.evaluate_model(model, rounded_weights)
-
+        #print(test_data_dict)
         return eval_data_dict, test_data_dict, model
 
     def evaluate_model(self, agent, weights):
@@ -163,11 +163,12 @@ class MOPPOTrainer:
                 g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_val,
                 weights=weights,
-                eval_steps=7 * 288,  # Custom step count for evaluations
+                eval_steps=28 * 288,  # Custom step count for evaluations
                 chronic=chronic,
                 idx=idx,
                 reward_list=self.reward_list,
-                seed=self.seed
+                seed=self.seed, 
+                final=True
             )
 
         # Test evaluation
@@ -180,7 +181,7 @@ class MOPPOTrainer:
                 g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_test,
                 weights=weights,
-                eval_steps=7 * 288,
+                eval_steps=28 * 288,
                 chronic=chronic,
                 idx=idx,
                 reward_list=self.reward_list,
