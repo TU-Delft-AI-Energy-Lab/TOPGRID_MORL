@@ -115,11 +115,11 @@ class MOPPOTrainer:
 
         if self.agent_params['log']:
             weights_str = "_".join(map(str, rounded_weights))
-            
+            runname = f'OLS_lr{self.agent_params['learning_rate']}_vf{self.agent_params['vf_coef']}_ent{self.agent_params['ent_coef']}_w{weights_str}_s{self.seed}'
             # Initialize wandb run
             run = wandb.init(
                 project=self.project_name,
-                name=f"OLS_{self.run_name}_{self.reward_list[0]}_{self.reward_list[1]}_weights_{weights_str}_seed_{self.seed}",
+                name=runname,
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
                 tags=[self.run_name]
             )
