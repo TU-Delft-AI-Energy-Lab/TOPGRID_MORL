@@ -1057,7 +1057,7 @@ class ScaledLinesCapacityReward(BaseReward):
             [self.reward_min, self.reward_max],
         )
         norm_reward = reward / 1500
-        return norm_reward
+        return reward #return unscaled
 
     
 class L2RPNReward(BaseReward):

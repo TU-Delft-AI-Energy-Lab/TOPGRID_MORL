@@ -95,7 +95,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     agent_params["vf_coef"] = vf_coef
     agent_params["ent_coef"] = ent_coef
     
-    agent_params["log"] = False
+    agent_params["log"] = True
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
