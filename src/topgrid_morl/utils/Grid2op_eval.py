@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime
 from typing import Any, Dict, List
-
+import re
 import grid2op
 import numpy as np
 import torch as th
@@ -98,8 +98,10 @@ def log_evaluation_data(
             f"seed_{seed}",
         )
         os.makedirs(dir_path, exist_ok=True)
-
-        filename = f"eval_data_weights_{weights_str}_counter_{eval_counter}_{idx}.json"
+        # Extract chronic number from eval_data's eval_chronic using regex
+        chronic_match = re.search(r'\\chronics\\(\d+)', eval_data.get('eval_chronic', ''))
+        chronic_string = chronic_match.group(1) if chronic_match else "unknown"
+        filename = f"eval_chronic{chronic_string}_counter_{eval_counter}_{idx}.json"
         filepath = os.path.join(dir_path, filename)
 
         eval_data_serializable = {
@@ -124,8 +126,9 @@ def log_evaluation_data(
             f"seed_{seed}",
         )
         os.makedirs(dir_path, exist_ok=True)
-
-        filename = f"test_data_weights_{weights_str}_{idx}.json"
+        chronic_match = re.search(r'\\chronics\\(\d+)', eval_data.get('eval_chronic', ''))
+        chronic_string = chronic_match.group(1) if chronic_match else "unknown"
+        filename = f"test_chronic{chronic_string}_counter_{eval_counter}_{idx}.json"
         filepath = os.path.join(dir_path, filename)
 
         eval_data_serializable = {

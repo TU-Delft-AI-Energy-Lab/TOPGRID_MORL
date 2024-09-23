@@ -737,6 +737,7 @@ class MOPPO(MOPolicy):
 
             # Evaluate and log evaluation rewards
         chronics = self.g2op_env_val.chronics_handler.available_chronics()
+        #print(chronics)
         eval_rewards = []
         eval_steps = []
         for idx, chronic in enumerate(chronics):
