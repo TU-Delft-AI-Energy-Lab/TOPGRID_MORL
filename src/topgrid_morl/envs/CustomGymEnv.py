@@ -13,7 +13,7 @@ from grid2op.Opponent import (
 class CustomGymEnv(GymEnv):
     """Implements a grid2op environment in gym."""
 
-    def __init__(self, env: BaseEnv, safe_max_rho: float = 0.9) -> None:
+    def __init__(self, env: BaseEnv, safe_max_rho: float = 0.9, eval=False) -> None:
         """
         Initialize the CustomGymEnv.
 
@@ -26,6 +26,7 @@ class CustomGymEnv(GymEnv):
         self.reconnect_line: List[Any] = []
         self.rho_threshold: float = safe_max_rho
         self.steps: int = 0
+        self.eval = eval
 
     def set_rewards(self, rewards_list: List[str]) -> None:
         """
@@ -77,6 +78,7 @@ class CustomGymEnv(GymEnv):
         cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
         #print(g2op_act)
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+        g2op_obs_log = g2op_obs
         
         gym_obs = self.observation_space.to_gym(g2op_obs)
 
@@ -154,5 +156,7 @@ class CustomGymEnv(GymEnv):
             )
             self.reconnect_line.append(g2op_act)
         """
-        
-        return gym_obs, reward, done, info
+        if self.eval==True:
+            return gym_obs, reward, done, info, g2op_obs_log
+        else: 
+            return gym_obs, reward, done, info
