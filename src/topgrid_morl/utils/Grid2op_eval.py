@@ -108,6 +108,9 @@ def log_evaluation_data(
             "eval_chronic": eval_data["eval_chronic"],
             "eval_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
             "eval_actions": eval_data["eval_actions"],
+            "eval_sub_ids": eval_data['sub_ids'], 
+            'eval_action_timesamps': eval_data['eval_action_timestamp'], 
+            "eval_topo_distance": eval_data['eval_topo_distance'],
             "eval_rho": eval_data["eval_rho"],
             "eval_topo_vect": eval_data['eval_topo_vect'], 
             "eval_steps": eval_data["eval_steps"],
@@ -135,6 +138,9 @@ def log_evaluation_data(
             "test_chronic": eval_data["eval_chronic"],
             "test_rewards": [reward.tolist() for reward in eval_data["eval_rewards"]],
             "test_actions": eval_data["eval_actions"],
+            "test_sub_ids": eval_data['sub_ids'], 
+            "test_action_timestamps": eval_data["eval_action_timestamp"], 
+            "test_topo_distance": eval_data['eval_topo_distance'], 
             "test_rho": eval_data["eval_rho"],
             "test_topo_vect": eval_data['eval_topo_vect'], 
             "test_steps": eval_data["eval_steps"],
@@ -182,15 +188,17 @@ def evaluate_agent(
 
     gym_env.action_space = load_action_space(env_name, g2op_env)
     
-    eval_rewards, eval_actions, eval_rho, eval_topo_vect = [], [], [], []
+    eval_rewards, eval_actions, eval_rho, eval_topo_vect, eval_action_timestamp, sub_ids, eval_topo_distance = [], [], [], [], [], [], []
     eval_done = False
     eval_state = gym_env.reset(options={"max step": eval_steps})
     total_eval_steps = 0
+    cum_eval_steps = 0 
     discount_factor = 0.995
-
-    while not eval_done:
+    while not eval_done and total_eval_steps<= eval_steps:
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
         eval_state, eval_reward, eval_done, eval_info, eval_g2op_obs = gym_env.step(eval_action)
+        cum_eval_steps += eval_info['steps']
+        eval_action_timestamp.append(cum_eval_steps)
         total_eval_steps += eval_info["steps"]
         #print(eval_g2op_obs.rho)
         eval_reward = (
@@ -202,8 +210,31 @@ def evaluate_agent(
             if isinstance(eval_action, (list, np.ndarray))
             else eval_action
         )
+        g2op_act = gym_env.action_space.from_gym(eval_action)
+        sub_ids.append(g2op_act.as_dict().get('set_bus_vect', {}).get('modif_subs_id', [None]))
         eval_rho.append(eval_g2op_obs.rho.tolist())
         eval_topo_vect.append(eval_g2op_obs.topo_vect.tolist())
+        topo_dist = 0
+        idx=0
+        #print(chronic)
+        #print(eval_g2op_obs.topo_vect)
+        for n_elems_on_sub in eval_g2op_obs.sub_info:
+            #print(n_elems_on_sub)
+            # Find this substation elements range in topology vect
+            sub_start = idx
+            #print(sub_start)
+            sub_end = idx + n_elems_on_sub
+            current_sub_topo = eval_g2op_obs.topo_vect[sub_start:sub_end]
+            #print(current_sub_topo)
+            # Count number of elements not on bus 1
+            # Because at the initial state, all elements are on bus 1
+            if np.any(current_sub_topo == 2):
+                topo_dist += 1
+            #print(topo_dist)
+            idx += n_elems_on_sub
+            #print(topo_dist)
+            
+        eval_topo_distance.append(topo_dist)
         
 
     # Calculate the discounted reward
@@ -217,6 +248,9 @@ def evaluate_agent(
         "eval_chronic": chronic,
         "eval_rewards": discounted_rewards,  # Storing PyTorch tensors
         "eval_actions": eval_actions,
+        "sub_ids": sub_ids, 
+        "eval_action_timestamp": eval_action_timestamp,
+        "eval_topo_distance": eval_topo_distance,
         "eval_rho": eval_rho,  # Convert NumPy array to list
         "eval_topo_vect": eval_topo_vect,  
         "eval_steps": total_eval_steps,
