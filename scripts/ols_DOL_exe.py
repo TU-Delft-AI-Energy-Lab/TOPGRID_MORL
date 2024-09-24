@@ -117,6 +117,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         actions_file=actions_file,
         max_rho=max_rho
     )
+    #print(g2op_env.chronics_handler.available_chronics())
 
     gym_env_val, _, _, _, g2op_env_val = setup_environment(
         env_name=env_name,
@@ -129,6 +130,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         env_type="_val",
         max_rho=max_rho
     )
+    #print(g2op_env_val.chronics_handler.available_chronics())
     
     gym_env_test, _, _, _, g2op_env_test = setup_environment(
         env_name=env_name,

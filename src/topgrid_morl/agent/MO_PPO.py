@@ -395,7 +395,7 @@ class MOPPO(MOPolicy):
         self.id = id
         self.env = env
         self.env_val = env_val
-        self.g2op_env = (g2op_env,)
+        self.g2op_env = g2op_env
         self.g2op_env_val = g2op_env_val
         self.networks = networks
         self.device = device
@@ -540,7 +540,8 @@ class MOPPO(MOPolicy):
             # Check if the episode is done or if we've reached the maximum number of steps
             if done or self.chronic_steps >= 28 * 288:
                 # Reset the environment with the specified maximum number of steps
-                state = self.env.reset(options={"max step": 28 * 288})  # One week
+                state, chronic = self.env.reset(chronic_flag=True, options={"max step": 28 * 288})  # One month
+                #print(chronic)
                 # Update the observation with the new initial state after reset
                 obs = th.Tensor(state).to(self.device)
                 # Reset the chronic steps counter
@@ -608,10 +609,8 @@ class MOPPO(MOPolicy):
                 -1, self.networks.reward_dim
             )
             if self.gae:
-                advantages: th.Tensor = th.zeros_like(self.batch.rewards).to(
-                    self.device
-                )
-                lastgaelam = 0
+                advantages: th.Tensor = th.zeros_like(self.batch.rewards).to(self.device)
+                lastgaelam = th.zeros(self.networks.reward_dim).to(self.device)  # Corrected initialization
 
                 for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
@@ -628,10 +627,8 @@ class MOPPO(MOPolicy):
                     delta = (
                         reward_t + self.gamma * nextvalues * nextnonterminal - value_t
                     )
-                    advantages[t] = lastgaelam = (
-                        delta
-                        + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
-                    )
+                    lastgaelam = delta + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                    advantages[t] = lastgaelam  # Corrected order
 
                 returns = advantages + self.batch.values
 
@@ -649,11 +646,10 @@ class MOPPO(MOPolicy):
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
-                advantages = returns - self.batch.values()
+                advantages = returns - self.batch.values  # Corrected from self.batch.values()
 
-        advantages = (
-            advantages @ self.weights.float()
-        )  # Compute dot product of advantages and weights
+        # Scalarize advantages using weights
+        advantages = (advantages @ self.weights.float())
 
         return returns, advantages
 
@@ -742,10 +738,11 @@ class MOPPO(MOPolicy):
                     # Compute mean squared error per objective
                     mse_per_objective = v_loss_max.mean(dim=0)
                     # Compute weighted sum of MSEs
-                    v_loss = 0.5 * (mse_per_objective @ self.weights.float())
+                    v_loss = 0.5 * mse_per_objective.mean()  # or mse_per_objective.mean()
+                    #print(v_loss)
                 else:
                     mse_per_objective = ((newvalue - b_returns[mb_inds]) ** 2).mean(dim=0)
-                    v_loss = 0.5 * (mse_per_objective @ self.weights.float())
+                    v_loss = 0.5 * mse_per_objective.mean()
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef

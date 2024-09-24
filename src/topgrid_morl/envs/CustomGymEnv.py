@@ -40,6 +40,7 @@ class CustomGymEnv(GymEnv):
 
     def reset(
         self,
+        chronic_flag=False,
         *,
         seed: Union[int, None] = None,
         options: Union[Dict[str, Any], None] = None
@@ -55,9 +56,13 @@ class CustomGymEnv(GymEnv):
             npt.NDArray[np.float64]: The initial observation of the environment.
         """
         g2op_obs = self.init_env.reset()
+        chronic = self.init_env.chronics_handler.get_name()
         self.steps = 0
         self.reconnect_line = []
-        return self.observation_space.to_gym(g2op_obs)
+        if chronic_flag==False: 
+            return self.observation_space.to_gym(g2op_obs)
+        else: 
+            return self.observation_space.to_gym(g2op_obs), chronic
 
     def step(
         self, action: int
@@ -77,34 +82,38 @@ class CustomGymEnv(GymEnv):
         # Reconnect lines if necessary      
         cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
         
-        if self.reconnect_line:
-            for line in self.reconnect_line:
-                g2op_act += line
-            g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-            tmp_steps +=1 
-            self.steps += 1
-            # Create reward array
-            reward = np.array(
-                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                dtype=np.float64,
-            )   
-            cum_reward+=reward
-        else: 
-            g2op_act = self.action_space.from_gym(action)
-            g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-            tmp_steps +=1 
-            self.steps += 1
-            # Create reward array
-            reward = np.array(
-                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                dtype=np.float64,
-            )   
-            cum_reward+=reward
+        
+        g2op_act = self.action_space.from_gym(action)
+        g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+        tmp_steps +=1 
+        self.steps += 1
+        # Create reward array
+        gym_reward = np.array(
+            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+            dtype=np.float64,
+        )   
+            
+        cum_reward+= gym_reward
               
         g2op_obs_log = g2op_obs
         gym_obs = self.observation_space.to_gym(g2op_obs)
-
-              
+        
+        line_act = self.action_space.from_gym(0) 
+        if self.reconnect_line and not done:
+            
+            for line in self.reconnect_line:
+                line_act += line
+                
+            g2op_obs, reward1, done, info = self.init_env.step(line_act)
+            tmp_steps +=1 
+            self.steps += 1
+            # Create reward array
+            lines_reward = np.array(
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                dtype=np.float64,
+            ) 
+            cum_reward+= lines_reward
+            
         #reconnect lines
         to_reco = info["disc_lines"]
         self.reconnect_line = []
@@ -112,10 +121,10 @@ class CustomGymEnv(GymEnv):
         # Get the indices of elements that are 0
             reco_id = np.where(to_reco == 0)[0]
             for line_id in reco_id:
-                g2op_act = self.init_env.action_space(
+                line_act = self.init_env.action_space(
                      {"set_line_status": [(line_id, +1)]}
                 )
-                self.reconnect_line.append(g2op_act)
+                self.reconnect_line.append(line_act)
         
         
         # Handle line loadings and ensure safety threshold is maintained
@@ -132,11 +141,7 @@ class CustomGymEnv(GymEnv):
             tmp_steps +=1 
             cum_reward += tmp_reward
 
-            if done:
-                break  # Exit the loop if done is True
-
         
-        reward = cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
         
         # Handle opponent attack
@@ -148,8 +153,7 @@ class CustomGymEnv(GymEnv):
             )
             self.reconnect_line.append(g2op_act)
         """
-        
         if self.eval==True:
-            return gym_obs, reward, done, info, g2op_obs_log
+            return gym_obs, cum_reward, done, info, g2op_obs_log
         else: 
-            return gym_obs, reward, done, info
+            return gym_obs, cum_reward, done, info
