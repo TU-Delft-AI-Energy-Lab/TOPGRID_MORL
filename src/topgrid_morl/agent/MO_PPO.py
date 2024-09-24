@@ -512,6 +512,8 @@ class MOPPO(MOPolicy):
         Returns:
             th.Tensor: Extended tensor.
         """
+        if not isinstance(tensor, th.Tensor):
+            tensor = th.tensor(tensor, dtype=th.float32).to(self.device)
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
@@ -544,7 +546,7 @@ class MOPPO(MOPolicy):
                 # Reset the chronic steps counter
                 self.chronic_steps = 0
                 # Reset the done flag since we're starting a new episode
-                done = False
+                done = th.tensor(False, dtype=th.float32).to(self.device)
 
             with th.no_grad():
                 # Get the action, log probability, entropy, and value from the policy network
@@ -840,10 +842,9 @@ class MOPPO(MOPolicy):
         # Reset the environment and initialize the observation
         state = self.env.reset(options={"max step": 28 * 288})
         obs = th.Tensor(state).to(self.device)
-        done = False
+        done = th.tensor(False, dtype=th.float32).to(self.device)
         self.chronic_steps = 0
-        #next_obs = th.Tensor(state).to(self.device)
-        done = False
+        
 
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step = 0
