@@ -218,7 +218,7 @@ def evaluate_agent(
         
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet, actions_file=actions_file, env_name=env_name)
 
-    gym_env.action_space = load_action_space(env_name, g2op_env)
+    gym_env.action_space = load_action_space(env_name, g2op_env_val)
     
     eval_rewards, eval_actions, eval_rho, eval_topo_vect, eval_action_timestamp, sub_ids, eval_topo_distance = [], [], [], [], [], [], []
     eval_done = False

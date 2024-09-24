@@ -1,6 +1,6 @@
 {   
     "config_name": "TenneT",
-    "project_name": "TOPGRID_MORL_14bus_HPC",
+    "project_name": "TOPGRID_MORL_14bus_HPC_24",
 
     "agent_params": {
         "id": 1,
