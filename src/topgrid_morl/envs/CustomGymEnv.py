@@ -75,7 +75,6 @@ class CustomGymEnv(GymEnv):
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
-        
         cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
         #print(g2op_act)
         if self.reconnect_line:
@@ -144,6 +143,7 @@ class CustomGymEnv(GymEnv):
         
         reward = cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
+        
         # Handle opponent attack
         """
         if info.get("opponent_attack_duration", 0) == 1:
@@ -153,6 +153,7 @@ class CustomGymEnv(GymEnv):
             )
             self.reconnect_line.append(g2op_act)
         """
+        
         if self.eval==True:
             return gym_obs, reward, done, info, g2op_obs_log
         else: 
