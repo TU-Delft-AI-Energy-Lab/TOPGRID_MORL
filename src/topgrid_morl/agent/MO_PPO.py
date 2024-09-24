@@ -68,7 +68,7 @@ class PPOReplayBuffer:
         actions: th.Tensor,
         logprobs: th.Tensor,
         rewards: th.Tensor,
-        dones: bool,
+        dones: th.Tensor,
         values: th.Tensor,
     ) -> None:
         """
@@ -522,52 +522,69 @@ class MOPPO(MOPolicy):
 
     def __collect_samples(
         self, obs: th.Tensor, done: bool
-    ) -> Tuple[th.Tensor, bool, int]:
+        ) -> Tuple[th.Tensor, bool, int]:
         """
         Collect samples by interacting with the environment.
 
         Args:
-            obs (th.Tensor): Initial observation.
-            done (bool): Whether the episode is done.
+            obs (th.Tensor): Current observation.
+            done (bool): Whether the current episode is done.
 
         Returns:
             Tuple[th.Tensor, bool, int]: Next observation, whether the episode is done,
-                                            and average reward.
+                                        and average reward.
         """
         for gym_step in range(self.batch_size):
+            # Check if the episode is done or if we've reached the maximum number of steps
             if done or self.chronic_steps >= 28 * 288:
-                self.env.reset(options={"max step": 28 * 288})  # One week
+                # Reset the environment with the specified maximum number of steps
+                state = self.env.reset(options={"max step": 28 * 288})  # One week
+                # Update the observation with the new initial state after reset
+                obs = th.Tensor(state).to(self.device)
+                # Reset the chronic steps counter
                 self.chronic_steps = 0
+                # Reset the done flag since we're starting a new episode
+                done = False
 
             with th.no_grad():
-                action, logprob, _, value = self.networks.get_action_and_value(
-                    obs.to(self.device)
-                )
+                # Get the action, log probability, entropy, and value from the policy network
+                action, logprob, _, value = self.networks.get_action_and_value(obs)
+                # Ensure the value tensor has the correct shape (reward_dim,)
                 value = value.view(self.networks.reward_dim)
 
+            # Take a step in the environment using the selected action
             next_obs, reward, next_done, info = self.env.step(action.item())
+            # Increment the global step counter
             self.global_step += 1
-
+            next_done = th.tensor(next_done, dtype=th.float32).to(self.device)
+            # Convert the reward to a tensor and reshape to (reward_dim,)
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
 
+            # Add the experience to the replay buffer
             self.batch.add(obs, action, logprob, reward, done, value)
-            self.chronic_steps += info["steps"]
+            # Update the chronic steps counter using the "steps" information from the environment
+            # Default to incrementing by 1 if "steps" is not present in the info dictionary
+            self.chronic_steps += info.get("steps", 1)
 
-            # Append rewards to training_rewards
+            # Append rewards to training rewards list for logging and analysis
             self.training_rewards.append(reward.cpu().numpy())
-            obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
-                next_done
-            ).float().to(self.device)
-            
+
+            # Update the observation and done flag for the next iteration
+            obs = th.Tensor(next_obs).to(self.device)
+            done = next_done
+
             # Log the training reward for each step
             log_data = {
                 f"train/reward_{self.reward_list_ext[i]}": reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
+            # Log the cumulative number of steps taken in the environment
             log_data[f"train/grid2opsteps"] = self.chronic_steps
             if self.log:
+                # Log the data to WandB or your preferred logging tool
                 wandb.log(log_data, step=self.global_step)
 
+        # After collecting samples, return the updated observation, done flag, and average reward
         return obs, done, self.batch.rewards.mean().item()
 
     def __compute_advantages(
@@ -603,6 +620,7 @@ class MOPPO(MOPolicy):
                         nextnonterminal = 1.0 - done_t1
                         nextvalues = value_t1
 
+                    nextnonterminal = nextnonterminal.to(self.device)
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
                     _, _, _, reward_t, _, value_t = self.batch.get(t)
                     delta = (
@@ -819,25 +837,25 @@ class MOPPO(MOPolicy):
             self.reward_list[0],
             self.reward_list[1],
         ]
-        state = self.env.reset(options={"max step": 28* 288})
+        # Reset the environment and initialize the observation
+        state = self.env.reset(options={"max step": 28 * 288})
+        obs = th.Tensor(state).to(self.device)
+        done = False
         self.chronic_steps = 0
-        next_obs = th.Tensor(state).to(self.device)
+        #next_obs = th.Tensor(state).to(self.device)
         done = False
 
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step = 0
         self.global_step = 0
         self.eval_counter = 0
-        for trainings in range(num_trainings):
-            if done or self.chronic_steps >= 28 * 288:
-                state = self.env.reset(options={"max step": 28 * 288})
-                self.chronic_steps = 0
-                next_obs = th.Tensor(state).to(self.device)
-                done = False
+        for _ in range(num_trainings):
+            # Collect samples from the environment by interacting with it
+            obs, done, _ = self.__collect_samples(obs, done)
 
-            next_obs, done, _ = self.__collect_samples(next_obs, done)
-
-            self.returns, self.advantages = self.__compute_advantages(next_obs, done)
+            # Compute returns and advantages for the collected samples
+            self.returns, self.advantages = self.__compute_advantages(obs, done)
+            # Update the policy and value function using the collected data
             self.update()
 
             if self.anneal_lr:
