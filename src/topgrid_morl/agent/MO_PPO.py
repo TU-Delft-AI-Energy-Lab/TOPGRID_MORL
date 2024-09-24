@@ -771,7 +771,7 @@ class MOPPO(MOPolicy):
             eval_data = evaluate_agent(
                 agent=self,
                 env=self.env_val,
-                g2op_env=self.g2op_env,
+                g2op_env=self.g2op_env_val,
                 g2op_env_val=self.g2op_env_val,
                 weights=self.weights,
                 eval_steps=28 * 288,

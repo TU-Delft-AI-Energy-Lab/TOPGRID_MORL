@@ -56,6 +56,7 @@ class CustomGymEnv(GymEnv):
         """
         g2op_obs = self.init_env.reset()
         self.steps = 0
+        self.reconnect_line = []
         return self.observation_space.to_gym(g2op_obs)
 
     def step(
@@ -71,26 +72,35 @@ class CustomGymEnv(GymEnv):
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
             Observation, reward, done flag, and additional info.
         """
-        
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
         cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
-        #print(g2op_act)
+        
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
-            
-        g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-        tmp_steps +=1 
-        self.steps += 1
-        # Create reward array
-        reward = np.array(
-            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-            dtype=np.float64,
-        )   
-        cum_reward+=reward
-            
+            g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+            tmp_steps +=1 
+            self.steps += 1
+            # Create reward array
+            reward = np.array(
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                dtype=np.float64,
+            )   
+            cum_reward+=reward
+        else: 
+            g2op_act = self.action_space.from_gym(action)
+            g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+            tmp_steps +=1 
+            self.steps += 1
+            # Create reward array
+            reward = np.array(
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                dtype=np.float64,
+            )   
+            cum_reward+=reward
+              
         g2op_obs_log = g2op_obs
         gym_obs = self.observation_space.to_gym(g2op_obs)
 
@@ -101,12 +111,10 @@ class CustomGymEnv(GymEnv):
         if np.any(to_reco == 0):
         # Get the indices of elements that are 0
             reco_id = np.where(to_reco == 0)[0]
-            
             for line_id in reco_id:
                 g2op_act = self.init_env.action_space(
                      {"set_line_status": [(line_id, +1)]}
                 )
-                    
                 self.reconnect_line.append(g2op_act)
         
         
