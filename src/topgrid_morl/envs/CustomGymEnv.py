@@ -81,28 +81,15 @@ class CustomGymEnv(GymEnv):
             for line in self.reconnect_line:
                 g2op_act += line
             
-            #print(g2op_act)
-            g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
-            
-            reward = np.array(
-                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                dtype=np.float64,
-            )   
-            self.steps += 1
-            tmp_steps +=1 
-            cum_reward += reward   #line reco doesnt influence the rewards okay
-            self.reconnect_line = []
-            
-        else:        
-            g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-            tmp_steps +=1 
-            self.steps += 1
-            # Create reward array
-            reward = np.array(
-                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                dtype=np.float64,
-            )   
-            cum_reward+=reward
+        g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+        tmp_steps +=1 
+        self.steps += 1
+        # Create reward array
+        reward = np.array(
+            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+            dtype=np.float64,
+        )   
+        cum_reward+=reward
             
         g2op_obs_log = g2op_obs
         gym_obs = self.observation_space.to_gym(g2op_obs)
