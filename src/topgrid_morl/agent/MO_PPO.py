@@ -707,6 +707,9 @@ class MOPPO(MOPolicy):
                 pg_loss = th.max(pg_loss1, pg_loss2).mean()
 
                 newvalue = newvalue.view(-1, self.networks.reward_dim)
+                #the vloss calculation is changed due to poor learning behaviour.
+                #Beforehand there was a mean over all valuelosses
+                #Now, we take into account the weights over the rewards. 
                 if self.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + th.clamp(
@@ -716,9 +719,13 @@ class MOPPO(MOPolicy):
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
                     v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    # Compute mean squared error per objective
+                    mse_per_objective = v_loss_max.mean(dim=0)
+                    # Compute weighted sum of MSEs
+                    v_loss = 0.5 * (mse_per_objective @ self.weights.float())
                 else:
-                    v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                    mse_per_objective = ((newvalue - b_returns[mb_inds]) ** 2).mean(dim=0)
+                    v_loss = 0.5 * (mse_per_objective @ self.weights.float())
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
