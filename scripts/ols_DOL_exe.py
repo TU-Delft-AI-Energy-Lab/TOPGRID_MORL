@@ -140,7 +140,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         env_type="_test",
         max_rho=max_rho
     )
-    print(agent_params)
+    #print(agent_params)
     # Reset the environment to verify dimensions
     gym_env.reset()
     gym_env_val.reset()
@@ -190,7 +190,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             **agent_params
         )
         eval_data, test_data, agent = trainer.run_single(weights=w)
-        print(test_data)
+        
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
@@ -256,13 +256,13 @@ if __name__ == "__main__":
     
     # Add arguments for learning rate, value function coefficient, and entropy coefficient
     parser.add_argument(
-        "--learning_rate", type=float, default=5e-4, help="Learning rate for the agent"
+        "--learning_rate", type=float, default=5e-5, help="Learning rate for the agent"
     )
     parser.add_argument(
-        "--vf_coef", type=float, default=0.5, help="Value function coefficient"
+        "--vf_coef", type=float, default=1.0, help="Value function coefficient"
     )
     parser.add_argument(
-        "--ent_coef", type=float, default=0.05, help="Entropy coefficient"
+        "--ent_coef", type=float, default=0.02, help="Entropy coefficient"
     )
     
     args = parser.parse_args()
