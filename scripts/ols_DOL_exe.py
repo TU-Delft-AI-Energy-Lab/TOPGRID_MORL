@@ -190,7 +190,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             **agent_params
         )
         eval_data, test_data, agent = trainer.run_single(weights=w)
-        print(test_data)
+        #print(test_data)
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))

@@ -251,6 +251,7 @@ class MOPPONet(nn.Module):
         self.action_dim = action_dim
         self.reward_dim = reward_dim
         self.net_arch = net_arch
+        self.act_fcn = act_fcn
 
         self.critic = mlp(
             input_dim=np.prod(self.obs_shape),
@@ -269,6 +270,9 @@ class MOPPONet(nn.Module):
         )
         self.actor.apply(_hidden_layer_init)
         _value_init(list(self.actor.modules())[-1])
+        
+        print(self.net_arch)
+        print(self.act_fcn)
 
     def get_value(self, obs: th.Tensor) -> th.Tensor:
         """
