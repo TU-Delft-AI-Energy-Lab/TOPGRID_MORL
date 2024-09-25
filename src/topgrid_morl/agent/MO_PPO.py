@@ -719,8 +719,17 @@ class MOPPO(MOPolicy):
                         self.clip_coef,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
+            
                     v_loss_max = th.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    #v_loss = 0.5 * v_loss_max.mean() #implementation by alegre24 
+                    #print(v_loss)
+                    
+                    
+                    #my approach
+                    mean_per_objective = v_loss_max.mean(dim=0)
+                    #print(mean_per_objective)
+                    v_loss = mean_per_objective @ self.weights.float()
+                    #print(v_loss) #
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
@@ -832,9 +841,9 @@ class MOPPO(MOPolicy):
                 next_obs = th.Tensor(state).to(self.device)
                 done = False
 
-            next_obs, done, _ = self.__collect_samples(next_obs, done)
+            next_obs, next_done, _ = self.__collect_samples(next_obs, done)
 
-            self.returns, self.advantages = self.__compute_advantages(next_obs, done)
+            self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
 
             if self.anneal_lr:
