@@ -258,13 +258,13 @@ if __name__ == "__main__":
     
     # Add arguments for learning rate, value function coefficient, and entropy coefficient
     parser.add_argument(
-        "--learning_rate", type=float, default=5e-4, help="Learning rate for the agent"
+        "--learning_rate", type=float, default=5e-5, help="Learning rate for the agent"
     )
     parser.add_argument(
-        "--vf_coef", type=float, default=0.5, help="Value function coefficient"
+        "--vf_coef", type=float, default=1.0, help="Value function coefficient"
     )
     parser.add_argument(
-        "--ent_coef", type=float, default=0.05, help="Entropy coefficient"
+        "--ent_coef", type=float, default=0.02, help="Entropy coefficient"
     )
     
     args = parser.parse_args()
