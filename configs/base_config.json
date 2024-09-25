@@ -4,7 +4,7 @@
 
     "agent_params": {
         "id": 1,
-        "log": false,
+        "log": true,
         "steps_per_iteration": 8,
         "num_minibatches": 2,
         "update_epochs": 1,
@@ -26,7 +26,7 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [64,64],
+        "net_arch": [32,32],
         "act_fct": "relu"
     },
     "weight_vectors": [

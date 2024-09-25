@@ -187,6 +187,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             g2op_env_test=g2op_env_test,
             reward_list=reward_list,
             reuse="partial",
+            network_params=network_params, 
+            env_params = env_params,
             **agent_params
         )
         eval_data, test_data, agent = trainer.run_single(weights=w)

@@ -6,7 +6,8 @@ from typing import Any, List, Tuple
 from tqdm import tqdm
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.utils.Grid2op_eval import evaluate_agent
-
+import logging
+logging.basicConfig(level=logging.INFO)
 
 def sum_rewards(rewards):
     rewards_np = np.array(rewards)
@@ -35,6 +36,8 @@ class MOPPOTrainer:
                  net_arch: List[int] = [64, 64],
                  generate_reward: bool = False,
                  reward_list: List[str] = ["ScaledEpisodeDuration", "ScaledTopoAction"],
+                 network_params: dict = {}, 
+                 env_params: dict = {}, 
                  **agent_params: Any):
         
         self.iterations = iterations
@@ -57,6 +60,8 @@ class MOPPOTrainer:
         self.generate_reward = generate_reward
         self.reward_list = reward_list
         self.agent_params = agent_params
+        self.env_params = env_params
+        self.network_params = network_params
         self.models = {}  # Dictionary to store trained models for reuse
         self.np_random = np.random.RandomState(seed)
         self.weight_range = [0, 1]  # Default range for weights
@@ -121,12 +126,16 @@ class MOPPOTrainer:
                 project=self.project_name,
                 name=runname,
                 group=f"{self.reward_list[0]}_{self.reward_list[1]}",
-                tags=[self.run_name]
+                tags=[self.run_name],
+                config=self.agent_params
             )
-            #print(self.agent_params)
+            print(self.agent_params)
             # Log agent params and weights to wandb config
             wandb.config.update({"rounded_weights": rounded_weights.tolist()})
-            wandb.config.update(self.agent_params)
+            wandb.config.update(self.network_params)
+            wandb.config.update(self.env_params)
+            
+            
 
         # Train the agent
         model.train(max_gym_steps=self.max_gym_steps, reward_dim=self.reward_dim, reward_list=self.reward_list)
