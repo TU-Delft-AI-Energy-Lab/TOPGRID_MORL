@@ -86,7 +86,7 @@ class CustomGymEnv(GymEnv):
         # Step in the environment
         g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         
-        gym_obs = self.observation_space.to_gym(g2op_obs)
+        
         tmp_steps += 1 
         self.steps += 1
 
@@ -165,7 +165,9 @@ class CustomGymEnv(GymEnv):
         if self.debug:
             print(f'Cumulative Reward after activation threshold loop: {cum_reward}')
             print(f"Steps taken in CustomGymEnv step: {tmp_steps}")
-
+            
+            
+        gym_obs = self.observation_space.to_gym(g2op_obs)
         # Return based on evaluation mode
         if self.eval:
             if self.debug:
