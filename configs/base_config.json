@@ -7,7 +7,7 @@
         "log": true,
         "steps_per_iteration": 8,
         "num_minibatches": 2,
-        "update_epochs": 1,
+        "update_epochs": 2,
         "learning_rate": 5e-4,
         "gamma": 0.99,
         "anneal_lr": false,
