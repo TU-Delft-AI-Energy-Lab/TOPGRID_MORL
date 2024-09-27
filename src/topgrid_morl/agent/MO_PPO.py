@@ -555,10 +555,12 @@ class MOPPO(MOPolicy):
 
             next_obs, reward, next_done, info = self.env.step(action.item())
             self.global_step += 1
-
+            
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
-
-            self.batch.add(obs, action, logprob, reward, done, value)
+            
+            
+            #try out adding the next_done to the batch
+            self.batch.add(obs, action, logprob, reward, next_done, value)
             self.chronic_steps += info["steps"]
             if self.debug ==True: 
                 # Debug: Print rewards and dones
@@ -691,6 +693,12 @@ class MOPPO(MOPolicy):
 
         b_inds = np.arange(self.batch_size)
         clipfracs = []
+        if self.debug ==True: 
+                    # Debug: Print policy and value loss info per minibatch
+                    print(f"Batch obs: {b_obs}")
+                    print(f"Batch actions: {b_actions}")
+                    print(f"b_returns: {b_returns}")
+                    
 
         for epoch in range(self.update_epochs):
             if self.debug ==True: 

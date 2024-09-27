@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from typing import Any, List, Tuple
+import gymnasium as gym
 
 import grid2op
 from grid2op.Action import BaseAction
@@ -68,10 +69,11 @@ def setup_environment(
 
     g2op_env.seed(seed=seed)
     g2op_env.reset()
-
+    
     # Use custom Gym environment
     gym_env = CustomGymEnv(g2op_env, safe_max_rho=max_rho)
 
+    gym_env = gym.wrappers.NormalizeObservation(gym_env)
     # Set rewards in Gym Environment
     gym_env.set_rewards(rewards_list=rewards_list)
 
