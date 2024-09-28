@@ -851,7 +851,7 @@ class MOPPO(MOPolicy):
         """
         self.reward_list = reward_list
         self.reward_list_ext = [
-            "ScaledLinesCapacity",
+            "L2RPN",
             self.reward_list[0],
             self.reward_list[1],
         ]

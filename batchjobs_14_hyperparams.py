@@ -4,7 +4,7 @@ import os
 template = """#!/bin/bash
 
 #SBATCH --job-name="TOPGRID_MORL_5bus_lr{learning_rate}_vf{vf_coef}_ent{ent_coef}"
-#SBATCH --time=3:00:00
+#SBATCH --time=6:00:00
 #SBATCH --partition=compute
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -35,8 +35,8 @@ batch_dir = "batch_scripts"
 os.makedirs(batch_dir, exist_ok=True)
 
 # Define the hyperparameters to search over
-learning_rates = [5e-4]  # Different learning rates "vf_coef": 0.5,
-vf_coefs = [0.6, 0.8, 1.0]  # Different value function coefficients
+learning_rates = [5e-4, 5e-5]  # Different learning rates "vf_coef": 0.5,
+vf_coefs = [0.7, 1.0]  # Different value function coefficients
 ent_coefs = [0.01, 0.02]  # Different entropy coefficients
 
 # Nested loops to generate combinations of hyperparameters

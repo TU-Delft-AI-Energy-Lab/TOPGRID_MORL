@@ -39,15 +39,15 @@ def setup_environment(
     test: bool = False,
     action_space: int = 53,
     seed: int = 0,
-    first_reward: grid2op.Reward.BaseReward = LinesCapacityReward,
-    rewards_list: List[str] = ["EpisodeDuration", "TopoAction"],
+    first_reward: grid2op.Reward.BaseReward = L2RPNReward,
+    rewards_list: List[str] = ["TopoActionDay", "ScaledTopoDepth"],
     actions_file: str = 'filtered_actions.json',
     env_type: str = '_train',
-    max_rho: float = 0.95,
-    use_opponent: bool = True,  # Enable opponent
-    opponent_class=RandomLineOpponent,  # Default opponent class
-    opponent_kwargs: dict = None,  # Parameters for opponent
-    line_names_to_attack: List[str] = None  # List of lines opponent can attack
+    max_rho: float = 0.95
+    #use_opponent: bool = True,  # Enable opponent
+    #opponent_class=RandomLineOpponent,  # Default opponent class
+    #opponent_kwargs: dict = None,  # Parameters for opponent
+    #line_names_to_attack: List[str] = None  # List of lines opponent can attack
 ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards, opponent,
@@ -73,7 +73,7 @@ def setup_environment(
     # Use custom Gym environment
     gym_env = CustomGymEnv(g2op_env, safe_max_rho=max_rho)
 
-    gym_env = gym.wrappers.NormalizeObservation(gym_env)
+    #gym_env = gym.wrappers.NormalizeObservation(gym_env)
     # Set rewards in Gym Environment
     gym_env.set_rewards(rewards_list=rewards_list)
 

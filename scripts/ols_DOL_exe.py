@@ -20,7 +20,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 )
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
-from topgrid_morl.envs.GridRewards import ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
+from topgrid_morl.envs.GridRewards import L2RPNReward, TopoActionDayReward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 from topgrid_morl.wrapper.ols_DOL import MOPPOTrainer
 
 # Recursive function to convert all numpy arrays to lists
@@ -58,7 +58,7 @@ def save_agent(agent, weights, directory, index):
     with open(weights_path, "w") as f:
         json.dump(weights.tolist(), f, indent=4)
     
-    print(f"Saved agent and weights at index {index}")
+    print(f"Saved agent and  at index {index}")
     
     return agent_filename, weights_filename
 
@@ -111,7 +111,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         test=False,
         seed=seed,
         action_space=action_dim,
-        first_reward=ScaledLinesCapacityReward,
+        first_reward=L2RPNReward,
         rewards_list=reward_list,
         actions_file=actions_file,
         max_rho=max_rho
@@ -122,7 +122,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         test=False,
         seed=seed,
         action_space=action_dim,
-        first_reward=ScaledLinesCapacityReward,
+        first_reward=L2RPNReward,
         rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_val",
@@ -134,7 +134,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         test=False,
         seed=seed,
         action_space=action_dim,
-        first_reward=ScaledLinesCapacityReward,
+        first_reward=L2RPNReward,
         rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_test",

@@ -9,7 +9,7 @@
         "num_minibatches": 4,
         "update_epochs": 15,
         "learning_rate": 5e-5,
-        "gamma": 0.99,
+        "gamma": 0.999,
         "anneal_lr": false,
         "clip_coef": 0.3,
         "ent_coef": 0.02,
@@ -32,10 +32,10 @@
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 20000,
+    "max_gym_steps": 51200,
     "rewards": {
-        "first": "ScaledLinesCapacity",
-        "second": "ScaledL2RPN",
+        "first": "L2RPN",
+        "second": "TopoActionDay",
         "third": "ScaledTopoDepth"
     }
 
