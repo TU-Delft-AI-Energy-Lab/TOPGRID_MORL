@@ -517,6 +517,8 @@ class MOPPO(MOPolicy):
         Returns:
             th.Tensor: Extended tensor.
         """
+        if not isinstance(tensor, th.Tensor):
+            tensor = th.tensor(tensor)
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
