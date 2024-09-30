@@ -554,7 +554,7 @@ class MOPPO(MOPolicy):
             
             
             #try out adding the next_done to the batch
-            self.batch.add(obs, action, logprob, reward, next_done, value)
+            self.batch.add(obs, action, logprob, reward, done, value)
             self.chronic_steps += info["steps"]
             if self.debug ==True: 
                 # Debug: Print rewards and dones
@@ -611,11 +611,11 @@ class MOPPO(MOPolicy):
 
                 for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
-                        nextnonterminal = 1.0 - next_done
+                        nextnonterminal = 1.0 - next_done #last iteration within batch -> next_done
                         nextvalues = next_value
                     else:
                         _, _, _, _, done_t1, value_t1 = self.batch.get(t + 1)
-                        nextnonterminal = 1.0 - done_t1
+                        nextnonterminal = 1.0 - done_t1 #if terminal 0 - if non terminal: value!
                         nextvalues = value_t1
 
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
