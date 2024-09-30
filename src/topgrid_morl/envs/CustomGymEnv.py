@@ -55,6 +55,8 @@ class CustomGymEnv(GymEnv):
             npt.NDArray[np.float64]: The initial observation of the environment.
         """
         g2op_obs = self.init_env.reset()
+        max_iter = 28*288
+        self.init_env.set_max_iter(max_iter)
         self.steps = 0
         return self.observation_space.to_gym(g2op_obs)
 
@@ -75,27 +77,28 @@ class CustomGymEnv(GymEnv):
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
         
-        cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
+        #cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
         #print(g2op_act)
-        g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-        g2op_obs_log = g2op_obs
+        if self.reconnect_line:
+            for line in self.reconnect_line:
+                g2op_act += line
+            self.reconnect_line = []
         
-        
-
-        tmp_steps +=1 
-        self.steps += 1
-
-        # Create reward array
+        #print(g2op_act)
+        g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
         reward = np.array(
-            [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-            dtype=np.float64,
-        )
-        cum_reward+=reward
+                [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
+                 dtype=np.float64,
+        )   
+        self.steps += 1
+        tmp_steps +=1 
+        #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
+        #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
+        
         
         
         #reconnect lines
         to_reco = info["disc_lines"]
-        self.reconnect_line = []
         if np.any(to_reco == 0):
         # Get the indices of elements that are 0
             reco_id = np.where(to_reco == 0)[0]
@@ -107,25 +110,12 @@ class CustomGymEnv(GymEnv):
                     
                 self.reconnect_line.append(g2op_act)
         
-        if self.reconnect_line:
-            for line in self.reconnect_line:
-                g2op_act += line
-            if not done: 
-                #print(g2op_act)
-                g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
-                tmp_reward = np.array(
-                    [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
-                    dtype=np.float64,
-                )   
-                self.steps += 1
-                tmp_steps +=1 
-                #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
-                self.reconnect_line = []
+        
             
-            
+        do_nothing = 0     
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
-            do_nothing = 0                    
+    
             action = self.action_space.from_gym(do_nothing)          
                 
             g2op_obs, reward1, done, info = self.init_env.step(action=action)
@@ -135,18 +125,13 @@ class CustomGymEnv(GymEnv):
             )
             self.steps += 1
             tmp_steps +=1 
-            cum_reward += tmp_reward
-
-            if done:
-                break  # Exit the loop if done is True
+            reward += tmp_reward
 
         #reward += cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
-        
-        
-            
-        reward = cum_reward  # Accumulate the rewards
-        info["steps"] = tmp_steps
+        g2op_obs_log = g2op_obs
+        gym_obs = self.observation_space.to_gym(g2op_obs)
+
         # Handle opponent attack
         """
         if info.get("opponent_attack_duration", 0) == 1:
@@ -156,7 +141,8 @@ class CustomGymEnv(GymEnv):
             )
             self.reconnect_line.append(g2op_act)
         """
-        gym_obs = self.observation_space.to_gym(g2op_obs)
+        
+        
         if self.eval==True:
             return gym_obs, reward, done, info, g2op_obs_log
         else: 

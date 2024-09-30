@@ -532,13 +532,7 @@ class MOPPO(MOPolicy):
         Collect samples by interacting with the environment.
         """
         for gym_step in range(self.batch_size):
-            if done or self.chronic_steps >= 28 * 288:
-                obs = self.env.reset(options={"max step": 28 * 288})  # One week
-                if self.debug ==True: 
-                    print('Env reset in collect samples')
-                self.chronic_steps = 0
-                obs = th.tensor(obs).to(self.device)
-                done = False
+            
 
             with th.no_grad():
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
@@ -583,6 +577,14 @@ class MOPPO(MOPolicy):
             log_data[f"train/grid2opsteps"] = self.chronic_steps
             if self.log:
                 wandb.log(log_data, step=self.global_step)
+                
+            if done or self.chronic_steps >= 28 * 288:
+                obs = self.env.reset(options={"max step": 28 * 288})  # One week
+                if self.debug ==True: 
+                    print('Env reset in collect samples')
+                self.chronic_steps = 0
+                obs = th.tensor(obs).to(self.device)
+                done = False
 
         return obs, done, self.batch.rewards.mean().item()
 
