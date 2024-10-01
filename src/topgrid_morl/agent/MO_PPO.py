@@ -555,7 +555,7 @@ class MOPPO(MOPolicy):
             
             
             #try out adding the next_done to the batch
-            self.batch.add(obs, action, logprob, reward, done, value)
+            self.batch.add(obs, action, logprob, reward, next_done, value)
             self.chronic_steps += info["steps"]
             if self.debug ==True: 
                 # Debug: Print rewards and dones
@@ -585,7 +585,7 @@ class MOPPO(MOPolicy):
                     print('Env reset in collect samples')
                 self.chronic_steps = 0
                 obs = th.tensor(obs).to(self.device)
-                done = 1
+                done = 0
                 if self.chronic_steps>=28*288: 
                     done=0
 
