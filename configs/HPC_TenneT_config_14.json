@@ -35,8 +35,8 @@
     "max_gym_steps": 51200,
     "rewards": {
         "first": "L2RPN",
-        "second": "TopoActionDay",
-        "third": "ScaledTopoDepth"
+        "second": "L2RPN",
+        "third": "L2RPN"
     }
 
 }

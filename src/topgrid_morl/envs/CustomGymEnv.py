@@ -73,6 +73,7 @@ class CustomGymEnv(GymEnv):
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], bool, Dict[str, Any]]:
             Observation, reward, done flag, and additional info.
         """
+        #print('in Step')
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
@@ -89,13 +90,12 @@ class CustomGymEnv(GymEnv):
         reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                  dtype=np.float64,
-        )   
+        )
+        #print(reward)
         self.steps += 1
         tmp_steps +=1 
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
         #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-              
-        
             
         do_nothing = 0     
         # Handle line loadings and ensure safety threshold is maintained
