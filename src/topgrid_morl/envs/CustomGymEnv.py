@@ -94,22 +94,7 @@ class CustomGymEnv(GymEnv):
         tmp_steps +=1 
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
         #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-        
-        
-        
-        #reconnect lines
-        to_reco = info["disc_lines"]
-        if np.any(to_reco == 0):
-        # Get the indices of elements that are 0
-            reco_id = np.where(to_reco == 0)[0]
-            
-            for line_id in reco_id:
-                g2op_act = self.init_env.action_space(
-                     {"set_line_status": [(line_id, +1)]}
-                )
-                    
-                self.reconnect_line.append(g2op_act)
-        
+              
         
             
         do_nothing = 0     
@@ -141,7 +126,18 @@ class CustomGymEnv(GymEnv):
             )
             self.reconnect_line.append(g2op_act)
         """
-        
+        #reconnect lines
+        to_reco = info["disc_lines"]
+        if np.any(to_reco == 0):
+        # Get the indices of elements that are 0
+            reco_id = np.where(to_reco == 0)[0]
+            
+            for line_id in reco_id:
+                g2op_act = self.init_env.action_space(
+                     {"set_line_status": [(line_id, +1)]}
+                )
+                    
+                self.reconnect_line.append(g2op_act)
         
         if self.eval==True:
             return gym_obs, reward, done, info, g2op_obs_log

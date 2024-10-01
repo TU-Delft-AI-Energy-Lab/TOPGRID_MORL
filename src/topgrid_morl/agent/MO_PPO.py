@@ -517,8 +517,7 @@ class MOPPO(MOPolicy):
         Returns:
             th.Tensor: Extended tensor.
         """
-        if not isinstance(tensor, th.Tensor):
-            tensor = th.tensor(tensor)
+        
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
@@ -551,7 +550,7 @@ class MOPPO(MOPolicy):
 
             next_obs, reward, next_done, info = self.env.step(action.item())
             self.global_step += 1
-            
+            next_done = float(next_done)
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
             
             
@@ -586,7 +585,9 @@ class MOPPO(MOPolicy):
                     print('Env reset in collect samples')
                 self.chronic_steps = 0
                 obs = th.tensor(obs).to(self.device)
-                done = False
+                done = 1
+                if self.chronic_steps>=28*288: 
+                    done=0
 
         return obs, done, self.batch.rewards.mean().item()
 
@@ -613,21 +614,33 @@ class MOPPO(MOPolicy):
 
                 for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
+                        if self.debug: 
+                            print('last iteration within batch')
+                            print(next_done)
                         nextnonterminal = 1.0 - next_done #last iteration within batch -> next_done
                         nextvalues = next_value
+                        if self.debug: 
+                            print(nextnonterminal)
                     else:
+                                 
                         _, _, _, _, done_t1, value_t1 = self.batch.get(t + 1)
+                                                   
                         nextnonterminal = 1.0 - done_t1 #if terminal 0 - if non terminal: value!
+                        if self.debug:
+                            print('all other entries in batch:')
+                            print(done_t1)
+                            print(nextnonterminal)
                         nextvalues = value_t1
-
+                    nextnonterminal = th.tensor(nextnonterminal)
+                    
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
+                    
                     _, _, _, reward_t, _, value_t = self.batch.get(t)
                     delta = (
                         reward_t + self.gamma * nextvalues * nextnonterminal - value_t
                     )
                     advantages[t] = lastgaelam = (
-                        delta
-                        + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                        delta + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
                     )
 
                 returns = advantages + self.batch.values
@@ -642,8 +655,9 @@ class MOPPO(MOPolicy):
                         _, _, _, _, done_t1, _ = self.batch.get(t + 1)
                         nextnonterminal = 1.0 - done_t1
                         next_return = returns[t + 1]
-
+                    
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
+                    
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
                 advantages = returns - self.batch.values()
@@ -862,7 +876,7 @@ class MOPPO(MOPolicy):
         state = self.env.reset(options={"max step": 28* 288})
         self.chronic_steps = 0
         obs = th.Tensor(state).to(self.device)
-        done = False
+        done = 0
 
         num_trainings = int(max_gym_steps / self.batch_size)
         self.eval_step = 0
@@ -875,13 +889,15 @@ class MOPPO(MOPolicy):
                     print('Env Reset in Training Loop')
                 self.chronic_steps = 0
                 obs = th.Tensor(state).to(self.device)
-                done = False
+                done = 0
 
             next_obs, next_done, _ = self.__collect_samples(obs, done)
 
             self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
+            
             done = next_done
+            obs = next_obs
 
             if self.anneal_lr:
                 frac = 1.0 - (self.global_step / max_gym_steps)
@@ -890,47 +906,3 @@ class MOPPO(MOPolicy):
                     param_group["lr"] = new_lr
                     
           
-        directory_name = f"5bus_maxgymsteps_{max_gym_steps}"
-        directory_path_log = os.path.join("data", "runs", directory_name)
-        directory_path_rew = os.path.join("data", "rewards", directory_name)
-        # Create the directories if they don't exist
-        os.makedirs(directory_path_log, exist_ok=True)
-        os.makedirs(directory_path_rew, exist_ok=True)
-
-        # Save the logs and NumPy arrays in the created directories
-        filename_prefix = os.path.join(
-            directory_path_log,
-            f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}",
-        )
-        dataloader = DataLoader()
-        dataloader.save_logs_json(path=filename_prefix)
-        if self.generate_reward:
-            np.save(
-                os.path.join(
-                    directory_path_rew,
-                    f"generate_training_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
-                ),
-                np.array(self.training_rewards),
-            )
-            np.save(
-                os.path.join(
-                    directory_path_rew,
-                    f"generate_evaluation_rewards_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
-                ),
-                np.array(self.evaluation_rewards),
-            )
-        else:
-            np.save(
-                os.path.join(
-                    directory_path_rew,
-                    f"training_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
-                ),
-                np.array(self.training_rewards),
-            )
-            np.save(
-                os.path.join(
-                    directory_path_rew,
-                    f"evaluation_rewards_seed_{self.seed}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}.npy",
-                ),
-                np.array(self.evaluation_rewards),
-            )
