@@ -425,7 +425,7 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
-        self.debug = False
+        self.debug = True
 
         self.training_rewards = []
         self.evaluation_rewards = []
@@ -531,8 +531,9 @@ class MOPPO(MOPolicy):
         Collect samples by interacting with the environment.
         """
         batch_size_collected = 0
-
+        terminal = False
         while batch_size_collected < self.batch_size:
+            
             with th.no_grad():
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
@@ -543,22 +544,13 @@ class MOPPO(MOPolicy):
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
             next_done = float(next_done)
 
-            # Check if the episode has ended before adding to the batch
-            if next_done or self.chronic_steps >= 28 * 288:
-                # The episode has ended; reset the environment
-                obs = self.env.reset(options={"max step": 28 * 288})
-                obs = th.tensor(obs).to(self.device)
-                done = 0  # Reset done flag
-                self.chronic_steps = 0
-
-                # Since the episode has ended, do not add the transition
-                # But we need to continue the loop to collect more transitions
-                continue
-
-
-
             # Add the current transition to the batch (since the episode is ongoing)
-            self.batch.add(obs, action, logprob, reward, next_done, value)
+            
+            
+            if terminal==True: #incase that the environment needed to be reset in order to keep storing to the replay buffer
+                self.batch.add(obs, action, logprob, reward, float(1.0), value)
+            else: 
+                self.batch.add(obs, action, logprob, reward, done, value)
             batch_size_collected += 1
             self.chronic_steps += info["steps"]
 
@@ -574,6 +566,16 @@ class MOPPO(MOPolicy):
             log_data[f"train/grid2opsteps"] = self.chronic_steps
             if self.log:
                 wandb.log(log_data, step=self.global_step)
+                
+            terminal = False
+            
+            if done or self.chronic_steps >= 28 * 288:
+                terminal=True
+                # The episode has ended; reset the environment
+                obs = self.env.reset(options={"max step": 28 * 288})
+                obs = th.tensor(obs).to(self.device)
+                done = 0  # Reset done flag
+                self.chronic_steps = 0
 
         return obs, done, self.batch.rewards.mean().item()
 
