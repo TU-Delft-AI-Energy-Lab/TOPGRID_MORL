@@ -1111,6 +1111,7 @@ class L2RPNReward(BaseReward):
             # no more data to consider, no powerflow has been run, reward is what it is
             res = self.reward_min
         # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
+        res = res/1000
         return res
 
 
