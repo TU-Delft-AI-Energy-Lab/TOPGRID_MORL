@@ -526,49 +526,45 @@ class MOPPO(MOPolicy):
         else:
             return tensor
 
-    def __collect_samples(
-        self, obs: th.Tensor, done: bool
-    ) -> Tuple[th.Tensor, bool, int]:
+    def __collect_samples(self, obs: th.Tensor, done: bool) -> Tuple[th.Tensor, bool, int]:
         """
         Collect samples by interacting with the environment.
         """
-        for gym_step in range(self.batch_size):
-            
+        batch_size_collected = 0
 
+        while batch_size_collected < self.batch_size:
             with th.no_grad():
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
-            if self.debug ==True: 
-                # Debug: Print observations, actions, and values for each step
-                print('In Collect Samples loop')
-                print(f"Step: {gym_step}")
-                print(f"Obs: {obs}")
-                print(f"Action: {action}")
-                print(f"LogProb: {logprob}")
-                print(f"Entropy: {entropy}")
-                print(f"Value: {value}")
 
             next_obs, reward, next_done, info = self.env.step(action.item())
             self.global_step += 1
-            next_done = float(next_done)
-            reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
-            
-            
-            #try out adding the next_done to the batch
-            self.batch.add(obs, action, logprob, reward, next_done, value)
-            self.chronic_steps += info["steps"]
-            if self.debug ==True: 
-                # Debug: Print rewards and dones
-                print('In Collect Samples Loop after gym action')
-                print(f'done {next_done}')
-                print(f"Reward: {reward}")
-                print(f'chronic steps {self.chronic_steps}')
 
-            # Append rewards to training_rewards
-            self.training_rewards.append(reward.cpu().numpy())
-            obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
-                next_done
-            ).float().to(self.device)
+            reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
+            next_done = float(next_done)
+
+            # Check if the episode has ended before adding to the batch
+            if next_done or self.chronic_steps >= 28 * 288:
+                # The episode has ended; reset the environment
+                obs = self.env.reset(options={"max step": 28 * 288})
+                obs = th.tensor(obs).to(self.device)
+                done = 0  # Reset done flag
+                self.chronic_steps = 0
+
+                # Since the episode has ended, do not add the transition
+                # But we need to continue the loop to collect more transitions
+                continue
+
+
+
+            # Add the current transition to the batch (since the episode is ongoing)
+            self.batch.add(obs, action, logprob, reward, next_done, value)
+            batch_size_collected += 1
+            self.chronic_steps += info["steps"]
+
+            # Update obs and done for the next iteration
+            obs = th.Tensor(next_obs).to(self.device)
+            done = next_done  # Already a float
 
             # Log the training reward for each step
             log_data = {
@@ -578,16 +574,6 @@ class MOPPO(MOPolicy):
             log_data[f"train/grid2opsteps"] = self.chronic_steps
             if self.log:
                 wandb.log(log_data, step=self.global_step)
-                
-            if done or self.chronic_steps >= 28 * 288:
-                obs = self.env.reset(options={"max step": 28 * 288})  # One week
-                if self.debug ==True: 
-                    print('Env reset in collect samples')
-                self.chronic_steps = 0
-                obs = th.tensor(obs).to(self.device)
-                done = 0
-                if self.chronic_steps>=28*288: 
-                    done=0
 
         return obs, done, self.batch.rewards.mean().item()
 
