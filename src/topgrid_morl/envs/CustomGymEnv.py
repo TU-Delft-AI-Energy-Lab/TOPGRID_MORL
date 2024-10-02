@@ -128,7 +128,9 @@ class CustomGymEnv(GymEnv):
         """
         #reconnect lines
         to_reco = info["disc_lines"]
-        if np.any(to_reco == 0):
+        ##edit 
+        #if not done, in order to prevent cross episode contaminiation# 
+        if np.any(to_reco == 0) and (not done): #if not done
         # Get the indices of elements that are 0
             reco_id = np.where(to_reco == 0)[0]
             

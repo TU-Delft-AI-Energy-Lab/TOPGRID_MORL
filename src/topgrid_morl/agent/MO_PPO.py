@@ -534,6 +534,14 @@ class MOPPO(MOPolicy):
         terminal = False
         while batch_size_collected < self.batch_size:
             
+            if done or self.chronic_steps >= 28 * 288:
+                terminal=True
+                # The episode has ended; reset the environment
+                obs = self.env.reset(options={"max step": 28 * 288})
+                obs = th.tensor(obs).to(self.device)
+                done = 0  # Reset done flag
+                self.chronic_steps = 0
+            
             with th.no_grad():
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
@@ -548,9 +556,11 @@ class MOPPO(MOPolicy):
             
             
             if terminal==True: #incase that the environment needed to be reset in order to keep storing to the replay buffer
-                self.batch.add(obs, action, logprob, reward, float(1.0), value)
+                self.batch.add(obs, action, logprob, reward, float(terminal), value)
             else: 
                 self.batch.add(obs, action, logprob, reward, done, value)
+                
+                
             batch_size_collected += 1
             self.chronic_steps += info["steps"]
 
@@ -569,13 +579,6 @@ class MOPPO(MOPolicy):
                 
             terminal = False
             
-            if done or self.chronic_steps >= 28 * 288:
-                terminal=True
-                # The episode has ended; reset the environment
-                obs = self.env.reset(options={"max step": 28 * 288})
-                obs = th.tensor(obs).to(self.device)
-                done = 0  # Reset done flag
-                self.chronic_steps = 0
 
         return obs, done, self.batch.rewards.mean().item()
 
