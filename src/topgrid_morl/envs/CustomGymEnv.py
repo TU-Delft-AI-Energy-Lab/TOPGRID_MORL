@@ -77,6 +77,7 @@ class CustomGymEnv(GymEnv):
             Observation, reward, done flag, and additional info.
         """
         #print('in Step')
+
         
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
@@ -101,12 +102,36 @@ class CustomGymEnv(GymEnv):
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
         #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         if done: 
-            self.terminated_gym = True
+            self.terminated_gym = True # Terminated is true if episode ends after Gym step and not in grid2op loop. I tbhought this would be good due to the SMDP property
+    
         do_nothing = 0     
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
-    
-            action = self.action_space.from_gym(do_nothing)          
+            
+            #reconnect lines
+            to_reco = info["disc_lines"]
+            ##edit 
+            #if not done, in order to prevent cross episode contaminiation# 
+            if np.any(to_reco == 0): #if not done
+            # Get the indices of elements that are 0
+                reco_id = np.where(to_reco == 0)[0]
+            
+                for line_id in reco_id:
+                    line_act = self.init_env.action_space(
+                        {"set_line_status": [(line_id, +1)]}
+                 )
+                    
+                    self.reconnect_line.append(line_act)
+            
+            action = self.action_space.from_gym(do_nothing)
+                
+            if self.reconnect_line:
+                for line in self.reconnect_line:
+                    action += line
+                self.reconnect_line = []
+            
+            
+                      
                 
             g2op_obs, reward1, done, info = self.init_env.step(action=action)
             tmp_reward = np.array(
@@ -116,6 +141,10 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             tmp_steps +=1 
             reward += tmp_reward
+            
+            
+            
+            
 
         #reward += cum_reward  # Accumulate the rewards
         info["steps"] = tmp_steps
