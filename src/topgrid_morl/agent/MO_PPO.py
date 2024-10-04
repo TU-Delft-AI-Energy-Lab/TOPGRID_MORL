@@ -563,7 +563,7 @@ class MOPPO(MOPolicy):
             if self.log:
                 wandb.log(log_data, step=self.global_step)
             
-            if next_done or self.chronic_steps >= (28 * 288):
+            if next_done:
                 # The episode has ended; reset the environment
                 reset_obs = self.env.reset(options={"max step": 28 * 288})
                 next_obs = th.tensor(reset_obs).to(self.device)
