@@ -27,7 +27,7 @@ def format_weights(weights: np.ndarray) -> str:
 
 def load_action_space(env_name: str, g2op_env) -> DiscreteActSpace:
     current_dir = os.getcwd()
-    path = os.path.join(current_dir, "action_spaces", env_name, "filtered_actions.json")
+    path = os.path.join(current_dir, "action_spaces", env_name, "tennet_actions.json")
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
@@ -213,8 +213,8 @@ def evaluate_agent(
         actions_file = "filtered_actions.json"
     elif env_name == "l2rpn_case14_sandbox":
         results_dir = "training_results_14bus_4096"
-        action_dim = 134
-        actions_file = "medha_actions.json"
+        action_dim = 73
+        actions_file = "tennet_actions.json"
         
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet, actions_file=actions_file, env_name=env_name)
 
