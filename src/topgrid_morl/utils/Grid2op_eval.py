@@ -228,7 +228,7 @@ def evaluate_agent(
     discount_factor = 0.995
     while not eval_done and total_eval_steps<= eval_steps:
         eval_action = agent.eval(eval_state, agent.weights.cpu().numpy())
-        eval_state, eval_reward, eval_done, eval_info, eval_g2op_obs = gym_env.step(eval_action)
+        eval_state, eval_reward, eval_done, eval_info, eval_g2op_obs, terminated_gym = gym_env.step(eval_action)
         cum_eval_steps += eval_info['steps']
         eval_action_timestamp.append(cum_eval_steps)
         total_eval_steps += eval_info["steps"]

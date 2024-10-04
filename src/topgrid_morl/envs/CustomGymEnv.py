@@ -59,6 +59,7 @@ class CustomGymEnv(GymEnv):
         #self.init_env.set_max_iter(max_iter)
         self.steps = 0
         self.reconnect_line=[] #reset self.reconnect line in case of env.reset -> avoid cross episode contimination
+        self.terminated_gym = False
         #print('in customGymEnv Reset')
         return self.observation_space.to_gym(g2op_obs)
 
@@ -76,6 +77,7 @@ class CustomGymEnv(GymEnv):
             Observation, reward, done flag, and additional info.
         """
         #print('in Step')
+        
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
@@ -98,7 +100,8 @@ class CustomGymEnv(GymEnv):
         tmp_steps +=1 
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
         #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
-            
+        if done: 
+            self.terminated_gym = True
         do_nothing = 0     
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
@@ -137,9 +140,9 @@ class CustomGymEnv(GymEnv):
                 self.reconnect_line.append(line_act)
         
         if self.eval==True:
-            return gym_obs, reward, done, info, g2op_obs_log
+            return gym_obs, reward, done, info, g2op_obs_log, self.terminated_gym
         else: 
-            return gym_obs, reward, done, info
+            return gym_obs, reward, done, info, self.terminated_gym
         
         
         

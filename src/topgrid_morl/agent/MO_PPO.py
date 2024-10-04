@@ -538,7 +538,7 @@ class MOPPO(MOPolicy):
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
 
-            next_obs, reward, next_done, info = self.env.step(action.item())
+            next_obs, reward, next_done, info, terminated_gym = self.env.step(action.item())
             self.global_step += 1
 
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
@@ -568,8 +568,10 @@ class MOPPO(MOPolicy):
                 # The episode has ended; reset the environment
                 reset_obs = self.env.reset(options={"max step": 28 * 288})
                 next_obs = th.tensor(reset_obs).to(self.device)
-                # do not reset done flag in order to prevent cross episode contamination 
-                # done = 0  # Reset done flag
+                if terminated_gym:
+                    done=float(True)
+                else: 
+                    done= float(False)
                 self.chronic_steps = 0
             
             # Update obs and done for the next iteration
