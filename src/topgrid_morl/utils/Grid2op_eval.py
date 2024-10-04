@@ -143,7 +143,7 @@ def evaluate_agent(
     ]
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet)
 
-    env_name = "rte_case5_example"
+    env_name = "l2rpn_case14_sandbox"
     gym_env.action_space = load_action_space(env_name, g2op_env)
 
     eval_rewards, eval_actions, eval_states = [], [], []

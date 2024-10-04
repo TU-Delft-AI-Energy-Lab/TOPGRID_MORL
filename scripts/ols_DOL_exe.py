@@ -67,7 +67,7 @@ def main(seed: int, config: str) -> None:
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
-    env_name = "rte_case5_example"
+    env_name = "l2rpn_case14_sandbox"
 
     config_path = os.path.join(os.getcwd(), "configs", config)
     # Load configuration from file
@@ -98,8 +98,8 @@ def main(seed: int, config: str) -> None:
         actions_file = "filtered_actions.json"
     elif env_name == "l2rpn_case14_sandbox":
         results_dir = "training_results_14bus_4096"
-        action_dim = 134
-        actions_file = "medha_actions.json"
+        action_dim = 73
+        actions_file = "tennet_actions.json"
 
     gym_env, obs_dim, action_dim, reward_dim, g2op_env = setup_environment(
         env_name=env_name,
@@ -160,7 +160,7 @@ def main(seed: int, config: str) -> None:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<10:
+    while not ols.ended() and i<1:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
         trainer = MOPPOTrainer(
