@@ -5,9 +5,9 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 8,
+        "steps_per_iteration": 16,
         "num_minibatches": 2,
-        "update_epochs": 3,
+        "update_epochs": 2,
         "learning_rate": 5e-4,
         "gamma": 0.99,
         "anneal_lr": false,

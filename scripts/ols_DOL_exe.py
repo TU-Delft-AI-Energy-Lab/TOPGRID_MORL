@@ -272,8 +272,9 @@ if __name__ == "__main__":
         "--clip_coef", type=float, default=0.2, help="Clip coefficient for PPO"
     )
     parser.add_argument(
-        "--update_epochs", type=int, default=10, help="Number of update epochs for training"
+        "--update_epochs", type=int, default=2, help="Number of update epochs for training"
     )
+    
     
     args = parser.parse_args()
 

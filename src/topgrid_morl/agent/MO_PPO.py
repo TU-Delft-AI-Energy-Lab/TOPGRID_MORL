@@ -425,7 +425,7 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
-        self.debug = False
+        self.debug = True
 
         self.training_rewards = []
         self.evaluation_rewards = []
@@ -553,7 +553,6 @@ class MOPPO(MOPolicy):
             batch_size_collected += 1
             self.chronic_steps += info["steps"]
 
-            
 
             # Log the training reward for each step
             log_data = {
@@ -568,10 +567,8 @@ class MOPPO(MOPolicy):
                 # The episode has ended; reset the environment
                 reset_obs = self.env.reset(options={"max step": 28 * 288})
                 next_obs = th.tensor(reset_obs).to(self.device)
-                if terminated_gym:
-                    done=float(True)
-                else: 
-                    done= float(False)
+                next_done= float(True)
+                print(f'reset env with {self.chronic_steps} and rewards {reward} and terminated {terminated_gym}')
                 self.chronic_steps = 0
             
             # Update obs and done for the next iteration
