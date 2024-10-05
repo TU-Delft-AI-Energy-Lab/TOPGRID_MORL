@@ -60,6 +60,7 @@ class CustomGymEnv(GymEnv):
         self.steps = 0
         self.reconnect_line=[] #reset self.reconnect line in case of env.reset -> avoid cross episode contimination
         self.terminated_gym = False
+    
         #print('in customGymEnv Reset')
         return self.observation_space.to_gym(g2op_obs)
 
@@ -89,48 +90,31 @@ class CustomGymEnv(GymEnv):
             for line in self.reconnect_line:
                 g2op_act += line
             self.reconnect_line = []
-        
-        #print(g2op_act)
+            #print(action)
+            print(g2op_act)
+            
         g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
         reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                  dtype=np.float64,
         )
-        #print(reward)
+        print(reward)
+        print(info['rewards'])
+        print(g2op_obs.rho)
+        print(done)
+                #print(reward)
         self.steps += 1
         tmp_steps +=1 
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
         #g2op_obs, reward1, done, info = self.init_env.step(g2op_act)
         if done: 
             self.terminated_gym = True # Terminated is true if episode ends after Gym step and not in grid2op loop. I tbhought this would be good due to the SMDP property
-    
-        do_nothing = 0     
+
+        do_nothing_action = self.action_space.from_gym(0)  
         # Handle line loadings and ensure safety threshold is maintained
         while (max(g2op_obs.rho) < self.rho_threshold) and (not done):
             
-            #reconnect lines
-            to_reco = info["disc_lines"]
-            ##edit 
-            #if not done, in order to prevent cross episode contaminiation# 
-            if np.any(to_reco == 0): #if not done
-            # Get the indices of elements that are 0
-                reco_id = np.where(to_reco == 0)[0]
-            
-                for line_id in reco_id:
-                    line_act = self.init_env.action_space(
-                        {"set_line_status": [(line_id, +1)]}
-                 )
-                    
-                    self.reconnect_line.append(line_act)
-            
-            action = self.action_space.from_gym(do_nothing)
-                
-            if self.reconnect_line:
-                for line in self.reconnect_line:
-                    action += line
-                self.reconnect_line = []
-            
-            g2op_obs, reward1, done, info = self.init_env.step(action=action)
+            g2op_obs, reward1, done, info = self.init_env.step(action=do_nothing_action)
             tmp_reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                 dtype=np.float64,
@@ -148,22 +132,31 @@ class CustomGymEnv(GymEnv):
         g2op_obs_log = g2op_obs
         gym_obs = self.observation_space.to_gym(g2op_obs)
 
-        # Handle opponent attack
         
+        line_stat_s = g2op_obs.line_status
+        cooldown = g2op_obs.time_before_cooldown_line
+        can_be_reco = ~line_stat_s & (cooldown == 0)
+        
+        if can_be_reco.any():
+            self.reconnect_line = [
+                self.init_env.action_space({"set_line_status": [(id_, +1)]})
+                for id_ in (can_be_reco).nonzero()[0]
+            ]
+            #print(self.reconnect_line)
         #reconnect lines
-        to_reco = info["disc_lines"]
+        #to_reco = info["disc_lines"]
         ##edit 
         #if not done, in order to prevent cross episode contaminiation# 
-        if np.any(to_reco == 0): #if not done
+        #if np.any(to_reco == 0): #if not done
         # Get the indices of elements that are 0
-            reco_id = np.where(to_reco == 0)[0]
-            
-            for line_id in reco_id:
-                line_act = self.init_env.action_space(
-                     {"set_line_status": [(line_id, +1)]}
-                )
-                    
-                self.reconnect_line.append(line_act)
+        #    reco_id = np.where(to_reco == 0)[0]
+        #    
+        #    for line_id in reco_id:
+        #        line_act = self.init_env.action_space(
+        #             {"set_line_status": [(line_id, +1)]}
+        #        )
+        #            
+        #        self.reconnect_line.append(line_act)
         
         if self.eval==True:
             return gym_obs, reward, done, info, g2op_obs_log, self.terminated_gym

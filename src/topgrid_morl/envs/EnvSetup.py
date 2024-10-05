@@ -37,11 +37,11 @@ class CustomDiscreteActions(Discrete):
 def setup_environment(
     env_name: str = "l2rpn_case14_sandbox",
     test: bool = False,
-    action_space: int = 53,
+    action_space: int = 73,
     seed: int = 0,
-    first_reward: grid2op.Reward.BaseReward = EpisodeDurationReward,
+    first_reward: grid2op.Reward.BaseReward = L2RPNReward,
     rewards_list: List[str] = ["TopoActionDay", "ScaledTopoDepth"],
-    actions_file: str = 'filtered_actions.json',
+    actions_file: str = 'tennet_actions.json',
     env_type: str = '_train',
     max_rho: float = 0.95
     #use_opponent: bool = True,  # Enable opponent

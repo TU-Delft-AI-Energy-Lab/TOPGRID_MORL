@@ -560,6 +560,7 @@ class MOPPO(MOPolicy):
                 for i in range(self.networks.reward_dim)
             }
             log_data[f"train/grid2opsteps"] = self.chronic_steps
+            log_data[f'train/steps/gymstep'] = info["steps"]
             if self.log:
                 wandb.log(log_data, step=self.global_step)
             
@@ -568,7 +569,7 @@ class MOPPO(MOPolicy):
                 reset_obs = self.env.reset(options={"max step": 28 * 288})
                 next_obs = th.tensor(reset_obs).to(self.device)
                 next_done= float(True)
-                print(f'reset env with {self.chronic_steps} and rewards {reward} and terminated {terminated_gym}')
+                print(f'reset env with {self.chronic_steps} and rewards {reward}')
                 self.chronic_steps = 0
             
             # Update obs and done for the next iteration
@@ -860,7 +861,7 @@ class MOPPO(MOPolicy):
         """
         self.reward_list = reward_list
         self.reward_list_ext = [
-            "EpisodeDuration",
+            "L2RPN",
             self.reward_list[0],
             self.reward_list[1],
         ]
@@ -874,13 +875,12 @@ class MOPPO(MOPolicy):
         self.global_step = 0
         self.eval_counter = 0
         for trainings in range(num_trainings):
-            if done or self.chronic_steps >= 28 * 288:
-                state = self.env.reset(options={"max step": 28 * 288})
-                if self.debug ==True: 
-                    print('Env Reset in Training Loop')
-                self.chronic_steps = 0
-                obs = th.Tensor(state).to(self.device)
-                done = 0
+            state = self.env.reset(options={"max step": 28 * 288})
+            if self.debug ==True: 
+                print('Env Reset in Training Loop')
+            self.chronic_steps = 0
+            obs = th.Tensor(state).to(self.device)
+            done = 0
 
             next_obs, next_done, _ = self.__collect_samples(obs, done)
 

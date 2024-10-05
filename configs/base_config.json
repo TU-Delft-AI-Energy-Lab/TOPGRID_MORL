@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 32,
+        "steps_per_iteration": 64,
         "num_minibatches": 2,
         "update_epochs": 2,
         "learning_rate": 5e-4,
@@ -34,9 +34,9 @@
     ],
     "max_gym_steps": 128,
     "rewards": {
-        "first": "EpisodeDuration",
-        "second": "EpisodeDuration",
-        "third": "EpisodeDuration"
+        "first": "L2RPN",
+        "second": "LinesCapacity",
+        "third": "ScaledLinesCapacity"
     }
 
     
