@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 16,
+        "steps_per_iteration": 32,
         "num_minibatches": 2,
         "update_epochs": 2,
         "learning_rate": 5e-4,
@@ -26,17 +26,17 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [16,16],
+        "net_arch": [32,32],
         "act_fct": "relu"
     },
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 32,
+    "max_gym_steps": 128,
     "rewards": {
-        "first": "L2RPN",
-        "second": "L2RPN",
-        "third": "L2RPN"
+        "first": "EpisodeDuration",
+        "second": "EpisodeDuration",
+        "third": "EpisodeDuration"
     }
 
     

@@ -610,12 +610,16 @@ class MOPPO(MOPolicy):
                     else:
                                  
                         _, _, _, _, done_t1, value_t1 = self.batch.get(t + 1)
+                        _, _, _, _, _, value_t_debug = self.batch.get(t)
                                                    
                         nextnonterminal = 1.0 - done_t1 #if terminal 0 - if non terminal: value!
                         if self.debug:
                             print('all other entries in batch:')
                             print(done_t1)
                             print(nextnonterminal)
+                            print(f'Value {value_t_debug}')
+                            print(f'Nextvalue {value_t1}')
+                            
                         nextvalues = value_t1
                     nextnonterminal = th.tensor(nextnonterminal)
                     
@@ -646,6 +650,7 @@ class MOPPO(MOPolicy):
                     
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
+                    
                 advantages = returns - self.batch.values()
 
         # Debug: Print computed returns and advantages
@@ -855,7 +860,7 @@ class MOPPO(MOPolicy):
         """
         self.reward_list = reward_list
         self.reward_list_ext = [
-            "L2RPN",
+            "EpisodeDuration",
             self.reward_list[0],
             self.reward_list[1],
         ]

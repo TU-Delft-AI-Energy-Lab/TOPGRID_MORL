@@ -130,9 +130,6 @@ class CustomGymEnv(GymEnv):
                     action += line
                 self.reconnect_line = []
             
-            
-                      
-                
             g2op_obs, reward1, done, info = self.init_env.step(action=action)
             tmp_reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
