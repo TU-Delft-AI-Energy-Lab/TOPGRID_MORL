@@ -67,7 +67,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     Main function to set up the environment, initialize networks, define agent parameters, train the agent,
     and run a DoNothing benchmark.
     """
-    env_name = "l2rpn_case14_sandbox"
+    env_name = "rte_case5_example"
 
     config_path = os.path.join(os.getcwd(), "configs", config)
     # Load configuration from file

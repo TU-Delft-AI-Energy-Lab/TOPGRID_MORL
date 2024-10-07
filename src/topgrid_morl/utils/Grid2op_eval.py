@@ -25,9 +25,9 @@ def format_weights(weights: np.ndarray) -> str:
         return "_".join(map(lambda x: f"{x:.2f}", weights_np))
 
 
-def load_action_space(env_name: str, g2op_env) -> DiscreteActSpace:
+def load_action_space(env_name: str, g2op_env, actions_file) -> DiscreteActSpace:
     current_dir = os.getcwd()
-    path = os.path.join(current_dir, "action_spaces", env_name, "tennet_actions.json")
+    path = os.path.join(current_dir, "action_spaces", env_name, actions_file)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Action file not found: {path}")
 
@@ -206,7 +206,7 @@ def evaluate_agent(
         "p_ex",
         "timestep_overflow",
     ]
-    env_name = "l2rpn_case14_sandbox"
+    env_name = "rte_case5_example"
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
         action_dim = 53
@@ -218,7 +218,7 @@ def evaluate_agent(
         
     gym_env = setup_gym_env(g2op_env_val, rewards_list, obs_tennet, actions_file=actions_file, env_name=env_name)
 
-    gym_env.action_space = load_action_space(env_name, g2op_env)
+    gym_env.action_space = load_action_space(env_name, g2op_env, actions_file)
     
     eval_rewards, eval_actions, eval_rho, eval_topo_vect, eval_action_timestamp, sub_ids, eval_topo_distance = [], [], [], [], [], [], []
     eval_done = False

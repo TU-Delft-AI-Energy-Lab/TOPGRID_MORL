@@ -90,9 +90,7 @@ class CustomGymEnv(GymEnv):
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
-            
             self.reconnect_line = []
-            
             if self.debug: 
                 print(g2op_act)
             

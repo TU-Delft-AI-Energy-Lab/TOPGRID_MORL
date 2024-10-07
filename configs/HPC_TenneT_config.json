@@ -6,13 +6,13 @@
         "id": 1,
         "log": true,
         "steps_per_iteration": 256,
-        "num_minibatches": 2,
-        "update_epochs": 15,
-        "learning_rate": 1e-3,
+        "num_minibatches": 4,
+        "update_epochs": 10,
+        "learning_rate": 5e-4,
         "gamma": 0.99,
         "anneal_lr": false,
         "clip_coef": 0.3,
-        "ent_coef": 0.04,
+        "ent_coef": 0.04, 
         "vf_coef": 0.5,
         "clip_vloss": true,
         "max_grad_norm": 0.5,
@@ -32,11 +32,11 @@
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 2048,
+    "max_gym_steps": 4094,
     "rewards": {
-        "first": "ScaledLinesCapacity",
-        "second": "ScaledL2RPN",
-        "third": "ScaledTopoDepth"
+        "first": "L2RPN",
+        "second": "TopoDepth",
+        "third": "TopoActionDay"
     }
 
 }
