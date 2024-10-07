@@ -149,7 +149,7 @@ class MOPPOTrainer:
             self.models[weight_key] = model
 
         eval_data_dict, test_data_dict = self.evaluate_model(model, rounded_weights)
-        #print(test_data_dict)
+        print(test_data_dict)
         return eval_data_dict, test_data_dict, model
 
     def evaluate_model(self, agent, weights):

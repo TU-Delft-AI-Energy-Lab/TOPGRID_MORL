@@ -425,7 +425,7 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
-        self.debug = True
+        self.debug = False
 
         self.training_rewards = []
         self.evaluation_rewards = []
@@ -532,8 +532,10 @@ class MOPPO(MOPolicy):
         """
         batch_size_collected = 0
         
+        #self.batch.__init__()
+        
         while batch_size_collected < self.batch_size:
-            
+            #print(batch_size_collected)
             with th.no_grad():
                 action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
@@ -566,10 +568,11 @@ class MOPPO(MOPolicy):
             
             if next_done:
                 # The episode has ended; reset the environment
-                reset_obs = self.env.reset(options={"max step": 28 * 288})
+                reset_obs = self.env.reset()
                 next_obs = th.tensor(reset_obs).to(self.device)
                 next_done= float(True)
-                print(f'reset env with {self.chronic_steps} and rewards {reward}')
+                if self.debug: 
+                    print(f'reset env with {self.chronic_steps} and rewards {reward}')
                 self.chronic_steps = 0
             
             # Update obs and done for the next iteration
@@ -689,8 +692,8 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
-        eval_done = False
-        eval_state = self.env_val.reset(options={"max step": 28 * 288})
+        #eval_done = False
+        #eval_state = self.env_val.reset(options={"max step": 28 * 288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
         if self.debug ==True: 
             print('in update')
@@ -732,7 +735,7 @@ class MOPPO(MOPolicy):
                     ]
                 if self.debug ==True: 
                     # Debug: Print policy and value loss info per minibatch
-                    print(f"Epoch: {epoch}, Batch Start: {start}, Batch End: {end}")
+                    print(f"Epoch: {epoch}, Batch Start: {start}, Batch End: {end}, Minibatchs_inds: {mb_inds}")
                     print(f"LogProbs Ratio: {ratio}")
                     print(f"Approx KL: {approx_kl}")
                     print(f"ClipFrac: {clipfracs[-1]}")
@@ -865,7 +868,7 @@ class MOPPO(MOPolicy):
             self.reward_list[0],
             self.reward_list[1],
         ]
-        state = self.env.reset(options={"max step": 28* 288})
+        state = self.env.reset()
         self.chronic_steps = 0
         obs = th.Tensor(state).to(self.device)
         done = 0
@@ -875,7 +878,7 @@ class MOPPO(MOPolicy):
         self.global_step = 0
         self.eval_counter = 0
         for trainings in range(num_trainings):
-            state = self.env.reset(options={"max step": 28 * 288})
+            state = self.env.reset()
             if self.debug ==True: 
                 print('Env Reset in Training Loop')
             self.chronic_steps = 0

@@ -266,13 +266,13 @@ if __name__ == "__main__":
         "--vf_coef", type=float, default=1.0, help="Value function coefficient"
     )
     parser.add_argument(
-        "--ent_coef", type=float, default=0.02, help="Entropy coefficient"
+        "--ent_coef", type=float, default=0.01, help="Entropy coefficient"
     )
     parser.add_argument(
-        "--clip_coef", type=float, default=0.2, help="Clip coefficient for PPO"
+        "--clip_coef", type=float, default=0.3, help="Clip coefficient for PPO"
     )
     parser.add_argument(
-        "--update_epochs", type=int, default=2, help="Number of update epochs for training"
+        "--update_epochs", type=int, default=10, help="Number of update epochs for training"
     )
     
     

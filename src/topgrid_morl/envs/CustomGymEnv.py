@@ -27,6 +27,7 @@ class CustomGymEnv(GymEnv):
         self.rho_threshold: float = safe_max_rho
         self.steps: int = 0
         self.eval = eval
+        self.debug=False
 
     def set_rewards(self, rewards_list: List[str]) -> None:
         """
@@ -60,6 +61,9 @@ class CustomGymEnv(GymEnv):
         self.steps = 0
         self.reconnect_line=[] #reset self.reconnect line in case of env.reset -> avoid cross episode contimination
         self.terminated_gym = False
+        if self.debug: 
+            print(f'chronic: {self.init_env.chronics_handler.get_name()}')
+            print(self.init_env.env_name)
     
         #print('in customGymEnv Reset')
         return self.observation_space.to_gym(g2op_obs)
@@ -83,26 +87,27 @@ class CustomGymEnv(GymEnv):
         tmp_steps = 0 
         g2op_act = self.action_space.from_gym(action)
         # Reconnect lines if necessary      
-        
-        #cum_reward = np.zeros(self.reward_dim)  # Initialize cumulative reward
-        #print(g2op_act)
         if self.reconnect_line:
             for line in self.reconnect_line:
                 g2op_act += line
+            
             self.reconnect_line = []
-            #print(action)
-            print(g2op_act)
+            
+            if self.debug: 
+                print(g2op_act)
             
         g2op_obs, reward1, done, info = self.init_env.step(action=g2op_act)
         reward = np.array(
                 [reward1] + [info["rewards"].get(reward, 0) for reward in self.rewards],
                  dtype=np.float64,
         )
-        print(reward)
-        print(info['rewards'])
-        print(g2op_obs.rho)
-        print(done)
-                #print(reward)
+        if self.debug: 
+            print(reward)
+            print(info['rewards'])
+            print(g2op_obs.rho)
+            print(done)
+        
+                
         self.steps += 1
         tmp_steps +=1 
         #cum_reward += tmp_reward   #line reco doesnt influence the rewards okay
@@ -138,6 +143,7 @@ class CustomGymEnv(GymEnv):
         can_be_reco = ~line_stat_s & (cooldown == 0)
         
         if can_be_reco.any():
+            
             self.reconnect_line = [
                 self.init_env.action_space({"set_line_status": [(id_, +1)]})
                 for id_ in (can_be_reco).nonzero()[0]
