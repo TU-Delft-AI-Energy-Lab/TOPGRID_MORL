@@ -58,7 +58,7 @@ class TopoDepthReward(BaseReward):
             float: The computed reward.
         """
         
-        if has_error or is_illegal or is_ambiguous:
+        if has_error or is_done:
             return self.reward_min
         
         idx = 0
@@ -780,8 +780,8 @@ class TopoActionReward(BaseReward):
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         self.calls +=1 
-        if has_error or is_illegal or is_ambiguous:
-            return -1  # Penalize for illegal or erroneous actions
+        if has_error or is_done:
+            return 0  # Penalize for illegal or erroneous actions
         """
         Compute the reward for the given action in the environment.
 
@@ -866,8 +866,11 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         self.calls +=1 
-        if has_error or is_illegal or is_ambiguous:
+        
+        if has_error or is_done:
+            self.calls = 0
             return self.reward_min  # Penalize for illegal or erroneous actions
+
         """
         Compute the reward for the given action in the environment.
 
@@ -1116,7 +1119,7 @@ class ScaledLinesCapacityReward(BaseReward):
 
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
-        if has_error or is_illegal or is_ambiguous:
+        if has_error or is_done:
             return self.reward_min
 
         obs = env.get_obs(_do_copy=False)
@@ -1176,14 +1179,14 @@ class L2RPNReward(BaseReward):
 
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
-        if has_error or is_illegal or is_ambiguous:
+        if has_error or is_done:
             return self.reward_min
         else:
             line_cap = self.__get_lines_capacity_usage(env)
             res = line_cap.sum()
-        # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
-        res = res/10000
-        return res
+            # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
+            res = res/1000
+            return res
 
 
     @staticmethod
