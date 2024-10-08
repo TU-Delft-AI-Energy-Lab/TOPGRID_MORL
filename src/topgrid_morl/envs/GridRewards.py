@@ -81,13 +81,15 @@ class TopoDepthReward(BaseReward):
             #print(topo_dist)
         
         if topo_dist == 0 : 
-            reward = 0.1
-        elif topo_dist <=1:
-            reward = -0.01
+            reward = 1
+        elif topo_dist <=5:
+            reward = -topo_dist**2
         else: 
-            reward = -1
+            reward = -50
         
-        return reward
+        norm_reward = reward/2000     
+        
+        return norm_reward
 
 class ScaledTopoDepthReward(BaseReward):
     """
@@ -857,7 +859,7 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
     def __init__(self, penalty_factor=10, logger=None):
         self.penalty_factor = penalty_factor
         self.calls =0
-        self.switchings_per_day = 0 
+        self.switchings_per_hour = 0 
         super().__init__(logger)
         self.reward_max = 1
         self.reward_min = 0
@@ -865,7 +867,7 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
         self.calls +=1 
         if has_error or is_illegal or is_ambiguous:
-            return -1  # Penalize for illegal or erroneous actions
+            return self.reward_min  # Penalize for illegal or erroneous actions
         """
         Compute the reward for the given action in the environment.
 
@@ -877,32 +879,35 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
         Returns:
         - reward (float): The computed reward value.
         """
-        
+        #print(self.calls)
         if self.calls >= 12:
-            self.switchings_per_day = 0
+            #self.__init__()
+            self.switchings_per_hour = 0
             self.calls = 0
-        
+            #print('one hour passed')
         
 
         action_dict = action.as_dict()
         if action_dict == {}:
             reward = 0.1  # no topo action
         else:
-            self.switchings_per_day+=1
+            self.switchings_per_hour+=1
+            #print(f'switching per hour {self.switchings_per_hour}')
             
-        if self.switchings_per_day ==0:
-            reward = 0.01
-        elif self.switchings_per_day<=1: 
+        if self.switchings_per_hour ==0:
+            reward = 0.1
+        elif self.switchings_per_hour==1: 
             reward = -1
-        elif self.switchings_per_day <=2:
-            reward = -2
-        elif self.switchings_per_day >2:
-            reward = -4
+        elif self.switchings_per_hour==2:
+            reward = -5
+        else:
+            reward = -10
 
-        
-        reward = reward #penalize if there is more switching actions per hour, as it is not desired. 
-        
-        return reward
+
+            
+        #penalize if there is more switching actions per hour, as it is not desired. 
+        norm_reward = reward/50
+        return norm_reward
 
 class ScaledTopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
@@ -1171,14 +1176,13 @@ class L2RPNReward(BaseReward):
 
 
     def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
-        if not is_done and not has_error:
+        if has_error or is_illegal or is_ambiguous:
+            return self.reward_min
+        else:
             line_cap = self.__get_lines_capacity_usage(env)
             res = line_cap.sum()
-        else:
-            # no more data to consider, no powerflow has been run, reward is what it is
-            res = self.reward_min
         # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
-        res = res/1000
+        res = res/10000
         return res
 
 

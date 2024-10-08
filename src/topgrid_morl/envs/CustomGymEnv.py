@@ -127,6 +127,7 @@ class CustomGymEnv(GymEnv):
             self.steps += 1
             tmp_steps +=1 
             reward += tmp_reward
+            #print('in safe state')
             
             
             
