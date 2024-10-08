@@ -5,8 +5,8 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 2048,
-        "num_minibatches": 8,
+        "steps_per_iteration": 1024,
+        "num_minibatches": 4,
         "update_epochs": 10,
         "learning_rate": 5e-5,
         "gamma": 0.999,
@@ -26,7 +26,7 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [256,512,256],
+        "net_arch": [256,256,256],
         "act_fct": "relu"
     },
     "weight_vectors": [
