@@ -366,6 +366,7 @@ class MOPPO(MOPolicy):
         seed: int = 42,
         generate_reward: bool = False,
         rng: Optional[np.random.Generator] = None,
+        anneal_clip_coef: bool = True,  # New parameter
     ) -> None:
         """
         Initialize the MOPPO agent.
@@ -426,6 +427,10 @@ class MOPPO(MOPolicy):
         self.log = log
         self.gae = gae
         self.debug = False
+        
+        self.anneal_clip_coef = anneal_clip_coef
+        self.clip_coef_initial = clip_coef
+        self.clip_coef_final = 0.1  # Target clip coefficientself.clip_coef_final = 0.1  # Target clip coefficient
 
         self.training_rewards = []
         self.evaluation_rewards = []
@@ -838,6 +843,7 @@ class MOPPO(MOPolicy):
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
+                    f"charts_{self.id}/clip_coef": self.clip_coef,
                     f"losses_{self.id}/policy_loss": pg_loss.item(),
                     f"losses_{self.id}/entropy": entropy_loss.item(),
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
@@ -862,6 +868,7 @@ class MOPPO(MOPolicy):
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
+        print(self.clip_coef)
         self.reward_list = reward_list
         self.reward_list_ext = [
             "L2RPN",
@@ -877,6 +884,7 @@ class MOPPO(MOPolicy):
         self.eval_step = 0
         self.global_step = 0
         self.eval_counter = 0
+        
         for trainings in range(num_trainings):
             state = self.env.reset()
             if self.debug ==True: 
@@ -898,5 +906,15 @@ class MOPPO(MOPolicy):
                 new_lr = self.learning_rate * frac
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
+            
+            # Anneal clip coefficient if required
+            if self.anneal_clip_coef:
+                frac = float((self.global_step / max_gym_steps))
+                self.clip_coef = self.clip_coef_initial - frac * (self.clip_coef_initial - self.clip_coef_final)
+                self.clip_coef = np.round(self.clip_coef,decimals=2)
+            
+
+            
+            
                     
           
