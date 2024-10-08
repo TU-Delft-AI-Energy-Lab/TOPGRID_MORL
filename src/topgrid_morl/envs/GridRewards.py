@@ -57,21 +57,37 @@ class TopoDepthReward(BaseReward):
         Returns:
             float: The computed reward.
         """
+        
         if has_error or is_illegal or is_ambiguous:
             return self.reward_min
-
-        # Get topology vector from the environment observation
-        obs: Observation = env.get_obs(_do_copy=False)
-        topo = obs.topo_vect
-
-        # Count the number of elements connected to busbar 2
-        busbar2 = np.sum(topo == 2)
-
-        # Calculate the reward, penalized by the number of elements connected to busbar 2
-        r = busbar2 / len(topo) * -self.penalize
-
-        return r
-
+        
+        idx = 0
+        topo_dist = 0
+        obs = env.get_obs(_do_copy=False)
+        for n_elems_on_sub in obs.sub_info:
+            #print(n_elems_on_sub)
+            # Find this substation elements range in topology vect
+            sub_start = idx
+            #print(sub_start)
+            sub_end = idx + n_elems_on_sub
+            current_sub_topo = obs.topo_vect[sub_start:sub_end]
+            #print(current_sub_topo)
+            # Count number of elements not on bus 1
+            # Because at the initial state, all elements are on bus 1
+            if np.any(current_sub_topo == 2):
+                topo_dist -=1
+            #print(topo_dist)
+            idx += n_elems_on_sub
+            #print(topo_dist)
+        
+        if topo_dist == 0 : 
+            reward = 0.1
+        elif topo_dist <=1:
+            reward = -0.01
+        else: 
+            reward = -1
+        
+        return reward
 
 class ScaledTopoDepthReward(BaseReward):
     """
@@ -834,6 +850,57 @@ class TopoActionDayReward(BaseReward):
 
         
         reward = reward #penalize if there is more switching actions per day, as it is not desired. 
+        
+        return reward
+    
+class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour makes more sense.
+    def __init__(self, penalty_factor=10, logger=None):
+        self.penalty_factor = penalty_factor
+        self.calls =0
+        self.switchings_per_day = 0 
+        super().__init__(logger)
+        self.reward_max = 1
+        self.reward_min = 0
+
+    def __call__(self, action, env, has_error, is_done, is_illegal, is_ambiguous):
+        self.calls +=1 
+        if has_error or is_illegal or is_ambiguous:
+            return -1  # Penalize for illegal or erroneous actions
+        """
+        Compute the reward for the given action in the environment.
+
+        Parameters:
+        - action (BaseAction): The action taken by the agent.
+        - env (BaseEnv): The environment object.
+        - kwargs: Additional arguments if needed.
+
+        Returns:
+        - reward (float): The computed reward value.
+        """
+        
+        if self.calls >= 12:
+            self.switchings_per_day = 0
+            self.calls = 0
+        
+        
+
+        action_dict = action.as_dict()
+        if action_dict == {}:
+            reward = 0.1  # no topo action
+        else:
+            self.switchings_per_day+=1
+            
+        if self.switchings_per_day ==0:
+            reward = 0.01
+        elif self.switchings_per_day<=1: 
+            reward = -1
+        elif self.switchings_per_day <=2:
+            reward = -2
+        elif self.switchings_per_day >2:
+            reward = -4
+
+        
+        reward = reward #penalize if there is more switching actions per hour, as it is not desired. 
         
         return reward
 
