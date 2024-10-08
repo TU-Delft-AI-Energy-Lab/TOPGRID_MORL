@@ -20,7 +20,7 @@ from topgrid_morl.agent.MO_BaselineAgents import (  # Import the DoNothingAgent 
 )
 from topgrid_morl.utils.MO_PPO_train_utils import initialize_agent
 from topgrid_morl.envs.EnvSetup import setup_environment
-from topgrid_morl.envs.GridRewards import L2RPNReward, EpisodeDurationReward, TopoActionDayReward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
+from topgrid_morl.envs.GridRewards import L2RPNReward, TopoActionHourReward, EpisodeDurationReward, TopoActionDayReward, ScaledEpisodeDurationReward, ScaledLinesCapacityReward, LinesCapacityReward
 from topgrid_morl.wrapper.ols_DOL import MOPPOTrainer
 
 # Recursive function to convert all numpy arrays to lists
