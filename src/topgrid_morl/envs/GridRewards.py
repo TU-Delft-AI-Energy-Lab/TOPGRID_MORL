@@ -87,7 +87,8 @@ class TopoDepthReward(BaseReward):
         else: 
             reward = -1
         
-        return reward
+        norm_reward = reward/20
+        return norm_reward
 
 class ScaledTopoDepthReward(BaseReward):
     """
@@ -900,9 +901,9 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
             reward = -4
 
         
-        reward = reward #penalize if there is more switching actions per hour, as it is not desired. 
+        norm_reward = reward/30 #penalize if there is more switching actions per hour, as it is not desired. 
         
-        return reward
+        return norm_reward
 
 class ScaledTopoActionReward(BaseReward):
     def __init__(self, penalty_factor=10, logger=None):
@@ -1178,7 +1179,7 @@ class L2RPNReward(BaseReward):
             # no more data to consider, no powerflow has been run, reward is what it is
             res = self.reward_min
         # print(f"\t env.backend.get_line_flow(): {env.backend.get_line_flow()}")
-        res = res/1000
+        res = res/10000
         return res
 
 
