@@ -167,7 +167,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<1:
+    while not ols.ended() and i<5:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
         trainer = MOPPOTrainer(
@@ -194,7 +194,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             **agent_params
         )
         eval_data, test_data, agent = trainer.run_single(weights=w)
-        #print(test_data)
+        print(test_data)
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
@@ -211,21 +211,38 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         agent_filename, weights_filename = save_agent(agent, w, dir_path, len(ccs_list) - 1)
         
         test_data_0 = test_data.get("test_data_0")
+        test_data_1 = test_data.get('test_data_1')
 
         # Convert the numpy arrays/tensors to lists
         test_data_0_conv = convert_ndarray_to_list(test_data_0)
-
+        test_data_1_conv = convert_ndarray_to_list(test_data_1)
+        
         # Add the converted data to ccs_data
         ccs_data.append({
             "weights": weights_array,
             "returns": mean_rewards_array,
             "agent_file": agent_filename,
             "weights_file": weights_filename,
-            "test_chronic": test_data_0_conv.get("eval_chronic"),
-            "test_rewards": test_data_0_conv.get("eval_rewards"),
-            "test_actions": test_data_0_conv.get("eval_actions"),
-            "test_states": test_data_0_conv.get("eval_states"),
-            "test_steps": test_data_0_conv.get("eval_steps"),
+            "test_chronic_0": {
+                "test_chronic": test_data_0_conv.get("eval_chronic"),
+                "test_rewards": test_data_0_conv.get("eval_rewards"),
+                "test_actions": test_data_0_conv.get("eval_actions"),
+                'test_action_timestamp': test_data_0_conv.get('eval_action_timestamp'),
+                'test_sub_ids': test_data_0_conv.get('sub_ids'),
+                'test_topo_distance': test_data_0_conv.get('eval_topo_distance'),
+                "test_states": test_data_0_conv.get("eval_states"),
+                "test_steps": test_data_0_conv.get("eval_steps"),
+            },
+            "test_chronic_1": {
+                "test_chronic": test_data_1_conv.get("eval_chronic"),
+                "test_rewards": test_data_1_conv.get("eval_rewards"),
+                "test_actions": test_data_1_conv.get("eval_actions"),
+                'test_action_timestamp': test_data_1_conv.get('eval_action_timestamp'),
+                'test_sub_ids': test_data_1_conv.get('sub_ids'),
+                'test_topo_distance': test_data_1_conv.get('eval_topo_distance'),
+                "test_states": test_data_1_conv.get("eval_states"),
+                "test_steps": test_data_1_conv.get("eval_steps")
+            }
         })
                 
         i+=1

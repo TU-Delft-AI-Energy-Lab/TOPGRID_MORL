@@ -13,6 +13,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.spatial.distance import pdist, squareform
 from topgrid_morl.utils.MORL_analysis_utils import create_action_to_substation_mapping
+import ast
+import matplotlib.cm as cm
 
 
 # ---- Utility Functions ----
@@ -314,8 +316,8 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
                     "weights": data_entry['weights'],
                     "returns": ccs_entry,
                     "agent_file": data_entry['agent_file'],
-                    "test_steps": data_entry["test_steps"],
-                    "test_actions": data_entry['test_actions']
+                    "test_chronic_0": data_entry['test_chronic_0'],
+                    "test_chronic_1": data_entry['test_chronic_1']
                 })
                 found_match = True
                 break  # Stop once a match is found
@@ -344,22 +346,39 @@ def process_data(seed_paths, wrapper):
         print(matching_entries)
         # Collect data for DataFrame
         for entry in matching_entries:
-            actions = entry['test_actions'] # Assuming test_actions is a list of actions
-            substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
+            chronic = entry['test_chronic_0']
+            
+            #actions = entry['test_actions'] # Assuming test_actions is a list of actions
+            #substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
 
             all_data.append({
-                "Weights": entry['weights'],
                 "Returns": entry['returns'],
-                "Test Steps": entry['test_steps'],
-                "Test Actions": entry['test_actions'],
-                "Substation": substations  # Add the substation to the data
+                "Weights": entry['weights'],
+                'test_chronic_0':{
+                    "Test Steps": entry['test_chronic_0']['test_steps'],
+                    "Test Actions": entry['test_chronic_0']['test_actions'],
+                    'Test Action Timestamp': entry['test_chronic_0']['test_action_timestamp'],
+                    "Test Sub Ids": entry['test_chronic_0']["test_sub_ids"],#
+                    "Test Topo Depth": entry['test_chronic_0']["test_topo_distance"]
+                    
+                    #"Substation": entry['test_chronic0']substations  # Add the substation to the data
+                } ,
+                'test_chronic_1': {
+                    "Test Steps": entry['test_chronic_1']['test_steps'],
+                    "Test Actions": entry['test_chronic_1']['test_actions'],
+                    'Test Action Timestamp': entry['test_chronic_1']['test_action_timestamp'],
+                    "Test Sub Ids": entry['test_chronic_1']["test_sub_ids"],#
+                    "Test Topo Depth": entry['test_chronic_1']["test_topo_distance"]
+                    #"Substation": entry['test_chronic0']substations  # Add the substation to the data
+                }
+                
             })
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
 
     if not df_ccs_matching.empty:
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
-        print(df_ccs_matching)
+        print(f'machting entries on ccs {df_ccs_matching}')
     # Call the function to calculate hypervolumes and sparsities and output the DataFrame
     df_metrics = calculate_hypervolumes_and_sparsities(seed_paths, wrapper)
     print(df_metrics)
@@ -367,6 +386,7 @@ def process_data(seed_paths, wrapper):
     plot_2d_projections_matplotlib(seed_paths, wrapper)   # Matplotlib-based visualization
     # Call the plotting functions
     #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
+    return df_ccs_matching
     
 
 
@@ -424,23 +444,23 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
         # X vs Y
         axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[0].set_xlabel('ScaledLinesCapacity')
-        axs[0].set_ylabel('ScaledL2RPN')
-        axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+        axs[0].set_xlabel('L2RPN')
+        axs[0].set_ylabel('TopoDepth')
+        axs[0].set_title('L2RPN vs TopoDepth')
 
         # X vs Z
         axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[1].set_xlabel('ScaledLinesCapacity')
-        axs[1].set_ylabel('ScaledTopoDepth')
-        axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+        axs[1].set_xlabel('L2RPN')
+        axs[1].set_ylabel('TopoAction')
+        axs[1].set_title('L2RPN vs TopoAction')
 
         # Y vs Z
         axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[2].set_xlabel('ScaledL2RPN')
-        axs[2].set_ylabel('ScaledTopoDepth')
-        axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+        axs[2].set_xlabel('TopoDepth')
+        axs[2].set_ylabel('TopoAction')
+        axs[2].set_title('TopoDepth vs TopoAction')
 
     # Calculate and plot the Pareto frontier for the superseed set
     superseed_pareto_xy, superseed_pareto_yy, _ = pareto_frontier_2d(all_x, all_y)
@@ -457,6 +477,7 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
 
     plt.tight_layout()
     plt.show()
+    
 def calculate_3d_hypervolume(pareto_points, reference_point):
     """Calculate the 3D hypervolume dominated by the Pareto frontier."""
     pareto_points = np.array(pareto_points)
@@ -916,25 +937,25 @@ def process_single_seed(seed_path):
     # Plot for X vs Y
     axs[0].scatter(x_all, y_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[0].set_xlabel('ScaledLinesCapacity')
-    axs[0].set_ylabel('ScaledL2RPN')
-    axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+    axs[0].set_xlabel('L2RPN')
+    axs[0].set_ylabel('TopoDepth Reward')
+    axs[0].set_title('x')
     axs[0].legend()
 
     # Plot for X vs Z
     axs[1].scatter(x_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[1].set_xlabel('ScaledLinesCapacity')
-    axs[1].set_ylabel('ScaledTopoDepth')
-    axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+    axs[1].set_xlabel('L2RPN')
+    axs[1].set_ylabel('TopoAction Reward')
+    axs[1].set_title('L2RPn vs Topo Action Reward')
     axs[1].legend()
 
     # Plot for Y vs Z
     axs[2].scatter(y_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[2].set_xlabel('ScaledL2RPN')
-    axs[2].set_ylabel('ScaledTopoDepth')
-    axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+    axs[2].set_xlabel('TopoDepth Reward')
+    axs[2].set_ylabel('TopoAction Reward')
+    axs[2].set_title('TopoDepth vs TopoAction')
     axs[2].legend()
 
     # Display the plots
@@ -977,11 +998,139 @@ def process_data_mc(mc_seed_path, wrapper):
     # Call the plotting functions
     #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
 
+
+
+# Define the function to process the CSV data
+# Define the function to process the CSV data
+# Define the function to process the CSV data
+# Define the function to process the CSV data
+def sub_id_process_and_plot(csv_path):
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Extract information from the test_chronic columns
+    df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
+    df['test_chronic_1'] = df['test_chronic_1'].apply(ast.literal_eval)
+    
+    # Initialize the plot
+    fig, ax = plt.subplots()
+    
+    # Generate colors for each Pareto point
+    colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
+
+    # Iterate through each row in the dataframe
+    for idx, row in df.iterrows():
+        color = colors[idx % len(colors)]
+        weights = row['Weights']
+        label = f"Pareto Point {idx+1}: Weights {weights}"
+        
+        # For each row, extract the timestamp and substation information from test_chronic_0 and test_chronic_1
+        for chronic in ['test_chronic_0', 'test_chronic_1']:
+            steps = row[chronic]['Test Steps']
+            actions = row[chronic]['Test Actions']
+            timestamps = list(map(float, row[chronic]['Test Action Timestamp']))
+            sub_ids = row[chronic]['Test Sub Ids']
+
+            # Different marker for each chronic
+            marker = 'o' if chronic == 'test_chronic_0' else 's'
+            chronic_label = f"{label} ({chronic})"
+
+            # Plot each action on the graph
+            for timestamp, sub_id, action in zip(timestamps, sub_ids, actions):
+                for sub in sub_id:
+                    if sub is not None:
+                        ax.plot(timestamp, int(sub), marker, color=color, label=chronic_label)
+                        chronic_label = ""  # Avoid repeated labels in legend
+
+    # Formatting the plot
+    ax.set_xlabel("Timestamp")
+    ax.set_ylabel("Substation ID Affected by Switching")
+    ax.set_title("Substation Modifications at Different Pareto Points")
+    handles, labels = ax.get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    ax.legend(by_label.values(), by_label.keys(), loc='upper left', bbox_to_anchor=(1.05, 1), fontsize='small')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+
+# Define the function to process the CSV data
+def topo_depth_process_and_plot(csv_path):
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Extract information from the test_chronic columns
+    df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
+    
+    # Initialize the plot with subplots for each Pareto point
+    fig, axes = plt.subplots(len(df), 1, figsize=(10, 5 * len(df)))
+    if len(df) == 1:
+        axes = [axes]
+    
+    # Generate colors for each Pareto point
+    colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
+
+    # Iterate through each row in the dataframe
+    for idx, (ax, row) in enumerate(zip(axes, df.iterrows())):
+        _, row = row
+        color = colors[idx % len(colors)]
+        weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
+        label = f"Pareto Point {idx+1}: Weights {weights}"
+        
+        # Extract the timestamp and topological depth information from test_chronic_0
+        chronic = 'test_chronic_0'
+        steps = row[chronic]['Test Steps']
+        actions = row[chronic]['Test Actions']
+        timestamps = [0.0] + list(map(float, row[chronic]['Test Action Timestamp']))
+        topo_depths = [0.0] + [0.0 if t is None else t for t in row[chronic]['Test Topo Depth']]
+
+        # Different marker for chronic_0
+        marker = 'o'
+        chronic_label = f"{label} ({chronic})"
+
+        # Plot each action on the graph and fill the area underneath
+        for i in range(len(timestamps) - 1):
+            if topo_depths[i] is not None and topo_depths[i + 1] is not None:
+                # Draw rectangular lines connecting the points starting from (0,0)
+                ax.plot([timestamps[i], timestamps[i + 1]],
+                        [topo_depths[i], topo_depths[i]],
+                        color=color, linestyle='-', linewidth=1)
+                ax.plot([timestamps[i + 1], timestamps[i + 1]],
+                        [topo_depths[i], topo_depths[i + 1]],
+                        color=color, linestyle='-', linewidth=1)
+                # Fill the area underneath the rectangular lines
+                ax.fill_between([timestamps[i], timestamps[i + 1]], 0, topo_depths[i],
+                                 color=color, alpha=0.3)
+
+        # Plot each action on the graph with markers
+        for j, (timestamp, topo_depth, action) in enumerate(zip(timestamps, topo_depths, actions)):
+            if topo_depth is not None:
+                if j == len(timestamps) - 1:
+                    # Mark the last point with a distinct edge color
+                    ax.plot(timestamp, topo_depth, marker, color=color, markeredgecolor='red', markersize=8, label=chronic_label)
+                else:
+                    ax.plot(timestamp, topo_depth, marker, color=color, label=chronic_label)
+                chronic_label = ""  # Avoid repeated labels in legend
+
+        # Formatting each subplot
+        ax.set_xlabel("Timestamp")
+        ax.set_ylabel("Topological Depth Affected by Switching")
+        ax.set_title(f"Topological Depth Modifications for Pareto Point {idx+1}")
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize='small')
+        ax.tick_params(axis='x', rotation=45)
+
+    plt.tight_layout()
+    plt.show()
+
+
+
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-10-09/['TopoDepth', 'TopoActionHour']"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [0,1,2,3,4]
+    seeds = [42]
     seed_folder = "seed_0"
     json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
@@ -999,10 +1148,12 @@ def main():
     print(df_3d_metrics_mc)
     
     print("Processing OLS Data...")
-    process_data(ols_seed_paths, 'ols')
-
-    print("Processing MC Data...")
-    process_data_mc(mc_seed_paths, 'mc')
+    #df_ccs_matching = process_data(ols_seed_paths, 'ols')
+    
+    sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
+    topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
+    #print("Processing MC Data...")
+    #process_data_mc(mc_seed_paths, 'mc')
 
 
 if __name__ == "__main__":
