@@ -26,17 +26,17 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [32,32],
+        "net_arch": [16,16],
         "act_fct": "relu"
     },
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 32,
+    "max_gym_steps": 16,
     "rewards": {
         "first": "L2RPN",
-        "second": "LinesCapacity",
-        "third": "ScaledLinesCapacity"
+        "second": "TopoDepth",
+        "third": "TopoActionHour"
     }
 
     

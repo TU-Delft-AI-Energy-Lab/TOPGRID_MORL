@@ -6,7 +6,7 @@ from collections import Counter
 from datetime import timedelta
 
 # Folder path containing the JSON files
-folder_path = r"final_logs\l2rpn_case14_sandbox_val\2024-09-23\['TopoActionDay', 'ScaledTopoDepth']\weights_1.00_0.00_0.00\seed_42"
+folder_path = r"final_logs\rte_case5_example_val\2024-10-08\['TopoDepth', 'TopoActionHour']\weights_1.00_0.00_0.00\seed_0"
 
 # Initialize storage for timestamps, topological distances, and substations
 timestamps = []

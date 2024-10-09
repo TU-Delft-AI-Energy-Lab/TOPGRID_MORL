@@ -424,23 +424,23 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
         # X vs Y
         axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[0].set_xlabel('ScaledLinesCapacity')
-        axs[0].set_ylabel('ScaledL2RPN')
-        axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+        axs[0].set_xlabel('L2RPN')
+        axs[0].set_ylabel('TopoDepth')
+        axs[0].set_title('L2RPN vs TopoDepth')
 
         # X vs Z
         axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[1].set_xlabel('ScaledLinesCapacity')
-        axs[1].set_ylabel('ScaledTopoDepth')
-        axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+        axs[1].set_xlabel('L2RPN')
+        axs[1].set_ylabel('TopoAction')
+        axs[1].set_title('L2RPN vs TopoAction')
 
         # Y vs Z
         axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
         axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[2].set_xlabel('ScaledL2RPN')
-        axs[2].set_ylabel('ScaledTopoDepth')
-        axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+        axs[2].set_xlabel('TopoDepth')
+        axs[2].set_ylabel('TopoAction')
+        axs[2].set_title('TopoDepth vs TopoAction')
 
     # Calculate and plot the Pareto frontier for the superseed set
     superseed_pareto_xy, superseed_pareto_yy, _ = pareto_frontier_2d(all_x, all_y)
@@ -916,25 +916,25 @@ def process_single_seed(seed_path):
     # Plot for X vs Y
     axs[0].scatter(x_all, y_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[0].set_xlabel('ScaledLinesCapacity')
-    axs[0].set_ylabel('ScaledL2RPN')
-    axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+    axs[0].set_xlabel('L2RPN')
+    axs[0].set_ylabel('TopoDepth Reward')
+    axs[0].set_title('x')
     axs[0].legend()
 
     # Plot for X vs Z
     axs[1].scatter(x_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[1].set_xlabel('ScaledLinesCapacity')
-    axs[1].set_ylabel('ScaledTopoDepth')
-    axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+    axs[1].set_xlabel('L2RPN')
+    axs[1].set_ylabel('TopoAction Reward')
+    axs[1].set_title('L2RPn vs Topo Action Reward')
     axs[1].legend()
 
     # Plot for Y vs Z
     axs[2].scatter(y_all, z_all, color=colors[0], alpha=0.3, label=f'Seed (Non-Pareto)')
     axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[0], marker='o', label=f'Seed (Pareto)')
-    axs[2].set_xlabel('ScaledL2RPN')
-    axs[2].set_ylabel('ScaledTopoDepth')
-    axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+    axs[2].set_xlabel('TopoDepth Reward')
+    axs[2].set_ylabel('TopoAction Reward')
+    axs[2].set_title('TopoDepth vs TopoAction')
     axs[2].legend()
 
     # Display the plots
@@ -979,9 +979,9 @@ def process_data_mc(mc_seed_path, wrapper):
 
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
+    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-10-08/['TopoDepth', 'TopoActionHour']"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [0,1,2,3,4]
+    seeds = [0]
     seed_folder = "seed_0"
     json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]

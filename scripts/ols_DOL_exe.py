@@ -167,7 +167,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<1:
+    while not ols.ended() and i<3:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
         trainer = MOPPOTrainer(
@@ -209,11 +209,17 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         ccs_list.append(ccs)  # ccs should already be a list
         # Save the agent and corresponding weights for each CCS entry
         agent_filename, weights_filename = save_agent(agent, w, dir_path, len(ccs_list) - 1)
-        
+        print(f"test data: {test_data}")
         test_data_0 = test_data.get("test_data_0")
 
         # Convert the numpy arrays/tensors to lists
         test_data_0_conv = convert_ndarray_to_list(test_data_0)
+        
+        test_data_1 = test_data.get('test_data_1')
+    
+        # Convert the numpy arrays/tensors to lists
+        test_data_0_conv = convert_ndarray_to_list(test_data_0)
+        test_data_1_conv = convert_ndarray_to_list(test_data_1)
 
         # Add the converted data to ccs_data
         ccs_data.append({
@@ -221,13 +227,22 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             "returns": mean_rewards_array,
             "agent_file": agent_filename,
             "weights_file": weights_filename,
-            "test_chronic": test_data_0_conv.get("eval_chronic"),
-            "test_rewards": test_data_0_conv.get("eval_rewards"),
-            "test_actions": test_data_0_conv.get("eval_actions"),
-            "test_states": test_data_0_conv.get("eval_states"),
-            "test_steps": test_data_0_conv.get("eval_steps"),
-        })
-                
+            "test_chronic0": {
+                "eval_chronic": test_data_0_conv.get("eval_chronic"),
+                "eval_rewards": test_data_0_conv.get("eval_rewards"),
+                "eval_actions": test_data_0_conv.get("eval_actions"),
+                "eval_states": test_data_0_conv.get("eval_states"),
+                "eval_steps": test_data_0_conv.get("eval_steps")
+            },
+            "test_chronic1": {
+                "eval_chronic": test_data_1_conv.get("eval_chronic"),
+                "eval_rewards": test_data_1_conv.get("eval_rewards"),
+                "eval_actions": test_data_1_conv.get("eval_actions"),
+                "eval_states": test_data_1_conv.get("eval_states"),
+                "eval_steps": test_data_1_conv.get("eval_steps")
+            },
+            
+        })          
         i+=1
         
     # Ensure all numpy arrays are converted to lists
