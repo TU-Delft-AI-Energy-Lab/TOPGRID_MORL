@@ -1124,8 +1124,55 @@ def topo_depth_process_and_plot(csv_path):
     plt.tight_layout()
     plt.show()
 
+# Define the function to analyze Pareto frontier values
+def analyse_pf_values(csv_path):
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Extract information from the test_chronic columns
+    df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
+    
+    results = []
+    
+    # Iterate through each row in the dataframe
+    for idx, row in df.iterrows():
+        # Extract information from test_chronic_0
+        chronic = 'test_chronic_0'
+        steps = row[chronic]['Test Steps']
+        actions = row[chronic]['Test Actions']
+        sub_ids = row[chronic]['Test Sub Ids']
 
+        # Calculate average steps
+        avg_steps = steps / len(actions) if len(actions) > 0 else 0
 
+        # Count the frequency of actions
+        action_counts = {action: actions.count(action) for action in set(actions)}
+
+        # Count the frequency of substation modifications
+        substation_counts = {}
+        for sub_id_list in sub_ids:
+            for sub_id in sub_id_list:
+                if sub_id is not None:
+                    if sub_id not in substation_counts:
+                        substation_counts[sub_id] = 0
+                    substation_counts[sub_id] += 1
+
+        # Extract and round weights
+        weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
+
+        # Store the results for the current Pareto point
+        results.append({
+            'Pareto Point': idx + 1,
+            'Average Steps': avg_steps,
+            'Action Counts': action_counts,
+            'Substation Modification Counts': substation_counts,
+            'Weights': weights
+        })
+    
+    # Print the results
+    for result in results:
+        print(f"Pareto Point {result['Pareto Point']}:\n Weights: {result['Weights']} \n Average Steps: {result['Average Steps']} \n Action Counts: {result['Action Counts']} \n Substation Modification Counts: {result['Substation Modification Counts']}")
+        
 # ---- Main Function ----
 def main():
     ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-10-09/['TopoDepth', 'TopoActionHour']"
@@ -1149,7 +1196,7 @@ def main():
     
     print("Processing OLS Data...")
     #df_ccs_matching = process_data(ols_seed_paths, 'ols')
-    
+    analyse_pf_values(csv_path='ccs_matching_data.csv')
     sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
     topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
     #print("Processing MC Data...")
