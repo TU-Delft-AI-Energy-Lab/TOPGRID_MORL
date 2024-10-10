@@ -548,13 +548,14 @@ class MOPPO(MOPolicy):
             next_obs, reward, next_done, info, terminated_gym = self.env.step(action.item())
             self.global_step += 1
 
-            reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
+            #clip reward
+            clipped_reward = th.tensor(np.clip(reward, 0, 10)).to(self.device).view(self.networks.reward_dim)
             next_done = float(next_done)
 
             # Add the current transition to the batch (since the episode is ongoing)
             
             
-            self.batch.add(obs, action, logprob, reward, done, value)
+            self.batch.add(obs, action, logprob, clipped_reward, done, value)
                 
                 
             batch_size_collected += 1
@@ -563,7 +564,7 @@ class MOPPO(MOPolicy):
 
             # Log the training reward for each step
             log_data = {
-                f"train/reward_{self.reward_list_ext[i]}": reward[i].item()
+                f"train/reward_{self.reward_list_ext[i]}": clipped_reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
             log_data[f"train/grid2opsteps"] = self.chronic_steps
