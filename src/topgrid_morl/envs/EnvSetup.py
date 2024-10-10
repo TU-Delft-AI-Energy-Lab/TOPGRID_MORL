@@ -5,10 +5,10 @@ from typing import Any, List, Tuple
 import gymnasium as gym
 
 import grid2op
-from grid2op.Action import BaseAction
+from grid2op.Action import BaseAction, PowerlineSetAction
 from grid2op.gym_compat import BoxGymObsSpace, DiscreteActSpace, GymEnv
 from grid2op.Reward import EpisodeDurationReward, LinesCapacityReward
-from grid2op.Opponent import RandomLineOpponent  # Import the desired opponent class
+from grid2op.Opponent import RandomLineOpponent, BaseActionBudget # Import the desired opponent class
 from gymnasium.spaces import Discrete
 from lightsim2grid import LightSimBackend
 
@@ -43,28 +43,50 @@ def setup_environment(
     rewards_list: List[str] = ["TopoActionDay", "ScaledTopoDepth"],
     actions_file: str = 'tennet_actions.json',
     env_type: str = '_train',
-    max_rho: float = 0.95
-    #use_opponent: bool = True,  # Enable opponent
-    #opponent_class=RandomLineOpponent,  # Default opponent class
-    #opponent_kwargs: dict = None,  # Parameters for opponent
-    #line_names_to_attack: List[str] = None  # List of lines opponent can attack
-) -> Tuple[GymEnv, Tuple[int], int, int]:
+    max_rho: float = 0.95,
+    use_opponent: bool = False
+    ) -> Tuple[GymEnv, Tuple[int], int, int]:
     """
     Sets up the Grid2Op environment with the specified rewards, opponent,
     and returns the Gym-compatible environment and reward dim.
     """
     
+    
     print(rewards_list)
     # Create environment
-    g2op_env = grid2op.make(
-        env_name + env_type,
-        test=test,
-        backend=LightSimBackend(),
-        reward_class=first_reward,
-        other_rewards={
+    # Initialize the base keyword arguments
+    kwargs = {
+        'test': test,
+        'backend': LightSimBackend(),
+        'reward_class': first_reward,
+        'other_rewards': {
             reward_name: globals()[reward_name + "Reward"]
             for reward_name in rewards_list
         }
+    }
+
+    # Conditionally add opponent parameters
+    if use_opponent:
+        kwargs.update({
+            'opponent_attack_cooldown': 144,  # Max 2 attacks per day
+            'opponent_attack_duration': 48,   # 4 hours in a day
+            'opponent_budget_per_ts': 0.333343333333,  # Taken from Blazej
+            'opponent_init_budget': 144,
+            'opponent_action_class': PowerlineSetAction,
+            'opponent_class': RandomLineOpponent,
+            'opponent_budget_class': BaseActionBudget,
+            'kwargs_opponent': {
+                "lines_attacked": [
+                    '0_3_2',
+                    '0_4_3'
+                ]
+            }
+        })
+
+    # Now call the function with the combined arguments
+    g2op_env = grid2op.make(
+        env_name + env_type,
+        **kwargs
     )
 
     g2op_env.seed(seed=seed)

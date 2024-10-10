@@ -90,6 +90,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     ols_iterations = config['ols_iterations']
     reuse = config['reuse']
     case_study = config['case_study']
+    use_opponent = config['use_opponent']
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
     
@@ -111,7 +112,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         "env_params": env_params,
         "network_params": network_params,
         "reuse": reuse,
-        "rewards": rewards
+        "rewards": rewards,
+        "use_opponent": use_opponent
     }
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
@@ -131,7 +133,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         first_reward=L2RPNReward,
         rewards_list=reward_list,
         actions_file=actions_file,
-        max_rho=max_rho
+        max_rho=max_rho,
+        use_opponent=use_opponent
     )
 
     gym_env_val, _, _, _, g2op_env_val = setup_environment(
@@ -143,7 +146,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_val",
-        max_rho=max_rho
+        max_rho=max_rho, 
+        use_opponent=use_opponent
     )
     
     gym_env_test, _, _, _, g2op_env_test = setup_environment(
@@ -155,7 +159,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         rewards_list=reward_list,
         actions_file=actions_file,
         env_type="_test",
-        max_rho=max_rho
+        max_rho=max_rho,
+        use_opponent=use_opponent
     )
     print(agent_params)
     # Reset the environment to verify dimensions
@@ -181,6 +186,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         f"{current_date}",
         f"{reward_list}",
         f"re_{reuse}",
+        f"op_{use_opponent}",
         f"rho_{max_rho}",
     )
     os.makedirs(dir_path, exist_ok=True)
