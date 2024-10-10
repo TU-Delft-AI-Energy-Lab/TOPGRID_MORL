@@ -15,6 +15,7 @@ from scipy.spatial.distance import pdist, squareform
 from topgrid_morl.utils.MORL_analysis_utils import create_action_to_substation_mapping
 import ast
 import matplotlib.cm as cm
+import datetime
 
 
 # ---- Utility Functions ----
@@ -328,7 +329,7 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
 def process_data(seed_paths, wrapper):
     """Processes the data for all seeds and generates the 3D and 2D plots."""
     all_data = []
-    
+    config_params = None
     # Create the action-to-substation mapping using the gym environment
     action_to_substation_mapping = create_action_to_substation_mapping()
 
@@ -338,6 +339,17 @@ def process_data(seed_paths, wrapper):
             continue
 
         data = load_json_data(seed_path)
+        
+        # Extract config parameters from the first seed_path
+        if config_params is None:
+            config = data.get('config', {})
+            config_params = {
+                'case_study': config.get('case_study', 'unknown'),
+                'config_name': config.get('config_name', 'unknown'),
+                'project_name': config.get('project_name', 'unknown'),
+                'rewards': [config.get('rewards', {}).get('second', 'unknown'), config.get('rewards', {}).get('third', 'unknown')],
+                'reuse': config.get('reuse', 'none')
+            }
         ccs_list = data['ccs_list'][-1]
         if wrapper == 'mc':
             ccs_list = data['ccs_list']
@@ -375,6 +387,27 @@ def process_data(seed_paths, wrapper):
             })
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
+    
+    if not df_ccs_matching.empty:
+        # Construct the directory path based on the config parameters
+        base_path = os.path.join(
+            "morl_logs",
+            config_params['case_study'],
+            config_params['config_name'],
+            config_params['project_name'],
+            datetime.date.today().strftime('%Y-%m-%d'),
+            str(config_params['rewards']),
+            f"re_{config_params['reuse']}"
+        )
+
+        # Create the directory if it doesn't exist
+        if not os.path.exists(base_path):
+            os.makedirs(base_path)
+            print(f"Created directory: {base_path}")
+
+        # Save the DataFrame to the constructed path
+        csv_file_path = os.path.join(base_path, "ccs_matching_data.csv")
+        df_ccs_matching.to_csv(csv_file_path, index=False)
 
     if not df_ccs_matching.empty:
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
@@ -1198,7 +1231,7 @@ def main():
     print(df_3d_metrics_mc)
     
     print("Processing OLS Data...")
-    #df_ccs_matching = process_data(ols_seed_paths, 'ols')
+    df_ccs_matching = process_data(ols_seed_paths, 'ols')
     analyse_pf_values(csv_path='ccs_matching_data.csv')
     sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
     topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
