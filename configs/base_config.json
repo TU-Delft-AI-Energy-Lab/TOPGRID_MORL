@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 128,
+        "steps_per_iteration": 8,
         "num_minibatches": 4,
         "update_epochs": 2,
         "learning_rate": 5e-4,
@@ -26,17 +26,21 @@
         "max_rho": 0.95
     }, 
     "network_params":{
-        "net_arch": [32,32],
+        "net_arch": [16,16],
         "act_fct": "relu"
     },
+    "reuse": "partial",
+    "ols_iterations": 2,
+    "case_study": "default", 
+
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 512,
+    "max_gym_steps": 16,
     "rewards": {
         "first": "L2RPN",
-        "second": "TopoActionHour",
-        "third": "TopoDepth"
+        "second": "TopoDepth",
+        "third": "TopoActionHour"
     }
 
     

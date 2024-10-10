@@ -87,6 +87,9 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     max_rho = env_params["max_rho"]
     network_params = config["network_params"]
     net_arch = network_params["net_arch"]
+    ols_iterations = config['ols_iterations']
+    reuse = config['reuse']
+    case_study = config['case_study']
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
     
@@ -96,8 +99,20 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     agent_params["ent_coef"] = ent_coef
     agent_params["clip_coef"] = clip_coef  # Adjust the clipping coefficient
     agent_params["update_epochs"] = update_epochs  # Set the number of epochs
-    
     agent_params["log"] = True
+    
+    
+    config_data = {
+        "config_name": config_name,
+        "case_study": case_study,
+        "project_name": project_name,
+        "agent_params": agent_params,
+        "max_gym_steps": max_gym_steps,
+        "env_params": env_params,
+        "network_params": network_params,
+        "reuse": reuse,
+        "rewards": rewards
+    }
     # Step 1: Setup Environment
     if env_name == "rte_case5_example":
         results_dir = "training_results_5bus_4094"
@@ -155,19 +170,22 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     values = []
     ccs_list = []
 
+   
     # Initialize the necessary directories
     current_date = datetime.now().strftime("%Y-%m-%d")
     dir_path = os.path.join(
         "morl_logs",
+        case_study,
         "OLS",
         env_name,
         f"{current_date}",
         f"{reward_list}",
-        f"seed_{seed}",
+        f"re_{reuse}",
+        f"rho_{max_rho}",
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<5:
+    while not ols.ended() and i<ols_iterations:
         w = ols.next_weight(algo='ols')
         print(f"this weights will be given to the MOPPO: {w}")
         trainer = MOPPOTrainer(
@@ -188,7 +206,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             g2op_env_val=g2op_env_val,
             g2op_env_test=g2op_env_test,
             reward_list=reward_list,
-            reuse="partial",
+            reuse=reuse,
             network_params=network_params, 
             env_params = env_params,
             **agent_params
@@ -251,13 +269,16 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
     ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
 
+    
+    
     data_dict = {
+        'config': config_data,
         "ccs_data": ccs_data,
         "values": values,  # Already converted to lists
         "ccs_list": ccs_list  # Already converted to lists
     } 
     
-    filename = f"morl_logs_ols{seed}.json"
+    filename = f"morl_logs_seed_{seed}.json"
     filepath = os.path.join(dir_path, filename)
     
     with open(filepath, "w") as json_file:
@@ -267,7 +288,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run experiment with specific seed and weights"
     )
-    parser.add_argument("--seed", type=int, default=42, help="Seed for the experiment")
+    parser.add_argument("--seed", type=int, default=0, help="Seed for the experiment")
     parser.add_argument(
         "--config",
         type=str,

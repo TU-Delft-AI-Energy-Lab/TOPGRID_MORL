@@ -988,7 +988,9 @@ def process_data_mc(mc_seed_path, wrapper):
         })
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
-
+    
+    
+    
     if not df_ccs_matching.empty:
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
         print(df_ccs_matching)
@@ -1063,7 +1065,8 @@ def topo_depth_process_and_plot(csv_path):
     df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
     
     # Initialize the plot with subplots for each Pareto point
-    fig, axes = plt.subplots(len(df), 1, figsize=(10, 5 * len(df)))
+    fig, axes = plt.subplots(len(df), 1, figsize=(12, 6 * len(df)))
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, hspace=0.4)
     if len(df) == 1:
         axes = [axes]
     
@@ -1175,12 +1178,12 @@ def analyse_pf_values(csv_path):
         
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/OLS/rte_case5_example/2024-10-09/['TopoDepth', 'TopoActionHour']"
+    ols_base_path = r"morl_logs/default/OLS/rte_case5_example/2024-10-10/['TopoDepth', 'TopoActionHour']/re_partial/rho_0.95"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [42]
+    seeds = [0]
     seed_folder = "seed_0"
     json_filename = "morl_logs_mc0.json"
-    ols_seed_paths = [os.path.join(ols_base_path, f'seed_{seed}', f'morl_logs_ols{seed}.json') for seed in seeds]
+    ols_seed_paths = [os.path.join(ols_base_path, f'morl_logs_seed_{seed}.json') for seed in seeds]
     mc_seed_paths = os.path.join(mc_base_path, seed_folder, json_filename) 
     if not os.path.exists(mc_seed_paths):
         raise FileNotFoundError(f"MC file not found at path: {mc_seed_paths}")
