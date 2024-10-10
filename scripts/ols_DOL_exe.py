@@ -185,10 +185,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    while not ols.ended() and i<ols_iterations:
-        w = ols.next_weight(algo='ols')
-        print(f"this weights will be given to the MOPPO: {w}")
-        trainer = MOPPOTrainer(
+    trainer = MOPPOTrainer(
             iterations=5,
             max_gym_steps=max_gym_steps,
             seed=seed,
@@ -211,8 +208,12 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             env_params = env_params,
             **agent_params
         )
+    while not ols.ended() and i<ols_iterations:
+        w = ols.next_weight(algo='ols')
+        print(f"this weights will be given to the MOPPO: {w}")
+        
         eval_data, test_data, agent = trainer.run_single(weights=w)
-        print(test_data)
+        #print(test_data)
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
         eval_rewards_2 = np.array(sum_rewards(eval_data['eval_data_1']['eval_rewards']))
@@ -223,6 +224,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         mean_rewards_array = mean_rewards.tolist()
 
         removed_inds, ccs = ols.add_solution(mean_rewards_array, w)
+        
         values.append(mean_rewards_array)
         ccs_list.append(ccs)  # ccs should already be a list
         # Save the agent and corresponding weights for each CCS entry

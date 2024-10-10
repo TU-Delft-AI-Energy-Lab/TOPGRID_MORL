@@ -306,6 +306,41 @@ class MOPPONet(nn.Module):
             action = probs.sample()
         return action, probs.log_prob(action), probs.entropy(), self.critic(obs)
 
+    def reinitialize_last_layer(self):
+        """
+        Reinitialize the last layers of the actor and critic networks.
+        """
+        # Reinitialize last layer of critic
+        last_critic_layer = self.get_last_linear_layer(self.critic)
+        if last_critic_layer is not None:
+            _critic_init(last_critic_layer)
+            print("Critic's last layer reinitialized.")
+        else:
+            print("No linear layer found in critic network.")
+
+        # Reinitialize last layer of actor
+        last_actor_layer = self.get_last_linear_layer(self.actor)
+        if last_actor_layer is not None:
+            _value_init(last_actor_layer)
+            print("Actor's last layer reinitialized.")
+        else:
+            print("No linear layer found in actor network.")
+
+    def get_last_linear_layer(self, network):
+        """
+        Helper method to get the last nn.Linear layer in a network.
+
+        Args:
+            network (nn.Module): The neural network module to search.
+
+        Returns:
+            nn.Linear or None: The last linear layer if found, else None.
+        """
+        last_linear = None
+        for layer in network.modules():
+            if isinstance(layer, nn.Linear):
+                last_linear = layer
+        return last_linear
 
 class MOPPO(MOPolicy):
     """
@@ -366,6 +401,7 @@ class MOPPO(MOPolicy):
         seed: int = 42,
         generate_reward: bool = False,
         rng: Optional[np.random.Generator] = None,
+        anneal_clip_coef: bool = True,  # New parameter
     ) -> None:
         """
         Initialize the MOPPO agent.
@@ -426,6 +462,10 @@ class MOPPO(MOPolicy):
         self.log = log
         self.gae = gae
         self.debug = False
+        
+        self.anneal_clip_coef = anneal_clip_coef
+        self.clip_coef_initial = clip_coef
+        self.clip_coef_final = 0.1  # Target clip coefficientself.clip_coef_final = 0.1  # Target clip coefficient
 
         self.training_rewards = []
         self.evaluation_rewards = []
@@ -838,6 +878,7 @@ class MOPPO(MOPolicy):
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
+                    f"charts_{self.id}/clip_coef": self.clip_coef,
                     f"losses_{self.id}/policy_loss": pg_loss.item(),
                     f"losses_{self.id}/entropy": entropy_loss.item(),
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
@@ -862,6 +903,7 @@ class MOPPO(MOPolicy):
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
+        print(self.clip_coef)
         self.reward_list = reward_list
         self.reward_list_ext = [
             "L2RPN",
@@ -877,6 +919,7 @@ class MOPPO(MOPolicy):
         self.eval_step = 0
         self.global_step = 0
         self.eval_counter = 0
+        
         for trainings in range(num_trainings):
             state = self.env.reset()
             if self.debug ==True: 
@@ -898,5 +941,15 @@ class MOPPO(MOPolicy):
                 new_lr = self.learning_rate * frac
                 for param_group in self.optimizer.param_groups:
                     param_group["lr"] = new_lr
+            
+            # Anneal clip coefficient if required
+            if self.anneal_clip_coef:
+                frac = float((self.global_step / max_gym_steps))
+                self.clip_coef = self.clip_coef_initial - frac * (self.clip_coef_initial - self.clip_coef_final)
+                self.clip_coef = np.round(self.clip_coef,decimals=2)
+            
+
+            
+            
                     
           

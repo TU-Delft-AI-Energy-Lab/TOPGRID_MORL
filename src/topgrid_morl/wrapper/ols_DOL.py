@@ -66,6 +66,7 @@ class MOPPOTrainer:
         self.np_random = np.random.RandomState(seed)
         self.weight_range = [0, 1]  # Default range for weights
         self.num_samples = len(self.agent_params.get('weight_vectors', [[1, 0, 0]]))  # Default number of weight vectors
+        self.iterations = 0
 
     def run(self):
         weight_vectors = self.agent_params.get('weight_vectors', [self.sample_weights() for _ in range(self.num_samples)])
@@ -89,22 +90,50 @@ class MOPPOTrainer:
         """
         Initialize or reuse a model based on the reuse strategy specified.
         """
+        print('initializing model')
+        eps = 1e-6  # Epsilon to handle rounding errors
         weight_key = tuple(weights)
 
-        if self.reuse == "none" or weight_key not in self.models:
+        if self.reuse == "none" or not self.models:
             # No reuse or no existing model for the given weights
             model = initialize_agent(
                 self.env, self.env_val, self.g2op_env, self.g2op_env_val, 
                 weights, self.obs_dim, self.action_dim, self.reward_dim, 
                 self.net_arch, self.seed, self.generate_reward, **self.agent_params
             )
+            print('no reuse')
         else:
-            # Reuse nearest model
-            model = self.models[weight_key]
-            if self.reuse == "partial":
-                model.reinitialize_last_layer()  # Reinitialize only the last layer if partial reuse
+            # Find the model with the closest weight vector, excluding extrema weight vectors
+            valid_keys = [k for k in self.models.keys() if np.linalg.norm(np.array(k) - np.array([1, 0, 0])) > eps and np.linalg.norm(np.array(k) - np.array([0, 1, 0])) > eps and np.linalg.norm(np.array(k) - np.array([0, 0, 1])) > eps]
+            if not valid_keys:
+                # If no valid models exist, initialize a new agent
+                model = initialize_agent(
+                    self.env, self.env_val, self.g2op_env, self.g2op_env_val, 
+                    weights, self.obs_dim, self.action_dim, self.reward_dim, 
+                    self.net_arch, self.seed, self.generate_reward, **self.agent_params
+                )
+                print('no valid weight vectors to copy model')
+            else:
+                closest_weight_key = min(
+                    valid_keys,
+                    key=lambda k: np.linalg.norm(np.array(k) - np.array(weights))
+                )
+                closest_model = self.models[closest_weight_key]
+                model = initialize_agent(
+                    self.env, self.env_val, self.g2op_env, self.g2op_env_val, 
+                    weights, self.obs_dim, self.action_dim, self.reward_dim, 
+                    self.net_arch, self.seed, self.generate_reward, **self.agent_params
+                )
+                # Copy the parameters from the closest model's network
+                model.networks.load_state_dict(closest_model.networks.state_dict())
+                print(f"For {weights} copied model parameters of {closest_weight_key}")
+                
+                if self.reuse == "partial":
+                    model.networks.reinitialize_last_layer()  # Reinitialize only the last layer if partial reuse
+                    print('last layer initialized randomly')
 
         return model
+
 
     def run_single(self, weights: np.array):
         """
@@ -145,11 +174,13 @@ class MOPPOTrainer:
 
         # Save the trained model for future reuse if applicable
         weight_key = tuple(rounded_weights)
-        if self.reuse != "none":
-            self.models[weight_key] = model
+        self.models[weight_key] = model
+        print(f'saved models: {self.models}')
 
         eval_data_dict, test_data_dict = self.evaluate_model(model, rounded_weights)
-        print(test_data_dict)
+        
+        self.iterations +=1
+        #print(test_data_dict)
         return eval_data_dict, test_data_dict, model
 
     def evaluate_model(self, agent, weights):

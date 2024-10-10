@@ -30,7 +30,7 @@
         "act_fct": "relu"
     },
     "reuse": "partial",
-    "ols_iterations": 2,
+    "ols_iterations": 7,
     "case_study": "default", 
 
     "weight_vectors": [
