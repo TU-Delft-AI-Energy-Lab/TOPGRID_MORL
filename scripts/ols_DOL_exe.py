@@ -101,12 +101,14 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     agent_params["clip_coef"] = clip_coef  # Adjust the clipping coefficient
     agent_params["update_epochs"] = update_epochs  # Set the number of epochs
     agent_params["log"] = True
+    seed = seed
     
     
     config_data = {
         "config_name": config_name,
         "case_study": case_study,
         "project_name": project_name,
+        "seed":seed,
         "agent_params": agent_params,
         "max_gym_steps": max_gym_steps,
         "env_params": env_params,
@@ -245,6 +247,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         
         # Add the converted data to ccs_data
         ccs_data.append({
+            
             "weights": weights_array,
             "returns": mean_rewards_array,
             "agent_file": agent_filename,

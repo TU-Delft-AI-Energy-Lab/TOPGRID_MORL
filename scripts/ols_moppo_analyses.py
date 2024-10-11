@@ -314,6 +314,7 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
             returns_array = np.array(data_entry['returns'])
             if np.allclose(ccs_entry_array, returns_array, atol=1e-3):
                 matching_entries.append({
+                    
                     "weights": data_entry['weights'],
                     "returns": ccs_entry,
                     "agent_file": data_entry['agent_file'],
@@ -332,7 +333,7 @@ def process_data(seed_paths, wrapper):
     config_params = None
     # Create the action-to-substation mapping using the gym environment
     action_to_substation_mapping = create_action_to_substation_mapping()
-
+    seed = 0 
     for seed_path in seed_paths:
         if not os.path.exists(seed_path):
             print(f"File not found: {seed_path}")
@@ -347,6 +348,7 @@ def process_data(seed_paths, wrapper):
                 'case_study': config.get('case_study', 'unknown'),
                 'config_name': config.get('config_name', 'unknown'),
                 'project_name': config.get('project_name', 'unknown'),
+                'seed': config.get('seed', 'unknwon'),
                 'rewards': [config.get('rewards', {}).get('second', 'unknown'), config.get('rewards', {}).get('third', 'unknown')],
                 'reuse': config.get('reuse', 'none')
             }
@@ -364,6 +366,7 @@ def process_data(seed_paths, wrapper):
             #substations = [action_to_substation_mapping.get(action, 'Unknown') for action in actions]# Get substation based on action
 
             all_data.append({
+                "seed": seed, 
                 "Returns": entry['returns'],
                 "Weights": entry['weights'],
                 'test_chronic_0':{
@@ -385,6 +388,7 @@ def process_data(seed_paths, wrapper):
                 }
                 
             })
+        seed+=1
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
     
@@ -1169,11 +1173,12 @@ def analyse_pf_values(csv_path):
     df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
     
     results = []
-    
+    seed = 0
     # Iterate through each row in the dataframe
     for idx, row in df.iterrows():
         # Extract information from test_chronic_0
         chronic = 'test_chronic_0'
+        seed = row['seed']
         steps = row[chronic]['Test Steps']
         actions = row[chronic]['Test Actions']
         sub_ids = row[chronic]['Test Sub Ids']
@@ -1198,6 +1203,7 @@ def analyse_pf_values(csv_path):
 
         # Store the results for the current Pareto point
         results.append({
+            'seed': seed,
             'Pareto Point': idx + 1,
             'Average Steps': avg_steps,
             'Action Counts': action_counts,
@@ -1207,11 +1213,177 @@ def analyse_pf_values(csv_path):
     
     # Print the results
     for result in results:
-        print(f"Pareto Point {result['Pareto Point']}:\n Weights: {result['Weights']} \n Average Steps: {result['Average Steps']} \n Action Counts: {result['Action Counts']} \n Substation Modification Counts: {result['Substation Modification Counts']}")
+        print(f"Seed {seed}: Pareto Point {result['Pareto Point']}:\n Weights: {result['Weights']} \n Average Steps: {result['Average Steps']} \n Action Counts: {result['Action Counts']} \n Substation Modification Counts: {result['Substation Modification Counts']}")
+
+def analyse_pf_values_and_plot(csv_path):
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Convert the string representation of dictionaries in 'test_chronic_0' to actual dictionaries
+    df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
+    
+    results = []
+    
+    # Iterate through each row in the dataframe
+    for idx, row in df.iterrows():
+        # Extract information from 'test_chronic_0'
+        chronic = 'test_chronic_0'
+        seed = row['seed']
+        steps = row[chronic]['Test Steps']
+        actions = row[chronic]['Test Actions']
+        sub_ids = row[chronic]['Test Sub Ids']
+    
+        # Calculate average steps per chronic (assuming each action corresponds to a chronic)
+        num_chronics = len(actions) if len(actions) > 0 else 1
+        avg_steps = steps / num_chronics
+    
+        # Total number of switching actions
+        total_switching_actions = len(actions)
+    
+        # Extract and round weights
+        weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
+    
+        # Store the results for the current Pareto point
+        results.append({
+            'seed': seed,
+            'Pareto Point': idx + 1,
+            'Average Steps': avg_steps,
+            'Total Switching Actions': total_switching_actions,
+            'Weights': weights
+        })
         
+    # Prepare data for plotting
+    avg_steps_list = [result['Average Steps'] for result in results]
+    total_actions_list = [result['Total Switching Actions'] for result in results]
+    weights_list = [result['Weights'] for result in results]
+    pareto_points = [result['Pareto Point'] for result in results]
+
+    # Create scatter plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(avg_steps_list, total_actions_list, color='blue')
+
+    # Annotate each point with its weight vector
+    for avg_steps, total_actions, weights in zip(avg_steps_list, total_actions_list, weights_list):
+        plt.annotate(f"{weights}", (avg_steps, total_actions), textcoords="offset points", xytext=(0,10), ha='center')
+
+    # Set plot labels and title
+    plt.xlabel('Average Steps')
+    plt.ylabel('Total Number of Switching Actions')
+    plt.title('Trade-offs between Average Steps and Total Switching Actions')
+    plt.grid(True)
+    plt.show()
+
+def analyse_pf_values_and_plot_3d(csv_path):
+    # Read the CSV file
+    df = pd.read_csv(csv_path)
+    
+    # Convert the string representation of dictionaries in 'test_chronic_0' to actual dictionaries
+    df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
+    
+    results = []
+    
+    # Iterate through each row in the dataframe
+    for idx, row in df.iterrows():
+        # Extract information from 'test_chronic_0'
+        chronic = 'test_chronic_0'
+        seed = row['seed']
+        test_data = row[chronic]
+        steps = test_data['Test Steps']  # Total steps in the test
+        actions = test_data['Test Actions']  # List of actions taken
+        topo_depths = test_data['Test Topo Depth']
+        timestamps = test_data['Test Action Timestamp']
+        
+        if timestamps is None or topo_depths is None:
+            print(f"Error: 'Timestamps' or 'Topo Depths' not found in test_chronic_0 for Pareto Point {idx + 1}")
+            continue  # Skip this row if data is missing
+        
+        # Ensure that timestamps and topo_depths have the same length
+        if len(timestamps) != len(topo_depths):
+            print(f"Error: Length of 'Timestamps' and 'Topo Depths' do not match for Pareto Point {idx + 1}")
+            continue
+        
+        # Initialize cumulative weighted depth time
+        cumulative_weighted_depth_time = 0
+        
+        # Start from the initial time and depth
+        previous_time = 0
+        previous_depth = 0  # Default topology depth at start is 0
+        
+        # Iterate over the timestamps and topo_depths
+        for current_time, current_depth in zip(timestamps, topo_depths):
+            # Calculate delta_time
+            delta_time = current_time - previous_time
+            
+            # Calculate weighted depth time for this interval
+            weighted_depth_time = previous_depth * delta_time
+            
+            # Add to cumulative sum
+            cumulative_weighted_depth_time += weighted_depth_time
+            
+            # Update previous time and depth for next iteration
+            previous_time = current_time
+            previous_depth = current_depth
+        
+        # Handle the final interval (from last timestamp to end of test)
+        # Assuming the total test time is equal to the total steps
+        total_test_time = steps  # If time is measured in steps
+        delta_time = total_test_time - previous_time
+        weighted_depth_time = previous_depth * delta_time
+        cumulative_weighted_depth_time += weighted_depth_time
+        
+        # Finally, divide cumulative weighted depth time by number of steps
+        weighted_depth_metric = cumulative_weighted_depth_time / steps if steps > 0 else 0
+        
+        # Calculate average steps per chronic (assuming steps are total steps over all chronics)
+        num_chronics = test_data.get('Num Chronics', 1)  # Adjust if 'Num Chronics' is available
+        avg_steps = steps / num_chronics
+        
+        # Total number of switching actions (average over chronics)
+        total_switching_actions = len(actions) / num_chronics if num_chronics > 0 else 0
+        
+        # Extract and round weights
+        weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
+        
+        # Store the results for the current Pareto point
+        results.append({
+            'seed': seed,
+            'Pareto Point': idx + 1,
+            'Average Steps': avg_steps,
+            'Total Switching Actions': total_switching_actions,
+            'Weighted Depth Metric': weighted_depth_metric,
+            'Weights': weights
+        })
+    
+    if not results:
+        print("No valid data to plot.")
+        return
+    
+    # Prepare data for plotting
+    avg_steps_list = [result['Average Steps'] for result in results]
+    total_actions_list = [result['Total Switching Actions'] for result in results]
+    weighted_depth_list = [result['Weighted Depth Metric'] for result in results]
+    weights_list = [result['Weights'] for result in results]
+    pareto_points = [result['Pareto Point'] for result in results]
+
+    # Create 3D scatter plot
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    sc = ax.scatter(avg_steps_list, total_actions_list, weighted_depth_list, c='blue', marker='o')
+
+    # Annotate each point with its weight vector
+    for avg_steps, total_actions, weighted_depth, weights in zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list):
+        ax.text(avg_steps, total_actions, weighted_depth, f"{weights}", size=9, zorder=1, color='k')
+
+    # Set plot labels and title
+    ax.set_xlabel('Average Steps')
+    ax.set_ylabel('Total Number of Switching Actions')
+    ax.set_zlabel('Weighted Depth Metric')
+    ax.set_title('Trade-offs among Average Steps, Total Switching Actions, and Weighted Depth Metric')
+
+    plt.show()
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/default/OLS/rte_case5_example/2024-10-10/['TopoDepth', 'TopoActionHour']/re_partial/rho_0.95"
+    ols_base_path = r"morl_logs/opponent/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
     seeds = [0]
     seed_folder = "seed_0"
@@ -1232,9 +1404,12 @@ def main():
     
     print("Processing OLS Data...")
     df_ccs_matching = process_data(ols_seed_paths, 'ols')
-    analyse_pf_values(csv_path='ccs_matching_data.csv')
-    sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
-    topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
+    #analyse_pf_values(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    
+    analyse_pf_values_and_plot(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    analyse_pf_values_and_plot_3d(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    #sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
+    #topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
     #print("Processing MC Data...")
     #process_data_mc(mc_seed_paths, 'mc')
 
