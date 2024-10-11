@@ -454,23 +454,33 @@ def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
 
 # ---- 2D Plotting with Matplotlib (with Superseed Pareto Markings) ----
 def plot_2d_projections_matplotlib(seed_paths, wrapper):
-    """Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points."""
-    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    """
+    Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
 
-    all_x, all_y, all_z = [], [], []
-    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
-    sparsities = calculate_sparsities_for_all_projections(seed_paths, wrapper=wrapper)
-    colors = plt.cm.tab10.colors  # Use built-in colormap
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (20, 6),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
 
-    # Aggregate all seed data for superseed calculation
+    fig, axs = plt.subplots(1, 3)
+
+    colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
-
-        all_x.extend(x_all)
-        all_y.extend(y_all)
-        all_z.extend(z_all)
 
         # Calculate Pareto frontiers
         x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
@@ -479,38 +489,38 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
 
         # Plot full dataset and Pareto frontiers for each projection
         # X vs Y
-        axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
-        axs[0].plot(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[0].set_xlabel('L2RPN')
+        axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.5,
+                       label=f'Seed {i+1} Data')
+        axs[0].scatter(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)],
+                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
+        axs[0].set_xlabel('L2RPN Score')
         axs[0].set_ylabel('TopoDepth')
-        axs[0].set_title('L2RPN vs TopoDepth')
+        axs[0].set_title('L2RPN Score vs TopoDepth')
 
         # X vs Z
-        axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
-        axs[1].plot(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
-        axs[1].set_xlabel('L2RPN')
+        axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.5,
+                       label=f'Seed {i+1} Data')
+        axs[1].scatter(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)],
+                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
+        axs[1].set_xlabel('L2RPN Score')
         axs[1].set_ylabel('TopoAction')
-        axs[1].set_title('L2RPN vs TopoAction')
+        axs[1].set_title('L2RPN Score vs TopoAction')
 
         # Y vs Z
-        axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.3, label=f'Seed {i+1} (Non-Pareto)')
-        axs[2].plot(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)], marker='o', label=f'Seed {i+1} (Pareto)')
+        axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.5,
+                       label=f'Seed {i+1} Data')
+        axs[2].scatter(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)],
+                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
         axs[2].set_xlabel('TopoDepth')
         axs[2].set_ylabel('TopoAction')
         axs[2].set_title('TopoDepth vs TopoAction')
 
-    # Calculate and plot the Pareto frontier for the superseed set
-    superseed_pareto_xy, superseed_pareto_yy, _ = pareto_frontier_2d(all_x, all_y)
-    superseed_pareto_xz, superseed_pareto_zz, _ = pareto_frontier_2d(all_x, all_z)
-    superseed_pareto_yz, superseed_pareto_zz2, _ = pareto_frontier_2d(all_y, all_z)
-
-    axs[0].plot(superseed_pareto_xy, superseed_pareto_yy, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
-    axs[1].plot(superseed_pareto_xz, superseed_pareto_zz, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
-    axs[2].plot(superseed_pareto_yz, superseed_pareto_zz2, color='red', marker='x', markersize=8, linewidth=0.5, label='Superseed Pareto')
-
     for ax in axs:
         ax.legend()
-        ax.grid(True)
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
     plt.tight_layout()
     plt.show()
@@ -1273,7 +1283,7 @@ def analyse_pf_values_and_plot(csv_path):
     plt.grid(True)
     plt.show()
 
-def analyse_pf_values_and_plot_3d(csv_path):
+def analyse_pf_values_and_plot_projections(csv_path):
     # Read the CSV file
     df = pd.read_csv(csv_path)
     
@@ -1290,8 +1300,8 @@ def analyse_pf_values_and_plot_3d(csv_path):
         test_data = row[chronic]
         steps = test_data['Test Steps']  # Total steps in the test
         actions = test_data['Test Actions']  # List of actions taken
-        topo_depths = test_data['Test Topo Depth']
-        timestamps = test_data['Test Action Timestamp']
+        topo_depths = test_data.get('Test Topo Depth')
+        timestamps = test_data.get('Test Action Timestamp')
         
         if timestamps is None or topo_depths is None:
             print(f"Error: 'Timestamps' or 'Topo Depths' not found in test_chronic_0 for Pareto Point {idx + 1}")
@@ -1336,10 +1346,10 @@ def analyse_pf_values_and_plot_3d(csv_path):
         
         # Calculate average steps per chronic (assuming steps are total steps over all chronics)
         num_chronics = test_data.get('Num Chronics', 1)  # Adjust if 'Num Chronics' is available
-        avg_steps = steps / num_chronics
+        avg_steps = steps / num_chronics if num_chronics > 0 else steps
         
         # Total number of switching actions (average over chronics)
-        total_switching_actions = len(actions) / num_chronics if num_chronics > 0 else 0
+        total_switching_actions = len(actions) / num_chronics if num_chronics > 0 else len(actions)
         
         # Extract and round weights
         weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
@@ -1358,34 +1368,111 @@ def analyse_pf_values_and_plot_3d(csv_path):
         print("No valid data to plot.")
         return
     
+    # Convert results to DataFrame for easier processing
+    results_df = pd.DataFrame(results)
+    
     # Prepare data for plotting
-    avg_steps_list = [result['Average Steps'] for result in results]
-    total_actions_list = [result['Total Switching Actions'] for result in results]
-    weighted_depth_list = [result['Weighted Depth Metric'] for result in results]
-    weights_list = [result['Weights'] for result in results]
-    pareto_points = [result['Pareto Point'] for result in results]
-
-    # Create 3D scatter plot
+    seeds = results_df['seed'].unique()
+    colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+    color_map = {seed: colors[i % len(colors)] for i, seed in enumerate(seeds)}
+    
+    # --- Set up matplotlib parameters for a more scientific look ---
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (20, 6),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
+    
+    # --- 3D Scatter Plot ---
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
-    sc = ax.scatter(avg_steps_list, total_actions_list, weighted_depth_list, c='blue', marker='o')
-
-    # Annotate each point with its weight vector
-    for avg_steps, total_actions, weighted_depth, weights in zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list):
-        ax.text(avg_steps, total_actions, weighted_depth, f"{weights}", size=9, zorder=1, color='k')
-
+    
+    for seed in seeds:
+        seed_data = results_df[results_df['seed'] == seed]
+        avg_steps_list = seed_data['Average Steps']
+        total_actions_list = seed_data['Total Switching Actions']
+        weighted_depth_list = seed_data['Weighted Depth Metric']
+        weights_list = seed_data['Weights']
+        pareto_points = seed_data['Pareto Point']
+        
+        # Plot data points for this seed
+        ax.scatter(avg_steps_list, total_actions_list, weighted_depth_list,
+                   color=color_map[seed], marker='o', label=f'Seed {seed}', alpha=0.7)
+        
+        # Annotate each point with its weight vector
+        for avg_steps, total_actions, weighted_depth, weights in zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list):
+            ax.text(avg_steps, total_actions, weighted_depth, f"{weights}", size=9, zorder=1, color='k')
+    
     # Set plot labels and title
     ax.set_xlabel('Average Steps')
     ax.set_ylabel('Total Number of Switching Actions')
     ax.set_zlabel('Weighted Depth Metric')
     ax.set_title('Trade-offs among Average Steps, Total Switching Actions, and Weighted Depth Metric')
-
+    
+    ax.legend(title='Seeds')
+    ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    plt.tight_layout()
+    plt.show()
+    
+    # --- 2D Projections ---
+    fig2, axs = plt.subplots(1, 3)
+    
+    for seed in seeds:
+        seed_data = results_df[results_df['seed'] == seed]
+        avg_steps_list = seed_data['Average Steps'].values
+        total_actions_list = seed_data['Total Switching Actions'].values
+        weighted_depth_list = seed_data['Weighted Depth Metric'].values
+        weights_list = seed_data['Weights'].values
+        
+        color = color_map[seed]
+        
+        # X vs Y
+        axs[0].scatter(avg_steps_list, total_actions_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        # Annotations
+        for x, y, weights in zip(avg_steps_list, total_actions_list, weights_list):
+            axs[0].annotate(f"{weights}", (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
+        
+        axs[0].set_xlabel('Average Steps')
+        axs[0].set_ylabel('Total Switching Actions')
+        axs[0].set_title('Average Steps vs Total Switching Actions')
+        
+        # X vs Z
+        axs[1].scatter(avg_steps_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        # Annotations
+        for x, z, weights in zip(avg_steps_list, weighted_depth_list, weights_list):
+            axs[1].annotate(f"{weights}", (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
+        
+        axs[1].set_xlabel('Average Steps')
+        axs[1].set_ylabel('Weighted Depth Metric')
+        axs[1].set_title('Average Steps vs Weighted Depth Metric')
+        
+        # Y vs Z
+        axs[2].scatter(total_actions_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        # Annotations
+        for y, z, weights in zip(total_actions_list, weighted_depth_list, weights_list):
+            axs[2].annotate(f"{weights}", (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
+        
+        axs[2].set_xlabel('Total Switching Actions')
+        axs[2].set_ylabel('Weighted Depth Metric')
+        axs[2].set_title('Total Switching Actions vs Weighted Depth Metric')
+    
+    for ax in axs:
+        ax.legend()
+        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+    
+    plt.tight_layout()
     plt.show()
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/opponent/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95"
+    ols_base_path = r"morl_logs/trial/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95"
     mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
-    seeds = [0]
+    seeds = [0,1,2]
     seed_folder = "seed_0"
     json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'morl_logs_seed_{seed}.json') for seed in seeds]
@@ -1404,10 +1491,10 @@ def main():
     
     print("Processing OLS Data...")
     df_ccs_matching = process_data(ols_seed_paths, 'ols')
-    #analyse_pf_values(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    analyse_pf_values(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
     
-    analyse_pf_values_and_plot(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
-    analyse_pf_values_and_plot_3d(csv_path="morl_logs/opponent/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    #analyse_pf_values_and_plot(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    analyse_pf_values_and_plot_projections(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
     #sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
     #topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
     #print("Processing MC Data...")

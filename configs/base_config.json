@@ -30,14 +30,14 @@
         "act_fct": "relu"
     },
     "reuse": "partial",
-    "ols_iterations": 1,
-    "case_study": "opponent", 
-    "use_opponent": true, 
+    "ols_iterations": 5,
+    "case_study": "trial", 
+    "use_opponent": false, 
 
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 256,
+    "max_gym_steps": 64,
     "rewards": {
         "first": "L2RPN",
         "second": "TopoDepth",
