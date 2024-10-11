@@ -29,10 +29,10 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "None",
+    "reuse": "partial",
     "ols_iterations": 10,
-    "case_study": "opponent", 
-    "use_opponent": true, 
+    "case_study": "reuse", 
+    "use_opponent": false, 
     
     "weight_vectors": [
         [0, 1, 0]
