@@ -372,7 +372,7 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
             showlegend=True
         )
         df = pd.DataFrame(table_data)
-
+        fig.show()
     return fig, df
 
 
@@ -707,9 +707,11 @@ def calculate_3d_sparsity(pareto_points):
     return sparsity_metric
 
 
-def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
-    """Calculates the 2D and 3D hypervolumes, sparsities, min/max returns, and Pareto points for each seed and the superseed set.
+def calculate_hypervolumes_and_sparsities(seed_paths, wrapper, mc_seed_path=None):
+    """
+    Calculates the 2D and 3D hypervolumes, sparsities, min/max returns, and Pareto points for each seed and the superseed set.
     Also calculates the mean and std of hypervolumes, sparsities, and returns across seeds.
+    If mc_seed_path is provided, includes its results in the DataFrame, but mean, std, and superseed are calculated only on OLS data.
     """
     all_x, all_y, all_z = [], [], []
     results = []
@@ -721,25 +723,26 @@ def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
     min_return_y_list, max_return_y_list = [], []
     min_return_z_list, max_return_z_list = [], []
     pareto_points_count_list = []
-
-    # Global tracking for the superseed set
+    
+    # Global tracking for the superseed set (OLS data only)
     min_return_x_all = float('inf')
     max_return_x_all = float('-inf')
     min_return_y_all = float('inf')
     max_return_y_all = float('-inf')
     min_return_z_all = float('inf')
     max_return_z_all = float('-inf')
-
-    # Calculate hypervolume, sparsity, and min/max returns for each seed
+    
+    # Process OLS seeds (seed_paths)
     for i, seed_path in enumerate(seed_paths):
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
-
+        
+        # Add data to the superseed lists
         all_x.extend(x_all)  # Combine all data for the superseed set
         all_y.extend(y_all)
         all_z.extend(z_all)
-
+        
         # Track min and max returns for each seed across all dimensions
         min_return_x = min(x_all)
         max_return_x = max(x_all)
@@ -747,7 +750,7 @@ def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
         max_return_y = max(y_all)
         min_return_z = min(z_all)
         max_return_z = max(z_all)
-
+        
         # Update global (superseed) min/max returns
         min_return_x_all = min(min_return_x_all, min_return_x)
         max_return_x_all = max(max_return_x_all, max_return_x)
@@ -755,45 +758,45 @@ def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
         max_return_y_all = max(max_return_y_all, max_return_y)
         min_return_z_all = min(min_return_z_all, min_return_z)
         max_return_z_all = max(max_return_z_all, max_return_z)
-
-        # Calculate 2D hypervolume and sparsity as before (XY, XZ, YZ)
+        
+        # Calculate 2D hypervolume and sparsity (XY, XZ, YZ)
         reference_point_xy = (min(x_all), min(y_all))
         reference_point_xz = (min(x_all), min(z_all))
         reference_point_yz = (min(y_all), min(z_all))
-
+        
         x_pareto_xy, y_pareto_xy, pareto_xy_indices = pareto_frontier_2d(x_all, y_all)
         x_pareto_xz, z_pareto_xz, pareto_xz_indices = pareto_frontier_2d(x_all, z_all)
         y_pareto_yz, z_pareto_yz, pareto_yz_indices = pareto_frontier_2d(y_all, z_all)
-
+        
         # Number of Pareto points for this seed
         pareto_points_count = len(pareto_xy_indices)
         pareto_points_count_list.append(pareto_points_count)
-
+        
         # Calculate hypervolumes
         hv_xy = calculate_hypervolume(list(zip(x_pareto_xy, y_pareto_xy)), reference_point_xy)
         hv_xz = calculate_hypervolume(list(zip(x_pareto_xz, z_pareto_xz)), reference_point_xz)
         hv_yz = calculate_hypervolume(list(zip(y_pareto_yz, z_pareto_yz)), reference_point_yz)
-
+        
         # Append 2D HV values for later mean/std calculation
         hv_2d_xy_list.append(hv_xy)
         hv_2d_xz_list.append(hv_xz)
         hv_2d_yz_list.append(hv_yz)
-
+        
         # Calculate sparsity for each Pareto frontier
         sparsity_xy = calculate_sparsity(list(zip(x_pareto_xy, y_pareto_xy)))
         sparsity_xz = calculate_sparsity(list(zip(x_pareto_xz, z_pareto_xz)))
         sparsity_yz = calculate_sparsity(list(zip(y_pareto_yz, z_pareto_yz)))
-
+        
         # Calculate 3D hypervolume and sparsity
         pareto_points_3d = np.column_stack((x_all, y_all, z_all))
         reference_point_3d = (min(x_all), min(y_all), min(z_all))
         hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
         sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
-
+        
         # Append 3D HV and sparsity for later mean/std calculation
         hv_3d_list.append(hv_3d)
         sparsity_3d_list.append(sparsity_3d)
-
+        
         # Append min/max returns for later mean/std calculation
         min_return_x_list.append(min_return_x)
         max_return_x_list.append(max_return_x)
@@ -801,110 +804,173 @@ def calculate_hypervolumes_and_sparsities(seed_paths, wrapper):
         max_return_y_list.append(max_return_y)
         min_return_z_list.append(min_return_z)
         max_return_z_list.append(max_return_z)
-
+        
         # Append results for this seed
         results.append({
             "Seed": f"Seed {i+1}",
-            "Hypervolume XY": hv_xy,
-            "Hypervolume XZ": hv_xz,
-            "Hypervolume YZ": hv_yz,
-            "Sparsity XY": sparsity_xy,
-            "Sparsity XZ": sparsity_xz,
-            "Sparsity YZ": sparsity_yz,
-            "Hypervolume 3D": hv_3d,
-            "Sparsity 3D": sparsity_3d,
-            "Min Return X": min_return_x,
-            "Max Return X": max_return_x,
-            "Min Return Y": min_return_y,
-            "Max Return Y": max_return_y,
-            "Min Return Z": min_return_z,
-            "Max Return Z": max_return_z,
-            "Pareto Points Count": pareto_points_count
+            "Hypervolume XY": round(hv_xy, 2),
+            "Hypervolume XZ": round(hv_xz, 2),
+            "Hypervolume YZ": round(hv_yz, 2),
+            "Sparsity XY": round(sparsity_xy, 2),
+            "Sparsity XZ": round(sparsity_xz, 2),
+            "Sparsity YZ": round(sparsity_yz, 2),
+            "Hypervolume 3D": round(hv_3d, 2),
+            "Sparsity 3D": round(sparsity_3d, 2),
+            "Min Return X": round(min_return_x, 2),
+            "Max Return X": round(max_return_x, 2),
+            "Min Return Y": round(min_return_y, 2),
+            "Max Return Y": round(max_return_y, 2),
+            "Min Return Z": round(min_return_z, 2),
+            "Max Return Z": round(max_return_z, 2),
+            "Pareto Points Count": pareto_points_count  # Integer, no rounding needed
         })
-
-    # Calculate mean and std for each metric over all seeds
+    
+    # Calculate mean and std for each metric over all seeds (OLS data only)
     mean_hv_xy, std_hv_xy = np.mean(hv_2d_xy_list), np.std(hv_2d_xy_list)
     mean_hv_xz, std_hv_xz = np.mean(hv_2d_xz_list), np.std(hv_2d_xz_list)
     mean_hv_yz, std_hv_yz = np.mean(hv_2d_yz_list), np.std(hv_2d_yz_list)
     mean_hv_3d, std_hv_3d = np.mean(hv_3d_list), np.std(hv_3d_list)
-
+    
     mean_sparsity_3d, std_sparsity_3d = np.mean(sparsity_3d_list), np.std(sparsity_3d_list)
-
+    
     mean_min_return_x, std_min_return_x = np.mean(min_return_x_list), np.std(min_return_x_list)
     mean_max_return_x, std_max_return_x = np.mean(max_return_x_list), np.std(max_return_x_list)
     mean_min_return_y, std_min_return_y = np.mean(min_return_y_list), np.std(min_return_y_list)
     mean_max_return_y, std_max_return_y = np.mean(max_return_y_list), np.std(max_return_y_list)
     mean_min_return_z, std_min_return_z = np.mean(min_return_z_list), np.std(min_return_z_list)
     mean_max_return_z, std_max_return_z = np.mean(max_return_z_list), np.std(max_return_z_list)
-
+    
     mean_pareto_points_count, std_pareto_points_count = np.mean(pareto_points_count_list), np.std(pareto_points_count_list)
-
-    # Calculate for the superseed set (same as before)
+    
+    # Calculate for the superseed set (OLS data only)
     superseed_results = calculate_hypervolume_and_sparsity_superseed(all_x, all_y, all_z)
-
+    
     pareto_points_superseed_3d = np.column_stack((all_x, all_y, all_z))
     reference_point_superseed_3d = (min(all_x), min(all_y), min(all_z))
     hv_superseed_3d = calculate_3d_hypervolume(pareto_points_superseed_3d, reference_point_superseed_3d)
     sparsity_superseed_3d = calculate_3d_sparsity(pareto_points_superseed_3d)
-
+    
     # Append results for the superseed set
+    # Append results for the superseed set, rounding values
     results.append({
         "Seed": "Superseed",
-        "Hypervolume XY": superseed_results["Hypervolume XY"],
-        "Hypervolume XZ": superseed_results["Hypervolume XZ"],
-        "Hypervolume YZ": superseed_results["Hypervolume YZ"],
-        "Sparsity XY": superseed_results["Sparsity XY"],
-        "Sparsity XZ": superseed_results["Sparsity XZ"],
-        "Sparsity YZ": superseed_results["Sparsity YZ"],
-        "Hypervolume 3D": hv_superseed_3d,
-        "Sparsity 3D": sparsity_superseed_3d,
-        "Min Return X": min_return_x_all,
-        "Max Return X": max_return_x_all,
-        "Min Return Y": min_return_y_all,
-        "Max Return Y": max_return_y_all,
-        "Min Return Z": min_return_z_all,
-        "Max Return Z": max_return_z_all,
+        "Hypervolume XY": round(superseed_results["Hypervolume XY"], 2),
+        "Hypervolume XZ": round(superseed_results["Hypervolume XZ"], 2),
+        "Hypervolume YZ": round(superseed_results["Hypervolume YZ"], 2),
+        "Sparsity XY": round(superseed_results["Sparsity XY"], 2),
+        "Sparsity XZ": round(superseed_results["Sparsity XZ"], 2),
+        "Sparsity YZ": round(superseed_results["Sparsity YZ"], 2),
+        "Hypervolume 3D": round(hv_superseed_3d, 2),
+        "Sparsity 3D": round(sparsity_superseed_3d, 2),
+        "Min Return X": round(min_return_x_all, 2),
+        "Max Return X": round(max_return_x_all, 2),
+        "Min Return Y": round(min_return_y_all, 2),
+        "Max Return Y": round(max_return_y_all, 2),
+        "Min Return Z": round(min_return_z_all, 2),
+        "Max Return Z": round(max_return_z_all, 2),
         "Pareto Points Count": len(pareto_points_superseed_3d)
     })
-
-    # Append mean and std as a final row
+    
+    # Append mean and std as final rows, rounding values
     results.append({
         "Seed": "Mean",
-        "Hypervolume XY": mean_hv_xy,
-        "Hypervolume XZ": mean_hv_xz,
-        "Hypervolume YZ": mean_hv_yz,
-        "Hypervolume 3D": mean_hv_3d,
-        "Sparsity 3D": mean_sparsity_3d,
-        "Min Return X": mean_min_return_x,
-        "Max Return X": mean_max_return_x,
-        "Min Return Y": mean_min_return_y,
-        "Max Return Y": mean_max_return_y,
-        "Min Return Z": mean_min_return_z,
-        "Max Return Z": mean_max_return_z,
-        "Pareto Points Count": mean_pareto_points_count
+        "Hypervolume XY": round(mean_hv_xy, 2),
+        "Hypervolume XZ": round(mean_hv_xz, 2),
+        "Hypervolume YZ": round(mean_hv_yz, 2),
+        "Hypervolume 3D": round(mean_hv_3d, 2),
+        "Sparsity 3D": round(mean_sparsity_3d, 2),
+        "Min Return X": round(mean_min_return_x, 2),
+        "Max Return X": round(mean_max_return_x, 2),
+        "Min Return Y": round(mean_min_return_y, 2),
+        "Max Return Y": round(mean_max_return_y, 2),
+        "Min Return Z": round(mean_min_return_z, 2),
+        "Max Return Z": round(mean_max_return_z, 2),
+        "Pareto Points Count": round(mean_pareto_points_count, 2)
     })
-
+    
     results.append({
         "Seed": "Std Dev",
-        "Hypervolume XY": std_hv_xy,
-        "Hypervolume XZ": std_hv_xz,
-        "Hypervolume YZ": std_hv_yz,
-        "Hypervolume 3D": std_hv_3d,
-        "Sparsity 3D": std_sparsity_3d,
-        "Min Return X": std_min_return_x,
-        "Max Return X": std_max_return_x,
-        "Min Return Y": std_min_return_y,
-        "Max Return Y": std_max_return_y,
-        "Min Return Z": std_min_return_z,
-        "Max Return Z": std_max_return_z,
-        "Pareto Points Count": std_pareto_points_count
+        "Hypervolume XY": round(std_hv_xy, 2),
+        "Hypervolume XZ": round(std_hv_xz, 2),
+        "Hypervolume YZ": round(std_hv_yz, 2),
+        "Hypervolume 3D": round(std_hv_3d, 2),
+        "Sparsity 3D": round(std_sparsity_3d, 2),
+        "Min Return X": round(std_min_return_x, 2),
+        "Max Return X": round(std_max_return_x, 2),
+        "Min Return Y": round(std_min_return_y, 2),
+        "Max Return Y": round(std_max_return_y, 2),
+        "Min Return Z": round(std_min_return_z, 2),
+        "Max Return Z": round(std_max_return_z, 2),
+        "Pareto Points Count": round(std_pareto_points_count, 2)
     })
-
+    
+    # Now, if mc_seed_path is provided, process it and append its results to the DataFrame
+    if mc_seed_path is not None:
+        # Process MC benchmark data
+        data = load_json_data(mc_seed_path)
+        ccs_list = data['ccs_list'][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+        
+        # Calculate min and max returns for MC benchmark
+        min_return_x = min(x_all)
+        max_return_x = max(x_all)
+        min_return_y = min(y_all)
+        max_return_y = max(y_all)
+        min_return_z = min(z_all)
+        max_return_z = max(z_all)
+        
+        # Calculate 2D hypervolumes
+        reference_point_xy = (min(x_all), min(y_all))
+        reference_point_xz = (min(x_all), min(z_all))
+        reference_point_yz = (min(y_all), min(z_all))
+        
+        x_pareto_xy, y_pareto_xy, pareto_xy_indices = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, pareto_xz_indices = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, pareto_yz_indices = pareto_frontier_2d(y_all, z_all)
+        
+        # Number of Pareto points
+        pareto_points_count = len(pareto_xy_indices)
+        
+        # Calculate hypervolumes
+        hv_xy = calculate_hypervolume(list(zip(x_pareto_xy, y_pareto_xy)), reference_point_xy)
+        hv_xz = calculate_hypervolume(list(zip(x_pareto_xz, z_pareto_xz)), reference_point_xz)
+        hv_yz = calculate_hypervolume(list(zip(y_pareto_yz, z_pareto_yz)), reference_point_yz)
+        
+        # Calculate sparsities
+        sparsity_xy = calculate_sparsity(list(zip(x_pareto_xy, y_pareto_xy)))
+        sparsity_xz = calculate_sparsity(list(zip(x_pareto_xz, z_pareto_xz)))
+        sparsity_yz = calculate_sparsity(list(zip(y_pareto_yz, z_pareto_yz)))
+        
+        # Calculate 3D hypervolume and sparsity
+        pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+        reference_point_3d = (min(x_all), min(y_all), min(z_all))
+        hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+        sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+        
+         # Append results for MC benchmark, rounding values
+        results.append({
+            "Seed": "MC Benchmark",
+            "Hypervolume XY": round(hv_xy, 2),
+            "Hypervolume XZ": round(hv_xz, 2),
+            "Hypervolume YZ": round(hv_yz, 2),
+            "Sparsity XY": round(sparsity_xy, 2),
+            "Sparsity XZ": round(sparsity_xz, 2),
+            "Sparsity YZ": round(sparsity_yz, 2),
+            "Hypervolume 3D": round(hv_3d, 2),
+            "Sparsity 3D": round(sparsity_3d, 2),
+            "Min Return X": round(min_return_x, 2),
+            "Max Return X": round(max_return_x, 2),
+            "Min Return Y": round(min_return_y, 2),
+            "Max Return Y": round(max_return_y, 2),
+            "Min Return Z": round(min_return_z, 2),
+            "Max Return Z": round(max_return_z, 2),
+            "Pareto Points Count": pareto_points_count  # Integer, no rounding needed
+        })
+    
     # Convert the results to a DataFrame
     df_results = pd.DataFrame(results)
-
+    
     return df_results
-
 
 # ---- Superseed Calculation Functions ----
 
@@ -988,7 +1054,7 @@ def benchmark_ols_against_mc(ols_seed_paths, mc_seed_paths):
 
     return results
 
-def calculate_all_metrics(seed_paths, wrapper):
+def calculate_all_metrics(seed_paths, wrapper, mc_seed_path):
     """
     Calculates all metrics for each seed and the superseed set:
     - 2D Hypervolumes (XY, XZ, YZ)
@@ -999,7 +1065,7 @@ def calculate_all_metrics(seed_paths, wrapper):
     - Pareto Points Count
     - Mean and Std of each metric across all seeds (except superseed)
     """
-    return calculate_hypervolumes_and_sparsities(seed_paths, wrapper)
+    return calculate_hypervolumes_and_sparsities(seed_paths, wrapper, mc_seed_path=mc_seed_path)
 
 def calculate_3d_metrics_only(seed_paths, wrapper):
     """
@@ -1086,7 +1152,7 @@ def process_data_both(ols_seed_paths, mc_seed_paths):
     2. DataFrame with only 3D hypervolume and sparsity.
     """
     # Step 1: Process the full metrics for OLS seeds
-    df_all_metrics_ols = calculate_all_metrics(ols_seed_paths, 'ols')
+    df_all_metrics_ols = calculate_all_metrics(ols_seed_paths, 'ols', mc_seed_paths)
 
     # Step 2: Process only 3D metrics for OLS and MC seeds
     df_3d_metrics_ols = calculate_3d_metrics_only(ols_seed_paths, 'ols')
@@ -1621,9 +1687,9 @@ def analyse_pf_values_and_plot_projections(csv_path):
     plt.show()
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/default/OLS/rte_case5_example/2024-10-10/['TopoDepth', 'TopoActionHour']/re_none/rho_0.95"
+    ols_base_path = r"morl_logs/opponent/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_none/op_True/rho_0.95"
     mc_base_path = r"morl_logs/trial/MC/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95/morl_logs_seed_0.json"
-    seeds = [0,1,2]
+    seeds = [0,1,2,3,4]
     ols_seed_paths = [os.path.join(ols_base_path, f'morl_logs_seed_{seed}.json') for seed in seeds]
     mc_seed_paths = mc_base_path
     if not os.path.exists(mc_seed_paths):
@@ -1637,17 +1703,18 @@ def main():
     print(df_3d_metrics_ols)
     print("\n3D Metrics (MC):")
     print(df_3d_metrics_mc)
-    
+    plot_2d_projections_seeds(mc_seed_paths, wrapper='mc')
+    plot_2d_projections_seeds(ols_seed_paths, wrapper='ols')
     print("Processing OLS Data...")
     df_ccs_matching = process_data(ols_seed_paths, 'ols')
     print('Processing MC data')
     process_data(mc_seed_paths, 'mc')
     
     
-    analyse_pf_values(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    analyse_pf_values(csv_path="morl_logs/opponent/TenneT/TOPGRID_MORL_5bus_HPC_trial/2024-10-11/['TopoDepth', 'TopoActionHour']/re_None/ccs_matching_data.csv")
     process_data_mc
     #analyse_pf_values_and_plot(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
-    analyse_pf_values_and_plot_projections(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    analyse_pf_values_and_plot_projections(csv_path="morl_logs/opponent/TenneT/TOPGRID_MORL_5bus_HPC_trial/2024-10-11/['TopoDepth', 'TopoActionHour']/re_None/ccs_matching_data.csv")
     #sub_id_process_and_plot(csv_path='ccs_matching_data.csv')
     #topo_depth_process_and_plot(csv_path='ccs_matching_data.csv')
     #print("Processing MC Data...")
