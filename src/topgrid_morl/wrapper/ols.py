@@ -45,6 +45,7 @@ class LinearSupport:
             verbose (bool): Defaults to False.
         """
         self.calls_cornerweights = 0
+        self.mc_samples = 0 
         self.num_objectives = num_objectives
         self.epsilon = epsilon
         self.visited_weights = []  # List of already tested weight vectors
@@ -399,5 +400,22 @@ class LinearSupport:
             if np.dot(value, w) >= self.max_scalarized_value(w):
                 return False
         return True
+    
+    #For RS Benchmark only 
+    def rs_sample_weights(self, reward_dim):
+        # Sample weights and normalize to sum to 1
+        """Samples random weight vectors from a uniform distribution."""
+        self.mc_samples+=1
+        
+        if self.mc_samples==1: #non generic -> need to adjust to extrema weights of reward dim
+            return(np.array([1,0,0]))
+        elif self.mc_samples ==2: 
+            return(np.array([0,1,0]))
+        elif self.mc_samples ==3: 
+            return(np.array([0,0,1]))
+        else: 
+            weights = np.random.rand(reward_dim)
+            normalized_weights = weights / np.sum(weights)
+            return np.round(normalized_weights, 2)
 
 

@@ -1,6 +1,8 @@
 import os
 import json
 import matplotlib.pyplot as plt
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
@@ -196,11 +198,11 @@ def plot_3d_scatter(x_values, y_values, z_values, label, ax=None, color=None):
 
 
 def plot_2d_projections_seeds(seed_paths, wrapper):
-    """Plots X vs Y, X vs Z, and Y vs Z in interactive 2D plots, highlighting Pareto frontier points and calculating hypervolumes."""
-    colors = px.colors.qualitative.T10  # A built-in colormap
-    hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
-    sparsities = calculate_sparsities_for_all_projections(seed_paths, wrapper=wrapper)
-
+    """
+    Plots X vs Y, X vs Z, and Y vs Z in interactive 2D plots, highlighting Pareto frontier points and calculating hypervolumes.
+    If wrapper=="mc", the input is only one seed run, the plot color is gray, and the headline is "RS-Benchmark".
+    """
+    # Initialize the figure
     fig = make_subplots(rows=1, cols=3, subplot_titles=[
         'ScaledLinesCapacity vs ScaledL2RPN',
         'ScaledLinesCapacity vs ScaledTopoDepth',
@@ -208,7 +210,15 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
     ])
 
     table_data = []
-    for i, seed_path in enumerate(seed_paths):
+
+    if wrapper == "mc":
+        # Assuming seed_paths is a single path or a list with one path
+        if isinstance(seed_paths, list):
+            seed_path = seed_paths[0]
+        else:
+            seed_path = seed_paths
+
+        # Load data
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -221,31 +231,148 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
         # Custom data to match the index with the table data
         row_indices = list(range(len(x_all)))
 
+        # Plot color is gray
+        gray_color = 'gray'
+
         # Add traces for each 2D projection
-        fig.add_trace(go.Scatter(x=x_all, y=y_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x_pareto_xy, y=y_pareto_xy, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=x_all, y=z_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=2)
-        fig.add_trace(go.Scatter(x=x_pareto_xz, y=z_pareto_xz, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=2)
-        fig.add_trace(go.Scatter(x=y_all, y=z_all, mode='markers', marker=dict(color=colors[i % len(colors)], opacity=0.3), name=f'Seed {i+1} (Non-Pareto)', customdata=row_indices), row=1, col=3)
-        fig.add_trace(go.Scatter(x=y_pareto_yz, y=z_pareto_yz, mode='markers+lines', marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)), name=f'Seed {i+1} (Pareto)'), row=1, col=3)
+        # X vs Y
+        fig.add_trace(go.Scatter(
+            x=x_all, y=y_all, mode='markers',
+            marker=dict(color=gray_color, opacity=0.3),
+            name='RS-Benchmark (Non-Pareto)',
+            customdata=row_indices
+        ), row=1, col=1)
 
-        # Append row data for the table
-        for idx in range(len(x_all)):
-            table_data.append({
-                "Seed": f"Seed {i+1}",
-                "X": x_all[idx],
-                "Y": y_all[idx],
-                "Z": z_all[idx],
-                "Hypervolume XY": hypervolumes[i]["Hypervolume XY"],
-                "Hypervolume XZ": hypervolumes[i]["Hypervolume XZ"],
-                "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"],
-                "Sparsity XY": sparsities[i]["Sparsity XY"],
-                "Sparsity XZ": sparsities[i]["Sparsity XZ"],
-                "Sparsity YZ": sparsities[i]["Sparsity YZ"],
-            })
+        fig.add_trace(go.Scatter(
+            x=x_pareto_xy, y=y_pareto_xy, mode='markers+lines',
+            marker=dict(color=gray_color, size=10, line=dict(width=2)),
+            name='RS-Benchmark (Pareto)'
+        ), row=1, col=1)
 
-    fig.update_layout(height=600, width=1200, title_text="2D Projections of Seeds", template="plotly_white", showlegend=True)
-    df = pd.DataFrame(table_data)
+        # X vs Z
+        fig.add_trace(go.Scatter(
+            x=x_all, y=z_all, mode='markers',
+            marker=dict(color=gray_color, opacity=0.3),
+            name='RS-Benchmark (Non-Pareto)',
+            customdata=row_indices
+        ), row=1, col=2)
+
+        fig.add_trace(go.Scatter(
+            x=x_pareto_xz, y=z_pareto_xz, mode='markers+lines',
+            marker=dict(color=gray_color, size=10, line=dict(width=2)),
+            name='RS-Benchmark (Pareto)'
+        ), row=1, col=2)
+
+        # Y vs Z
+        fig.add_trace(go.Scatter(
+            x=y_all, y=z_all, mode='markers',
+            marker=dict(color=gray_color, opacity=0.3),
+            name='RS-Benchmark (Non-Pareto)',
+            customdata=row_indices
+        ), row=1, col=3)
+
+        fig.add_trace(go.Scatter(
+            x=y_pareto_yz, y=z_pareto_yz, mode='markers+lines',
+            marker=dict(color=gray_color, size=10, line=dict(width=2)),
+            name='RS-Benchmark (Pareto)'
+        ), row=1, col=3)
+
+        # Update layout
+        fig.update_layout(
+            height=600, width=1200,
+            title_text="RS-Benchmark",
+            template="plotly_white",
+            showlegend=True
+        )
+
+        # Since hypervolumes and sparsities are not calculated, table_data can be empty or None
+        df = None  # Or an empty DataFrame
+
+    else:
+        # Original code for other wrappers
+        colors = px.colors.qualitative.T10  # A built-in colormap
+        hypervolumes = calculate_hypervolumes_for_all_projections(seed_paths, wrapper=wrapper)
+        sparsities = calculate_sparsities_for_all_projections(seed_paths, wrapper=wrapper)
+
+        for i, seed_path in enumerate(seed_paths):
+            data = load_json_data(seed_path)
+            ccs_list = data['ccs_list'][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+            # Pareto frontiers
+            x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
+            x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
+            y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+
+            # Custom data to match the index with the table data
+            row_indices = list(range(len(x_all)))
+
+            # Add traces for each 2D projection
+            # X vs Y
+            fig.add_trace(go.Scatter(
+                x=x_all, y=y_all, mode='markers',
+                marker=dict(color=colors[i % len(colors)], opacity=0.3),
+                name=f'Seed {i+1} (Non-Pareto)',
+                customdata=row_indices
+            ), row=1, col=1)
+
+            fig.add_trace(go.Scatter(
+                x=x_pareto_xy, y=y_pareto_xy, mode='markers+lines',
+                marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
+                name=f'Seed {i+1} (Pareto)'
+            ), row=1, col=1)
+
+            # X vs Z
+            fig.add_trace(go.Scatter(
+                x=x_all, y=z_all, mode='markers',
+                marker=dict(color=colors[i % len(colors)], opacity=0.3),
+                name=f'Seed {i+1} (Non-Pareto)',
+                customdata=row_indices
+            ), row=1, col=2)
+
+            fig.add_trace(go.Scatter(
+                x=x_pareto_xz, y=z_pareto_xz, mode='markers+lines',
+                marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
+                name=f'Seed {i+1} (Pareto)'
+            ), row=1, col=2)
+
+            # Y vs Z
+            fig.add_trace(go.Scatter(
+                x=y_all, y=z_all, mode='markers',
+                marker=dict(color=colors[i % len(colors)], opacity=0.3),
+                name=f'Seed {i+1} (Non-Pareto)',
+                customdata=row_indices
+            ), row=1, col=3)
+
+            fig.add_trace(go.Scatter(
+                x=y_pareto_yz, y=z_pareto_yz, mode='markers+lines',
+                marker=dict(color=colors[i % len(colors)], size=10, line=dict(width=2)),
+                name=f'Seed {i+1} (Pareto)'
+            ), row=1, col=3)
+
+            # Append row data for the table
+            for idx in range(len(x_all)):
+                table_data.append({
+                    "Seed": f"Seed {i+1}",
+                    "X": x_all[idx],
+                    "Y": y_all[idx],
+                    "Z": z_all[idx],
+                    "Hypervolume XY": hypervolumes[i]["Hypervolume XY"],
+                    "Hypervolume XZ": hypervolumes[i]["Hypervolume XZ"],
+                    "Hypervolume YZ": hypervolumes[i]["Hypervolume YZ"],
+                    "Sparsity XY": sparsities[i]["Sparsity XY"],
+                    "Sparsity XZ": sparsities[i]["Sparsity XZ"],
+                    "Sparsity YZ": sparsities[i]["Sparsity YZ"],
+                })
+
+        fig.update_layout(
+            height=600, width=1200,
+            title_text="2D Projections of Seeds",
+            template="plotly_white",
+            showlegend=True
+        )
+        df = pd.DataFrame(table_data)
+
     return fig, df
 
 
@@ -330,6 +457,8 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
 def process_data(seed_paths, wrapper):
     """Processes the data for all seeds and generates the 3D and 2D plots."""
     all_data = []
+    if wrapper == 'mc':
+        seed_paths = [seed_paths]
     config_params = None
     # Create the action-to-substation mapping using the gym environment
     action_to_substation_mapping = create_action_to_substation_mapping()
@@ -393,25 +522,47 @@ def process_data(seed_paths, wrapper):
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
     
     if not df_ccs_matching.empty:
+        if wrapper == 'ols':
         # Construct the directory path based on the config parameters
-        base_path = os.path.join(
-            "morl_logs",
-            config_params['case_study'],
-            config_params['config_name'],
-            config_params['project_name'],
-            datetime.date.today().strftime('%Y-%m-%d'),
-            str(config_params['rewards']),
-            f"re_{config_params['reuse']}"
-        )
+            base_path = os.path.join(
+                "morl_logs",
+                config_params['case_study'],
+                config_params['config_name'],
+                config_params['project_name'],
+                datetime.date.today().strftime('%Y-%m-%d'),
+                str(config_params['rewards']),
+                f"re_{config_params['reuse']}"
+            )
 
-        # Create the directory if it doesn't exist
-        if not os.path.exists(base_path):
-            os.makedirs(base_path)
-            print(f"Created directory: {base_path}")
+            # Create the directory if it doesn't exist
+            if not os.path.exists(base_path):
+                os.makedirs(base_path)
+                print(f"Created directory: {base_path}")
 
-        # Save the DataFrame to the constructed path
-        csv_file_path = os.path.join(base_path, "ccs_matching_data.csv")
-        df_ccs_matching.to_csv(csv_file_path, index=False)
+            # Save the DataFrame to the constructed path
+            csv_file_path = os.path.join(base_path, "ccs_matching_data.csv")
+            df_ccs_matching.to_csv(csv_file_path, index=False)
+        elif wrapper == 'mc':
+            
+            # Construct the directory path based on the config parameters
+            base_path = os.path.join(
+                "MC_logs",
+                config_params['case_study'],
+                config_params['config_name'],
+                config_params['project_name'],
+                datetime.date.today().strftime('%Y-%m-%d'),
+                str(config_params['rewards']),
+                f"re_{config_params['reuse']}"
+            )
+
+            # Create the directory if it doesn't exist
+            if not os.path.exists(base_path):
+                os.makedirs(base_path)
+                print(f"Created directory: {base_path}")
+
+            # Save the DataFrame to the constructed path
+            csv_file_path = os.path.join(base_path, "ccs_matching_data.csv")
+            df_ccs_matching.to_csv(csv_file_path, index=False)
 
     if not df_ccs_matching.empty:
         df_ccs_matching.to_csv("ccs_matching_data.csv", index=False)
@@ -906,7 +1057,7 @@ def calculate_3d_metrics_only_for_mc(mc_seed_path):
     """
     # Load MC seed data
     data = load_json_data(mc_seed_path)
-    ccs_list = data['ccs_list']
+    ccs_list = data['ccs_list'][-1]
     x_all, y_all, z_all = extract_coordinates(ccs_list)
 
     # Calculate 3D hypervolume and sparsity for the MC seed
@@ -967,7 +1118,7 @@ def process_data_benchmark(ols_seed_paths, mc_seed_paths):
 def process_single_seed(seed_path):
     # Load data for a single seed path
     data = load_json_data(seed_path)
-    ccs_list = data['ccs_list']  # Assuming you're interested in the last entry of 'ccs_list'
+    ccs_list = data['ccs_list'][-1]  # Assuming you're interested in the last entry of 'ccs_list'
     
     # Extract coordinates from ccs_list
     x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -1043,7 +1194,7 @@ def process_data_mc(mc_seed_path, wrapper):
         print(df_ccs_matching)
     # Call the function to calculate hypervolumes and sparsities and output the DataFrame
     
-    process_single_seed(mc_seed_path)   # Matplotlib-based visualization
+    plot_2d_projections_seeds(mc_seed_path, wrapper='mc')   # Matplotlib-based visualization
     # Call the plotting functions
     #plot_all_seeds(seed_paths, wrapper, df_ccs_matching)  # Dash-based visualization
 
@@ -1470,13 +1621,11 @@ def analyse_pf_values_and_plot_projections(csv_path):
     plt.show()
 # ---- Main Function ----
 def main():
-    ols_base_path = r"morl_logs/trial/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95"
-    mc_base_path = r"morl_logs/MC/rte_case5_example/2024-09-19/['ScaledL2RPN', 'ScaledTopoDepth']"
+    ols_base_path = r"morl_logs/default/OLS/rte_case5_example/2024-10-10/['TopoDepth', 'TopoActionHour']/re_none/rho_0.95"
+    mc_base_path = r"morl_logs/trial/MC/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95/morl_logs_seed_0.json"
     seeds = [0,1,2]
-    seed_folder = "seed_0"
-    json_filename = "morl_logs_mc0.json"
     ols_seed_paths = [os.path.join(ols_base_path, f'morl_logs_seed_{seed}.json') for seed in seeds]
-    mc_seed_paths = os.path.join(mc_base_path, seed_folder, json_filename) 
+    mc_seed_paths = mc_base_path
     if not os.path.exists(mc_seed_paths):
         raise FileNotFoundError(f"MC file not found at path: {mc_seed_paths}")
     # Generate both DataFrames
@@ -1491,8 +1640,12 @@ def main():
     
     print("Processing OLS Data...")
     df_ccs_matching = process_data(ols_seed_paths, 'ols')
-    analyse_pf_values(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    print('Processing MC data')
+    process_data(mc_seed_paths, 'mc')
     
+    
+    analyse_pf_values(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
+    process_data_mc
     #analyse_pf_values_and_plot(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
     analyse_pf_values_and_plot_projections(csv_path="morl_logs/trial/base/TOPGRID_MORL_5bus/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/ccs_matching_data.csv")
     #sub_id_process_and_plot(csv_path='ccs_matching_data.csv')

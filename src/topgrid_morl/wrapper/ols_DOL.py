@@ -67,6 +67,7 @@ class MOPPOTrainer:
         self.weight_range = [0, 1]  # Default range for weights
         self.num_samples = len(self.agent_params.get('weight_vectors', [[1, 0, 0]]))  # Default number of weight vectors
         self.iterations = 0
+        self.mc_samples = 0 
 
     def run(self):
         weight_vectors = self.agent_params.get('weight_vectors', [self.sample_weights() for _ in range(self.num_samples)])
@@ -82,9 +83,19 @@ class MOPPOTrainer:
 
     def sample_weights(self):
         # Sample weights and normalize to sum to 1
-        weights = np.random.rand(self.reward_dim)
-        normalized_weights = weights / np.sum(weights)
-        return np.round(normalized_weights, 2)
+        """Samples random weight vectors from a uniform distribution."""
+        self.mc_samples+=1
+        
+        if self.mc_samples==1: #non generic -> need to adjust to extrema weights of reward dim
+            return([1,0,0])
+        elif self.mc_samples ==2: 
+            return( [0,1,0])
+        elif self.mc_samples ==3: 
+            return([0,0,1])
+        else: 
+            weights = np.random.rand(self.reward_dim)
+            normalized_weights = weights / np.sum(weights)
+            return np.round(normalized_weights, 2)
 
     def initialize_or_reuse_model(self, weights):
         """
