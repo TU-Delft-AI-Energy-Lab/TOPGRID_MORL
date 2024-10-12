@@ -204,9 +204,9 @@ def plot_2d_projections_seeds(seed_paths, wrapper):
     """
     # Initialize the figure
     fig = make_subplots(rows=1, cols=3, subplot_titles=[
-        'ScaledLinesCapacity vs ScaledL2RPN',
-        'ScaledLinesCapacity vs ScaledTopoDepth',
-        'ScaledL2RPN vs ScaledTopoDepth'
+        'L2RPN vs Topological Depth',
+        'L2RPN vs Topological Actions',
+        'Topological Depth vs Topological Actions'
     ])
 
     table_data = []
@@ -441,7 +441,6 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
             returns_array = np.array(data_entry['returns'])
             if np.allclose(ccs_entry_array, returns_array, atol=1e-3):
                 matching_entries.append({
-                    
                     "weights": data_entry['weights'],
                     "returns": ccs_entry,
                     "agent_file": data_entry['agent_file'],
@@ -607,9 +606,11 @@ def plot_all_seeds(seed_paths, wrapper, df_ccs_matching):
 def plot_2d_projections_matplotlib(seed_paths, wrapper):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
+    Annotates the extrema points corresponding to extreme weight vectors like (1,0,0), (0,1,0), (0,0,1).
     """
     import matplotlib.pyplot as plt
     import matplotlib
+    import numpy as np
 
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update({
@@ -626,55 +627,239 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper):
 
     fig, axs = plt.subplots(1, 3)
 
-    colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+    if wrapper == "mc":
+        # Handle random sampling paths (RS-Benchmark)
+        # Assuming seed_paths is a single path or a list with one path
+        if isinstance(seed_paths, list):
+            seed_path = seed_paths[0]
+        else:
+            seed_path = seed_paths
 
-    for i, seed_path in enumerate(seed_paths):
+        # Load data
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
         x_all, y_all, z_all = extract_coordinates(ccs_list)
 
-        # Calculate Pareto frontiers
-        x_pareto_xy, y_pareto_xy, _ = pareto_frontier_2d(x_all, y_all)
-        x_pareto_xz, z_pareto_xz, _ = pareto_frontier_2d(x_all, z_all)
-        y_pareto_yz, z_pareto_yz, _ = pareto_frontier_2d(y_all, z_all)
+        # Get matching weights for each point
+        matching_entries = find_matching_weights_and_agent(ccs_list, data['ccs_data'])
+
+        # Create a mapping from coordinates to weights
+        coord_to_weight = {}
+        for entry in matching_entries:
+            x, y, z = entry['returns']
+            weight = entry['weights']
+            coord_to_weight[(x, y, z)] = weight
+
+        # Convert coordinates to tuples for matching
+        coords_all = list(zip(x_all, y_all, z_all))
+
+        # Create an array of weights corresponding to each point
+        weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+        # Pareto frontiers
+        x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
+
+        # Plot color is gray
+        gray_color = 'gray'
 
         # Plot full dataset and Pareto frontiers for each projection
         # X vs Y
-        axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.5,
-                       label=f'Seed {i+1} Data')
-        axs[0].scatter(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)],
-                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+        axs[0].scatter(x_all, y_all, color=gray_color, alpha=0.5,
+                       label='RS-Benchmark Data')
+        axs[0].scatter(x_pareto_xy, y_pareto_xy, color=gray_color,
+                       edgecolors='black', marker='o', s=100, label='RS-Benchmark Pareto')
 
-        axs[0].set_xlabel('L2RPN Score')
-        axs[0].set_ylabel('TopoDepth')
-        axs[0].set_title('L2RPN Score vs TopoDepth')
+        # Annotate extrema points
+        for idx in pareto_indices_xy:
+            weight = weights_all[idx]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    x = x_all[idx]
+                    y = y_all[idx]
+                    label = weight_label(weight)
+                    axs[0].annotate(label, (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+
+        axs[0].set_xlabel('ScaledLinesCapacity')
+        axs[0].set_ylabel('ScaledL2RPN')
+        axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
 
         # X vs Z
-        axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.5,
-                       label=f'Seed {i+1} Data')
-        axs[1].scatter(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)],
-                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+        axs[1].scatter(x_all, z_all, color=gray_color, alpha=0.5,
+                       label='RS-Benchmark Data')
+        axs[1].scatter(x_pareto_xz, z_pareto_xz, color=gray_color,
+                       edgecolors='black', marker='o', s=100, label='RS-Benchmark Pareto')
 
-        axs[1].set_xlabel('L2RPN Score')
-        axs[1].set_ylabel('TopoAction')
-        axs[1].set_title('L2RPN Score vs TopoAction')
+        # Annotate extrema points
+        for idx in pareto_indices_xz:
+            weight = weights_all[idx]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    x = x_all[idx]
+                    z = z_all[idx]
+                    label = weight_label(weight)
+                    axs[1].annotate(label, (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+
+        axs[1].set_xlabel('ScaledLinesCapacity')
+        axs[1].set_ylabel('ScaledTopoDepth')
+        axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
 
         # Y vs Z
-        axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.5,
-                       label=f'Seed {i+1} Data')
-        axs[2].scatter(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)],
-                       edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+        axs[2].scatter(y_all, z_all, color=gray_color, alpha=0.5,
+                       label='RS-Benchmark Data')
+        axs[2].scatter(y_pareto_yz, z_pareto_yz, color=gray_color,
+                       edgecolors='black', marker='o', s=100, label='RS-Benchmark Pareto')
 
-        axs[2].set_xlabel('TopoDepth')
-        axs[2].set_ylabel('TopoAction')
-        axs[2].set_title('TopoDepth vs TopoAction')
+        # Annotate extrema points
+        for idx in pareto_indices_yz:
+            weight = weights_all[idx]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    y = y_all[idx]
+                    z = z_all[idx]
+                    label = weight_label(weight)
+                    axs[2].annotate(label, (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-    for ax in axs:
-        ax.legend()
-        ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+        axs[2].set_xlabel('ScaledL2RPN')
+        axs[2].set_ylabel('ScaledTopoDepth')
+        axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
 
-    plt.tight_layout()
-    plt.show()
+        for ax in axs:
+            ax.legend()
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+        plt.tight_layout()
+        plt.suptitle('RS-Benchmark', fontsize=20)
+        plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+        plt.show()
+
+    else:
+        # Handle OLS paths
+        colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+
+        for i, seed_path in enumerate(seed_paths):
+            data = load_json_data(seed_path)
+            ccs_list = data['ccs_list'][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+            # Get matching weights for each point
+            matching_entries = find_matching_weights_and_agent(ccs_list, data['ccs_data'])
+
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry['returns']
+                weight = entry['weights']
+                coord_to_weight[(x, y, z)] = weight
+
+            # Convert coordinates to tuples for matching
+            coords_all = list(zip(x_all, y_all, z_all))
+
+            # Create an array of weights corresponding to each point
+            weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+            # Calculate Pareto frontiers
+            x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
+            x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
+            y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
+
+            # Plot full dataset and Pareto frontiers for each projection
+            # X vs Y
+            axs[0].scatter(x_all, y_all, color=colors[i % len(colors)], alpha=0.5,
+                           label=f'Seed {i+1} Data')
+            axs[0].scatter(x_pareto_xy, y_pareto_xy, color=colors[i % len(colors)],
+                           edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
+            # Annotate extrema points
+            for idx in pareto_indices_xy:
+                weight = weights_all[idx]
+                if weight is not None:
+                    if is_extreme_weight(weight):
+                        x = x_all[idx]
+                        y = y_all[idx]
+                        label = weight_label(weight)
+                        axs[0].annotate(label, (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+
+            axs[0].set_xlabel('ScaledLinesCapacity')
+            axs[0].set_ylabel('ScaledL2RPN')
+            axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+
+            # X vs Z
+            axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.5,
+                           label=f'Seed {i+1} Data')
+            axs[1].scatter(x_pareto_xz, z_pareto_xz, color=colors[i % len(colors)],
+                           edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
+            # Annotate extrema points
+            for idx in pareto_indices_xz:
+                weight = weights_all[idx]
+                if weight is not None:
+                    if is_extreme_weight(weight):
+                        x = x_all[idx]
+                        z = z_all[idx]
+                        label = weight_label(weight)
+                        axs[1].annotate(label, (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+
+            axs[1].set_xlabel('ScaledLinesCapacity')
+            axs[1].set_ylabel('ScaledTopoDepth')
+            axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+
+            # Y vs Z
+            axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.5,
+                           label=f'Seed {i+1} Data')
+            axs[2].scatter(y_pareto_yz, z_pareto_yz, color=colors[i % len(colors)],
+                           edgecolors='black', marker='o', s=100, label=f'Seed {i+1} Pareto')
+
+            # Annotate extrema points
+            for idx in pareto_indices_yz:
+                weight = weights_all[idx]
+                if weight is not None:
+                    if is_extreme_weight(weight):
+                        y = y_all[idx]
+                        z = z_all[idx]
+                        label = weight_label(weight)
+                        axs[2].annotate(label, (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
+                                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+
+            axs[2].set_xlabel('ScaledL2RPN')
+            axs[2].set_ylabel('ScaledTopoDepth')
+            axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+
+        for ax in axs:
+            ax.legend()
+            ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+        plt.tight_layout()
+        plt.suptitle('2D Projections of Seeds', fontsize=20)
+        plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+        plt.show()
+
+# Helper Functions
+def is_extreme_weight(weight, tol=1e-2):
+    """
+    Check if the weight vector is approximately an extreme weight vector.
+    """
+    weight = np.array(weight)
+    indices = np.where(np.abs(weight - 1.0) < tol)[0]
+    if len(indices) == 1:
+        if np.all(np.abs(np.delete(weight, indices[0])) < tol):
+            return True
+    return False
+
+def weight_label(weight):
+    """
+    Return a string label for the weight vector.
+    """
+    weight = np.array(weight)
+    labels = [str(int(round(w))) if abs(w - round(w)) < 1e-2 else "{0:.2f}".format(w) for w in weight]
+    return "(" + ",".join(labels) + ")"
+
     
 def calculate_3d_hypervolume(pareto_points, reference_point):
     """Calculate the 3D hypervolume dominated by the Pareto frontier."""
@@ -1501,6 +1686,11 @@ def analyse_pf_values_and_plot(csv_path):
     plt.show()
 
 def analyse_pf_values_and_plot_projections(csv_path):
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import ast
+    from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
+
     # Read the CSV file
     df = pd.read_csv(csv_path)
     
@@ -1568,8 +1758,8 @@ def analyse_pf_values_and_plot_projections(csv_path):
         # Total number of switching actions (average over chronics)
         total_switching_actions = len(actions) / num_chronics if num_chronics > 0 else len(actions)
         
-        # Extract and round weights
-        weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
+        # Extract weights
+        weights = ast.literal_eval(row['Weights'])  # Should be list of floats
         
         # Store the results for the current Pareto point
         results.append({
@@ -1606,30 +1796,65 @@ def analyse_pf_values_and_plot_projections(csv_path):
         'font.family': 'serif',
     })
     
+    # --- Helper Functions ---
+    def is_extreme_weight(weight, tol=1e-2):
+        """
+        Check if the weight vector is approximately an extreme weight vector.
+        """
+        weight = np.array(weight)
+        indices = np.where(np.abs(weight - 1.0) < tol)[0]
+        if len(indices) == 1:
+            if np.all(np.abs(np.delete(weight, indices[0])) < tol):
+                return True
+        return False
+    
+    def weight_label(weight):
+        """
+        Return a string label for the weight vector.
+        """
+        weight = np.array(weight)
+        labels = [str(int(round(w))) if abs(w - round(w)) < 1e-2 else "{0:.2f}".format(w) for w in weight]
+        return "(" + ",".join(labels) + ")"
+    
     # --- 3D Scatter Plot ---
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection='3d')
     
     for seed in seeds:
         seed_data = results_df[results_df['seed'] == seed]
-        avg_steps_list = seed_data['Average Steps']
-        total_actions_list = seed_data['Total Switching Actions']
-        weighted_depth_list = seed_data['Weighted Depth Metric']
-        weights_list = seed_data['Weights']
-        pareto_points = seed_data['Pareto Point']
+        avg_steps_list = seed_data['Average Steps'].values
+        total_actions_list = seed_data['Total Switching Actions'].values
+        weighted_depth_list = seed_data['Weighted Depth Metric'].values
+        weights_list = seed_data['Weights'].values
+        
+        color = color_map[seed]
         
         # Plot data points for this seed
         ax.scatter(avg_steps_list, total_actions_list, weighted_depth_list,
-                   color=color_map[seed], marker='o', label=f'Seed {seed}', alpha=0.7)
+                   color=color, marker='o', label=f'Seed {seed}', alpha=0.7)
         
-        # Annotate each point with its weight vector
-        for avg_steps, total_actions, weighted_depth, weights in zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list):
-            ax.text(avg_steps, total_actions, weighted_depth, f"{weights}", size=9, zorder=1, color='k')
+        # Alternate annotation positions
+        offsets = [(-20, 10), (20, -10), (-20, -10), (20, 10)]
+        
+        # Annotate extrema weights and points with max steps
+        for idx, (avg_steps, total_actions, weighted_depth, weights) in enumerate(zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list)):
+            annotate = False
+            label = ''
+            if is_extreme_weight(weights):
+                annotate = True
+                label = weight_label(weights)
+            elif avg_steps >= 2016:
+                annotate = True
+                label = weight_label(weights)
+            if annotate:
+                # Adjust the annotation position
+                xytext = offsets[idx % len(offsets)]
+                ax.text(avg_steps, total_actions, weighted_depth, f"{label}", size=9, zorder=1, color='k')
     
     # Set plot labels and title
-    ax.set_xlabel('Average Steps')
-    ax.set_ylabel('Total Number of Switching Actions')
-    ax.set_zlabel('Weighted Depth Metric')
+    ax.set_xlabel('Average Steps (Higher is Better)')
+    ax.set_ylabel('Total Switching Actions (Lower is Better)')
+    ax.set_zlabel('Weighted Depth Metric (Lower is Better)')
     ax.set_title('Trade-offs among Average Steps, Total Switching Actions, and Weighted Depth Metric')
     
     ax.legend(title='Seeds')
@@ -1638,7 +1863,7 @@ def analyse_pf_values_and_plot_projections(csv_path):
     plt.show()
     
     # --- 2D Projections ---
-    fig2, axs = plt.subplots(1, 3)
+    fig2, axs = plt.subplots(1, 3, figsize=(20, 6))
     
     for seed in seeds:
         seed_data = results_df[results_df['seed'] == seed]
@@ -1651,33 +1876,69 @@ def analyse_pf_values_and_plot_projections(csv_path):
         
         # X vs Y
         axs[0].scatter(avg_steps_list, total_actions_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
-        # Annotations
-        for x, y, weights in zip(avg_steps_list, total_actions_list, weights_list):
-            axs[0].annotate(f"{weights}", (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
         
-        axs[0].set_xlabel('Average Steps')
-        axs[0].set_ylabel('Total Switching Actions')
-        axs[0].set_title('Average Steps vs Total Switching Actions')
+        # Alternate annotation positions
+        offsets = [(-20, 10), (20, -10), (-20, -10), (20, 10)]
+        
+        for idx, (x, y, weights) in enumerate(zip(avg_steps_list, total_actions_list, weights_list)):
+            annotate = False
+            label = ''
+            #if is_extreme_weight(weights):
+            #    annotate = True
+            #    label = weight_label(weights)
+            #elif x >= 2016:
+            #    annotate = True
+            #    label = weight_label(weights)
+            if annotate:
+                xytext = offsets[idx % len(offsets)]
+                axs[0].annotate(f"{label}", (x, y), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
+                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+        
+        axs[0].set_xlabel('Average Steps ')
+        axs[0].set_ylabel('Weighted Depth Metric')
+        axs[0].set_title('Average Steps vs Topological Depth')
         
         # X vs Z
         axs[1].scatter(avg_steps_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
-        # Annotations
-        for x, z, weights in zip(avg_steps_list, weighted_depth_list, weights_list):
-            axs[1].annotate(f"{weights}", (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
         
-        axs[1].set_xlabel('Average Steps')
-        axs[1].set_ylabel('Weighted Depth Metric')
-        axs[1].set_title('Average Steps vs Weighted Depth Metric')
+        for idx, (x, z, weights) in enumerate(zip(avg_steps_list, weighted_depth_list, weights_list)):
+            annotate = False
+            label = ''
+            #if is_extreme_weight(weights):
+            #    annotate = True
+            #    label = weight_label(weights)
+            #elif x >= 2016:
+            #    annotate = True
+            #    label = weight_label(weights)
+            if annotate:
+                xytext = offsets[idx % len(offsets)]
+                axs[1].annotate(f"{label}", (x, z), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
+                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+        
+        axs[1].set_xlabel('Average Steps ')
+        axs[1].set_ylabel('Total Switching actions')
+        axs[1].set_title('Average Steps vs Total Switching actions')
         
         # Y vs Z
         axs[2].scatter(total_actions_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
-        # Annotations
-        for y, z, weights in zip(total_actions_list, weighted_depth_list, weights_list):
-            axs[2].annotate(f"{weights}", (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9)
         
-        axs[2].set_xlabel('Total Switching Actions')
-        axs[2].set_ylabel('Weighted Depth Metric')
-        axs[2].set_title('Total Switching Actions vs Weighted Depth Metric')
+        for idx, (y, z, weights, x) in enumerate(zip(total_actions_list, weighted_depth_list, weights_list, avg_steps_list)):
+            annotate = False
+            label = ''
+            #if is_extreme_weight(weights):
+            #    annotate = True
+            #    label = weight_label(weights)
+            #elif x >= 2016:
+                #annotate = True
+                #label = weight_label(weights)
+            if annotate:
+                xytext = offsets[idx % len(offsets)]
+                axs[2].annotate(f"{label}", (y, z), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
+                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
+        
+        axs[2].set_ylabel('Total Switching Actions (Lower is Better)')
+        axs[2].set_xlabel('Weighted Depth Metric (Lower is Better)')
+        axs[2].set_title('Weighted Depth Metric vs Total Switching Actions')
     
     for ax in axs:
         ax.legend()
@@ -1685,11 +1946,13 @@ def analyse_pf_values_and_plot_projections(csv_path):
     
     plt.tight_layout()
     plt.show()
+
+
 # ---- Main Function ----
 def main():
     ols_base_path = r"morl_logs/opponent/OLS/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_none/op_True/rho_0.95"
     mc_base_path = r"morl_logs/trial/MC/rte_case5_example/2024-10-11/['TopoDepth', 'TopoActionHour']/re_partial/op_False/rho_0.95/morl_logs_seed_0.json"
-    seeds = [0,1,2,3,4]
+    seeds = [0,1,2]
     ols_seed_paths = [os.path.join(ols_base_path, f'morl_logs_seed_{seed}.json') for seed in seeds]
     mc_seed_paths = mc_base_path
     if not os.path.exists(mc_seed_paths):
@@ -1703,8 +1966,8 @@ def main():
     print(df_3d_metrics_ols)
     print("\n3D Metrics (MC):")
     print(df_3d_metrics_mc)
-    plot_2d_projections_seeds(mc_seed_paths, wrapper='mc')
-    plot_2d_projections_seeds(ols_seed_paths, wrapper='ols')
+    #plot_2d_projections_seeds(mc_seed_paths, wrapper='mc')
+    #plot_2d_projections_seeds(ols_seed_paths, wrapper='ols')
     print("Processing OLS Data...")
     df_ccs_matching = process_data(ols_seed_paths, 'ols')
     print('Processing MC data')
