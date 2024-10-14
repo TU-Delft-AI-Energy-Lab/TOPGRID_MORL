@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
+
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
 
 class ExperimentAnalysis:
@@ -64,14 +65,14 @@ class ExperimentAnalysis:
         self.df_all_metrics_ols = df_all_metrics_ols
         print("Metrics calculation completed.")
         
-    def plot_pareto_frontiers(self):
+    def plot_pareto_frontiers(self, rewards):
         # Generate the 2D Pareto frontier plots
         print("Plotting Pareto frontiers...")
         # For OLS seeds
-        plot_2d_projections_matplotlib(self.seed_paths, 'ols', save_dir=self.output_dir)
+        plot_2d_projections_matplotlib(self.seed_paths, 'ols', save_dir=self.output_dir, rewards=rewards)
         # For MC seed
         if os.path.exists(self.mc_seed_path):
-            plot_2d_projections_matplotlib(self.mc_seed_path, 'mc', save_dir=self.output_dir)
+            plot_2d_projections_matplotlib(self.mc_seed_path, 'mc', save_dir=self.output_dir, rewards=rewards)
         else:
             print(f"MC seed path not found: {self.mc_seed_path}")
         print("Pareto frontier plotting completed.")
@@ -537,7 +538,7 @@ def process_data(seed_paths, wrapper, output_dir):
         print("No matching entries found.")
     return df_ccs_matching
 
-def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
+def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None, rewards = ['L2RPN', 'TopoDepth', 'TopoActionHour']):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
     Annotates the extrema points corresponding to extreme weight vectors like (1,0,0), (0,1,0), (0,0,1).
@@ -616,9 +617,9 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                     axs[0].annotate(label, (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-        axs[0].set_xlabel('ScaledLinesCapacity')
-        axs[0].set_ylabel('ScaledL2RPN')
-        axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+        axs[0].set_xlabel(rewards[0])
+        axs[0].set_ylabel(rewards[1])
+        
 
         # X vs Z
         axs[1].scatter(x_all, z_all, color=gray_color, alpha=0.5,
@@ -637,9 +638,9 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                     axs[1].annotate(label, (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-        axs[1].set_xlabel('ScaledLinesCapacity')
-        axs[1].set_ylabel('ScaledTopoDepth')
-        axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+        axs[1].set_xlabel(rewards[1])
+        axs[1].set_ylabel(rewards[2])
+        
 
         # Y vs Z
         axs[2].scatter(y_all, z_all, color=gray_color, alpha=0.5,
@@ -658,9 +659,9 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                     axs[2].annotate(label, (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-        axs[2].set_xlabel('ScaledL2RPN')
-        axs[2].set_ylabel('ScaledTopoDepth')
-        axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+        axs[2].set_xlabel(rewards[1])
+        axs[2].set_ylabel(rewards[2])
+        
 
         for ax in axs:
             ax.legend()
@@ -721,9 +722,8 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                         axs[0].annotate(label, (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-            axs[0].set_xlabel('ScaledLinesCapacity')
-            axs[0].set_ylabel('ScaledL2RPN')
-            axs[0].set_title('ScaledLinesCapacity vs ScaledL2RPN')
+            axs[0].set_xlabel(rewards[0])
+            axs[0].set_ylabel(rewards[1])
 
             # X vs Z
             axs[1].scatter(x_all, z_all, color=colors[i % len(colors)], alpha=0.5,
@@ -742,9 +742,8 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                         axs[1].annotate(label, (x, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-            axs[1].set_xlabel('ScaledLinesCapacity')
-            axs[1].set_ylabel('ScaledTopoDepth')
-            axs[1].set_title('ScaledLinesCapacity vs ScaledTopoDepth')
+            axs[1].set_xlabel(rewards[0])
+            axs[1].set_ylabel(rewards[2])
 
             # Y vs Z
             axs[2].scatter(y_all, z_all, color=colors[i % len(colors)], alpha=0.5,
@@ -763,16 +762,15 @@ def plot_2d_projections_matplotlib(seed_paths, wrapper, save_dir=None):
                         axs[2].annotate(label, (y, z), textcoords="offset points", xytext=(0,10), ha='center', fontsize=12,
                                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
 
-            axs[2].set_xlabel('ScaledL2RPN')
-            axs[2].set_ylabel('ScaledTopoDepth')
-            axs[2].set_title('ScaledL2RPN vs ScaledTopoDepth')
+            axs[2].set_xlabel(rewards[1])
+            axs[2].set_ylabel(rewards[2])
 
         for ax in axs:
             ax.legend()
             ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
 
         plt.tight_layout()
-        plt.suptitle('2D Projections of Seeds', fontsize=20)
+        plt.suptitle('Projections of Pareo Frontier in Return Domain', fontsize=20)
         plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
         if save_dir:
             plt.savefig(os.path.join(save_dir, 'ols_pareto_frontiers.png'))
@@ -977,7 +975,8 @@ def analyse_pf_values_and_plot_projections(csv_path):
             'Average Steps': avg_steps,
             'Total Switching Actions': total_switching_actions,
             'Weighted Depth Metric': weighted_depth_metric,
-            'Weights': weights
+            'Weights': weights,
+            'Steps': steps
         })
     
     if not results:
@@ -1005,47 +1004,69 @@ def analyse_pf_values_and_plot_projections(csv_path):
         'font.family': 'serif',
     })
     
-    # --- Find non-dominated points ---
-    costs = results_df[['Average Steps', 'Total Switching Actions', 'Weighted Depth Metric']].values
-    pareto_mask = is_pareto_efficient(costs)
-
-       
     # --- 2D Projections ---
     fig2, axs = plt.subplots(1, 3, figsize=(20, 6))
+    fig2.suptitle('2D Projections of Pareto Frontier in Power System Domain' )
     
     for seed in seeds:
         seed_data = results_df[results_df['seed'] == seed]
         avg_steps_list = seed_data['Average Steps'].values
         total_actions_list = seed_data['Total Switching Actions'].values
         weighted_depth_list = seed_data['Weighted Depth Metric'].values
+        weights_list = seed_data['Weights'].values
+        steps_list = seed_data['Steps'].values
         
         color = color_map[seed]
         
+        # Darker points for 2016 steps
+        darker_color = 'black'
+        is_2016_steps = (steps_list >= 2016)
+        
         # X vs Y
         axs[0].scatter(avg_steps_list, total_actions_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        axs[0].scatter(avg_steps_list[is_2016_steps], total_actions_list[is_2016_steps],
+                       color=darker_color, edgecolors='black', marker='o', s=100, label=f'Steps=2016 (Seed {seed})')
         
+        # Annotate weights for points with 2016 steps
+        for idx in np.where(is_2016_steps)[0]:
+            weights_str = "(" + ", ".join([f"{w:.1f}" for w in weights_list[idx]]) + ")"
+            axs[0].annotate(weights_str, (avg_steps_list[idx], total_actions_list[idx]), textcoords="offset points", xytext=(0, 10), ha='center')
+
         axs[0].set_xlabel('Average Steps')
         axs[0].set_ylabel('Weighted Depth Metric')
-        axs[0].set_title('Average Steps vs Weighted Depth Metric')
+        
         
         # X vs Z
         axs[1].scatter(avg_steps_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        axs[1].scatter(avg_steps_list[is_2016_steps], weighted_depth_list[is_2016_steps],
+                       color=darker_color, edgecolors='black', marker='o', s=100, label=f'Steps=2016 (Seed {seed})')
         
+        for idx in np.where(is_2016_steps)[0]:
+            weights_str = "(" + ", ".join([f"{w:.1f}" for w in weights_list[idx]]) + ")"
+            axs[1].annotate(weights_str, (avg_steps_list[idx], weighted_depth_list[idx]), textcoords="offset points", xytext=(0, 10), ha='center')
+
         axs[1].set_xlabel('Average Steps')
         axs[1].set_ylabel('Total Switching Actions')
-        axs[1].set_title('Average Steps vs Total Switching Actions')
+        
         
         # Y vs Z
         axs[2].scatter(total_actions_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
+        axs[2].scatter(total_actions_list[is_2016_steps], weighted_depth_list[is_2016_steps],
+                       color=darker_color, edgecolors='black', marker='o', s=100, label=f'Steps=2016 (Seed {seed})')
         
+        for idx in np.where(is_2016_steps)[0]:
+            weights_str = "(" + ", ".join([f"{w:.1f}" for w in weights_list[idx]]) + ")"
+            axs[2].annotate(weights_str, (total_actions_list[idx], weighted_depth_list[idx]), textcoords="offset points", xytext=(0, 10), ha='center')
+
         axs[2].set_xlabel('Weighted Depth Metric')
-        axs[2].set_ylabel('Total Switching Action')
-        axs[2].set_title('Total Switching Actions vs Weighted Depth Metric')
+        axs[2].set_ylabel('Total Switching Actions')
+        
     
     # Reverse the y-axis (Total Switching Actions) and z-axis (Weighted Depth Metric) in the 2D projections
     axs[0].invert_yaxis()
     axs[1].invert_yaxis()
     axs[2].invert_yaxis()
+    axs[2].invert_xaxis()
 
     for ax in axs:
         ax.legend()
@@ -1054,32 +1075,104 @@ def analyse_pf_values_and_plot_projections(csv_path):
     plt.tight_layout()
     plt.show()
     
+def calculate_hypervolume_and_sparsity(json_data):
+    """
+    Given JSON data containing CCS lists and coordinates, calculates 2D and 3D Hypervolume
+    and Sparsity using the pre-existing utility functions.
+    """
+    # Extract the CCS list (assuming last element holds relevant data)
     
+    ccs_list = json_data['ccs_list'][-1]
+    if not ccs_list:
+        return None, None  # Handle cases where CCS list is missing or empty
     
+    # Extract coordinates
+    x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+    # Calculate 2D hypervolumes (XY plane), sparsity, and 3D hypervolume
+    reference_point_3d = (min(x_all), min(y_all), min(z_all))
+    pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+
+    # Calculate 3D Hypervolume and Sparsity
+    hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+    sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+
+    return hv_3d, sparsity_3d
+
+def compare_hv(base_path):
+    """
+    Compares the HV (Hypervolume) and Sparsity metrics for the settings:
+    - Baseline
+    - Full Reuse
+    - Partial Reuse
+    """
+    settings = ["Baseline", "Full", "Partial"]
+    reuse_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Full": os.path.join(base_path,  "re_full"),
+        "Partial": os.path.join(base_path, "re_partial")
+    }
+
+    # Initialize dictionary to store results
+    hv_metrics = {"Setting": [], "Sparsity": [], "Hypervolume": []}
+
+    # Loop through the settings and load corresponding JSON files
+    for setting in settings:
+        reuse_path = reuse_paths[setting]
+        
+        # Load the JSON log files for this setting
+        json_files = [f for f in os.listdir(reuse_path) if f.startswith('morl_logs')]
+        
+        for json_file in json_files:
+            file_path = os.path.join(reuse_path, json_file)
+            
+            # Load the JSON data
+            data = load_json_data(json_path=file_path)
+            print(file_path)
+            # Calculate hypervolume and sparsity using existing functions
+            hv_3d, sparsity_3d = calculate_hypervolume_and_sparsity(data)
+            
+            if hv_3d is not None and sparsity_3d is not None:
+                # Store the metrics
+                hv_metrics["Setting"].append(setting)
+                hv_metrics["Sparsity"].append(sparsity_3d)
+                hv_metrics["Hypervolume"].append(hv_3d)
+
+    # Convert the dictionary to a DataFrame for easier comparison and visualization
+    df_hv_metrics = pd.DataFrame(hv_metrics)
+    
+    # Print the results
+    print(df_hv_metrics)
+    
+    # Return the DataFrame
+    return df_hv_metrics
 
 # ---- Main Function ----
 def main():
     base_json_path = 'C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\trial'  # The base path where the JSON files are stored
     scenarios = ['Baseline', 'Maxrho', 'Opponent', 'Reuse', 'Time']
-    names = ['Baseline', 'rho095', 'rho090', 'rho080', 'rho070', 'Opponent',  ]
+    names = ['Baseline', 'rho095', 'rho090', 'rho080', 'rho070', 'Opponent']
+    
+    
     
     name=names[0]
-    scenario = scenarios[0]
-    reward_names = ['TopoDepth', 'TopoActionHour']
+    scenario = scenarios[3]
+    reward_names = ['L2RPN', 'TopoDepth', 'TopoActionHour']
 
     # Loop through scenarios and parameters
     print(f"Processing scenario: {scenario}")
     # Create an ExperimentAnalysis object
     analysis = ExperimentAnalysis(scenario=scenario, name=name, base_json_path=base_json_path)
     # Perform the analyses
-    analysis.calculate_metrics()
-    analysis.plot_pareto_frontiers()
+    
     if scenario == 'Baseline':
         # Perform in-depth analysis on a selected seed
+        analysis.calculate_metrics()
+        analysis.plot_pareto_frontiers(rewards=reward_names)
         analysis.in_depth_analysis(seed=0)  # For example, seed 0
         analysis.analyse_pareto_values_and_plot() 
-    else:
-        analysis.compare_policies()
+    if scenario == 'Reuse': 
+        compare_hv(os.path.join(base_json_path, 'OLS', scenario))
 
 if __name__ == "__main__":
     main()
