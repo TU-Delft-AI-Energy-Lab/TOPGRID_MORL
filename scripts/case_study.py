@@ -8,13 +8,13 @@ from scipy.spatial import ConvexHull
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
 
 class ExperimentAnalysis:
-    def __init__(self, date, scenario, parameters, reward_names, base_json_path):
-        self.date = date
+    def __init__(self, name, scenario, base_json_path):
         self.scenario = scenario
-        self.parameters = parameters  # Dictionary of parameter names and values
-        self.reward_names = reward_names  # List of reward names, e.g., ['TopoDepth', 'TopoActionHour']
+          # Dictionary of parameter names and values  # List of reward names, e.g., ['TopoDepth', 'TopoActionHour']
+        
         self.base_json_path = base_json_path
         self.seed_paths = []
+        self.name = name 
         self.mc_seed_path = None
         self.output_dir = None
         # Generate paths for saving CSVs and accessing JSONs
@@ -22,18 +22,12 @@ class ExperimentAnalysis:
         
     def generate_paths(self):
         # Build the directory path based on the parameters
-        param_parts = []
-        for key, value in self.parameters.items():
-            param_parts.append(f"{key}_{value}")
-        param_str = '/'.join(param_parts)
-        reward_str = str(self.reward_names)
-        # Construct the directory path
         self.output_dir = os.path.join(
             self.base_json_path,
+            'OLS',
             self.scenario,
-            self.date,
-            reward_str,
-            param_str
+            self.name
+            
         )
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -46,7 +40,7 @@ class ExperimentAnalysis:
             self.seed_paths.append(seed_path)
         # For MC seed (1 seed)
         mc_seed_file = 'morl_logs_seed_0.json'
-        mc_seed_dir = os.path.join(self.base_json_path, 'MC', self.scenario, self.date, reward_str)
+        mc_seed_dir = os.path.join(self.base_json_path, 'MC', self.scenario)
         self.mc_seed_path = os.path.join(mc_seed_dir, mc_seed_file)
         
     def load_data(self):
@@ -105,7 +99,7 @@ class ExperimentAnalysis:
         # Now perform the analysis and plotting
         analyse_pf_values_and_plot_projections(csv_path)
         print("Analysis and plotting of Pareto projections completed.")
-        
+    """    
     def compare_policies(self):
         # For the opponent, time, and max rho scenarios, determine if there are better RL policies
         print("Comparing policies...")
@@ -132,7 +126,7 @@ class ExperimentAnalysis:
                     print(f"Seed {seed}: Non-extreme policy {row['Weights']} performed better (Steps: {non_extreme_steps}) than extreme policy (Steps: {extreme_steps})")
                     # Additional comparison can be done here
         print("Policy comparison completed.")
-
+    """ 
 # Helper functions
 
 def load_json_data(json_path):
@@ -503,19 +497,23 @@ def process_data(seed_paths, wrapper, output_dir):
     all_data = []
     if wrapper == 'mc':
         seed_paths = [seed_paths]
-    seed = 0 
-    for seed_path in seed_paths:
+    
+    for seed, seed_path in enumerate(seed_paths):
+            
+            
         if not os.path.exists(seed_path):
             print(f"File not found: {seed_path}")
             continue
-
+        
         data = load_json_data(seed_path)
         ccs_list = data['ccs_list'][-1]
-        if wrapper == 'mc':
-            ccs_list = data['ccs_list']
-        ccs_data = data['ccs_data']
-        matching_entries = find_matching_weights_and_agent(ccs_list, ccs_data)
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        # Get matching weights for each point
+        matching_entries = find_matching_weights_and_agent(ccs_list, data['ccs_data'])
+        
         # Collect data for DataFrame
+        print(matching_entries)
         for entry in matching_entries:
             all_data.append({
                 "seed": seed, 
@@ -524,13 +522,15 @@ def process_data(seed_paths, wrapper, output_dir):
                 'test_chronic_0': entry['test_chronic_0'],
                 'test_chronic_1': entry['test_chronic_1']
             })
-        seed += 1
+        
 
     df_ccs_matching = pd.DataFrame(all_data) if all_data else pd.DataFrame()
     
     if not df_ccs_matching.empty:
         # Save the DataFrame to the constructed path
         csv_file_path = os.path.join(output_dir, "ccs_matching_data.csv")
+        if wrapper == 'MC':
+            csv_file_path = os.path.join(output_dir,  "mc_ccs_matching_data.csv")
         df_ccs_matching.to_csv(csv_file_path, index=False)
         print(f"Saved ccs_matching_data.csv to {csv_file_path}")
     else:
@@ -785,12 +785,19 @@ def topo_depth_process_and_plot(csv_path):
     # Extract information from the test_chronic columns
     df['test_chronic_0'] = df['test_chronic_0'].apply(ast.literal_eval)
     
-    # Initialize the plot with subplots for each Pareto point
-    fig, axes = plt.subplots(len(df), 1, figsize=(12, 6 * len(df)))
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, hspace=0.4)
-    if len(df) == 1:
-        axes = [axes]
+    # Filter rows where 'test_steps' in 'test_chronic_0' is 2016
+    df = df[df['test_chronic_0'].apply(lambda x: x['test_steps'] == 2016)]
     
+    # Limit to the first 5 points that reach 2016 steps
+    df = df.head(5)
+    
+    # Initialize the plot with subplots for each Pareto point
+    fig, axes = plt.subplots(len(df), 1, figsize=(12, 6 * len(df)), sharex=True)
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.9, bottom=0.1, hspace=0.4)
+    
+    # Set a global title for the plot
+    fig.suptitle("Topological Trajectory for PF Points", fontsize=20, weight='bold')
+
     # Generate colors for each Pareto point
     colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
 
@@ -799,55 +806,50 @@ def topo_depth_process_and_plot(csv_path):
         _, row = row
         color = colors[idx % len(colors)]
         weights = [round(float(w), 2) for w in ast.literal_eval(row['Weights'])]
-        label = f"Pareto Point {idx+1}: Weights {weights}"
         
+        # Set the title for the subplot (using larger font for better visibility)
+        ax.set_title(f"Weights: {weights}", fontsize=16, weight='bold')
+
         # Extract the timestamp and topological depth information from test_chronic_0
         chronic = 'test_chronic_0'
         steps = row[chronic]['test_steps']
         actions = row[chronic]['test_actions']
         timestamps = [0.0] + list(map(float, row[chronic]['test_action_timestamp']))
         topo_depths = [0.0] + [0.0 if t is None else t for t in row[chronic]['test_topo_distance']]
+        substations = row[chronic]['test_sub_ids']
 
         # Different marker for chronic_0
         marker = 'o'
-        chronic_label = f"{label} ({chronic})"
 
         # Plot each action on the graph and fill the area underneath
         for i in range(len(timestamps) - 1):
             if topo_depths[i] is not None and topo_depths[i + 1] is not None:
                 # Draw rectangular lines connecting the points starting from (0,0)
-                ax.plot([timestamps[i], timestamps[i + 1]],
-                        [topo_depths[i], topo_depths[i]],
+                ax.plot([timestamps[i], timestamps[i + 1]], [topo_depths[i], topo_depths[i]],
                         color=color, linestyle='-', linewidth=1)
-                ax.plot([timestamps[i + 1], timestamps[i + 1]],
-                        [topo_depths[i], topo_depths[i + 1]],
+                ax.plot([timestamps[i + 1], timestamps[i + 1]], [topo_depths[i], topo_depths[i + 1]],
                         color=color, linestyle='-', linewidth=1)
                 # Fill the area underneath the rectangular lines
-                ax.fill_between([timestamps[i], timestamps[i + 1]], 0, topo_depths[i],
-                                 color=color, alpha=0.3)
+                ax.fill_between([timestamps[i], timestamps[i + 1]], 0, topo_depths[i], color=color, alpha=0.3)
 
-        # Plot each action on the graph with markers
-        for j, (timestamp, topo_depth, action) in enumerate(zip(timestamps, topo_depths, actions)):
-            if topo_depth is not None:
-                if j == len(timestamps) - 1:
-                    # Mark the last point with a distinct edge color
-                    ax.plot(timestamp, topo_depth, marker, color=color, markeredgecolor='red', markersize=8, label=chronic_label)
-                else:
-                    ax.plot(timestamp, topo_depth, marker, color=color, label=chronic_label)
-                chronic_label = ""  # Avoid repeated labels in legend
+        # Plot each action on the graph with markers and annotate switching actions
+        for j, (timestamp, topo_depth, action, substation) in enumerate(zip(timestamps, topo_depths, actions, substations)):
+            if topo_depth is not None and timestamp != 0.0:  # Avoid annotating at (0, 0)
+                ax.plot(timestamp, topo_depth, marker, color=color, label=f"Weights: {weights}" if j == 0 else "", markersize=8)
+                ax.annotate(f"Sub {substation[0]}", (timestamp, topo_depth),
+                            textcoords="offset points", xytext=(0, 10), ha='center', fontsize=10)
 
         # Formatting each subplot
-        ax.set_xlabel("Timestamp")
-        ax.set_ylabel("Topological Distance Affected by Switching")
-        ax.set_title(f"Topological Distance Modifications for Pareto Point {idx+1}")
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
-        ax.legend(by_label.values(), by_label.keys(), loc='upper left', fontsize='small')
-        ax.tick_params(axis='x', rotation=45)
+        ax.set_ylabel("Topo. Depth", fontsize=12)
+        ax.grid(True)
 
-    plt.tight_layout()
+    # Set x-axis label only for the bottom plot
+    ax.set_xlabel("Timestamp", fontsize=14)
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Adjust to make room for the suptitle
     plt.show()
-
+    
+    
 def sub_id_process_and_plot(csv_path):
     # Read the CSV file
     df = pd.read_csv(csv_path)
@@ -898,11 +900,6 @@ def sub_id_process_and_plot(csv_path):
     plt.show()
 
 def analyse_pf_values_and_plot_projections(csv_path):
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import ast
-    from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
-
     # Read the CSV file
     df = pd.read_csv(csv_path)
     
@@ -1008,72 +1005,11 @@ def analyse_pf_values_and_plot_projections(csv_path):
         'font.family': 'serif',
     })
     
-    # --- Helper Functions ---
-    def is_extreme_weight(weight, tol=1e-2):
-        """
-        Check if the weight vector is approximately an extreme weight vector.
-        """
-        weight = np.array(weight)
-        indices = np.where(np.abs(weight - 1.0) < tol)[0]
-        if len(indices) == 1:
-            if np.all(np.abs(np.delete(weight, indices[0])) < tol):
-                return True
-        return False
-    
-    def weight_label(weight):
-        """
-        Return a string label for the weight vector.
-        """
-        weight = np.array(weight)
-        labels = [str(int(round(w))) if abs(w - round(w)) < 1e-2 else "{0:.2f}".format(w) for w in weight]
-        return "(" + ",".join(labels) + ")"
-    
-    # --- 3D Scatter Plot ---
-    fig = plt.figure(figsize=(12, 8))
-    ax = fig.add_subplot(111, projection='3d')
-    
-    for seed in seeds:
-        seed_data = results_df[results_df['seed'] == seed]
-        avg_steps_list = seed_data['Average Steps'].values
-        total_actions_list = seed_data['Total Switching Actions'].values
-        weighted_depth_list = seed_data['Weighted Depth Metric'].values
-        weights_list = seed_data['Weights'].values
-        
-        color = color_map[seed]
-        
-        # Plot data points for this seed
-        ax.scatter(avg_steps_list, total_actions_list, weighted_depth_list,
-                   color=color, marker='o', label=f'Seed {seed}', alpha=0.7)
-        
-        # Alternate annotation positions
-        offsets = [(-20, 10), (20, -10), (-20, -10), (20, 10)]
-        
-        # Annotate extrema weights and points with max steps
-        for idx, (avg_steps, total_actions, weighted_depth, weights) in enumerate(zip(avg_steps_list, total_actions_list, weighted_depth_list, weights_list)):
-            annotate = False
-            label = ''
-            if is_extreme_weight(weights):
-                annotate = True
-                label = weight_label(weights)
-            elif avg_steps >= 2016:
-                annotate = True
-                label = weight_label(weights)
-            if annotate:
-                # Adjust the annotation position
-                xytext = offsets[idx % len(offsets)]
-                ax.text(avg_steps, total_actions, weighted_depth, f"{label}", size=9, zorder=1, color='k')
-    
-    # Set plot labels and title
-    ax.set_xlabel('Average Steps (Higher is Better)')
-    ax.set_ylabel('Total Switching Actions (Lower is Better)')
-    ax.set_zlabel('Weighted Depth Metric (Lower is Better)')
-    ax.set_title('Trade-offs among Average Steps, Total Switching Actions, and Weighted Depth Metric')
-    
-    ax.legend(title='Seeds')
-    ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
-    plt.tight_layout()
-    plt.show()
-    
+    # --- Find non-dominated points ---
+    costs = results_df[['Average Steps', 'Total Switching Actions', 'Weighted Depth Metric']].values
+    pareto_mask = is_pareto_efficient(costs)
+
+       
     # --- 2D Projections ---
     fig2, axs = plt.subplots(1, 3, figsize=(20, 6))
     
@@ -1082,111 +1018,66 @@ def analyse_pf_values_and_plot_projections(csv_path):
         avg_steps_list = seed_data['Average Steps'].values
         total_actions_list = seed_data['Total Switching Actions'].values
         weighted_depth_list = seed_data['Weighted Depth Metric'].values
-        weights_list = seed_data['Weights'].values
         
         color = color_map[seed]
         
         # X vs Y
         axs[0].scatter(avg_steps_list, total_actions_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
         
-        # Alternate annotation positions
-        offsets = [(-20, 10), (20, -10), (-20, -10), (20, 10)]
-        
-        for idx, (x, y, weights) in enumerate(zip(avg_steps_list, total_actions_list, weights_list)):
-            annotate = False
-            label = ''
-            if is_extreme_weight(weights):
-                annotate = True
-                label = weight_label(weights)
-            elif x >= 2016:
-                annotate = True
-                label = weight_label(weights)
-            if annotate:
-                xytext = offsets[idx % len(offsets)]
-                axs[0].annotate(f"{label}", (x, y), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
-                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
-        
-        axs[0].set_xlabel('Average Steps (Higher is Better)')
-        axs[0].set_ylabel('Total Switching Actions (Lower is Better)')
-        axs[0].set_title('Average Steps vs Total Switching Actions')
+        axs[0].set_xlabel('Average Steps')
+        axs[0].set_ylabel('Weighted Depth Metric')
+        axs[0].set_title('Average Steps vs Weighted Depth Metric')
         
         # X vs Z
         axs[1].scatter(avg_steps_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
         
-        for idx, (x, z, weights) in enumerate(zip(avg_steps_list, weighted_depth_list, weights_list)):
-            annotate = False
-            label = ''
-            if is_extreme_weight(weights):
-                annotate = True
-                label = weight_label(weights)
-            elif x >= 2016:
-                annotate = True
-                label = weight_label(weights)
-            if annotate:
-                xytext = offsets[idx % len(offsets)]
-                axs[1].annotate(f"{label}", (x, z), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
-                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
-        
-        axs[1].set_xlabel('Average Steps (Higher is Better)')
-        axs[1].set_ylabel('Weighted Depth Metric (Lower is Better)')
-        axs[1].set_title('Average Steps vs Weighted Depth Metric')
+        axs[1].set_xlabel('Average Steps')
+        axs[1].set_ylabel('Total Switching Actions')
+        axs[1].set_title('Average Steps vs Total Switching Actions')
         
         # Y vs Z
         axs[2].scatter(total_actions_list, weighted_depth_list, color=color, alpha=0.5, label=f'Seed {seed} Data')
         
-        for idx, (y, z, weights, x) in enumerate(zip(total_actions_list, weighted_depth_list, weights_list, avg_steps_list)):
-            annotate = False
-            label = ''
-            if is_extreme_weight(weights):
-                annotate = True
-                label = weight_label(weights)
-            elif x >= 2016:
-                annotate = True
-                label = weight_label(weights)
-            if annotate:
-                xytext = offsets[idx % len(offsets)]
-                axs[2].annotate(f"{label}", (y, z), textcoords="offset points", xytext=xytext, ha='center', fontsize=12,
-                                arrowprops=dict(arrowstyle='->', connectionstyle='arc3'))
-        
-        axs[2].set_xlabel('Total Switching Actions (Lower is Better)')
-        axs[2].set_ylabel('Weighted Depth Metric (Lower is Better)')
+        axs[2].set_xlabel('Weighted Depth Metric')
+        axs[2].set_ylabel('Total Switching Action')
         axs[2].set_title('Total Switching Actions vs Weighted Depth Metric')
     
+    # Reverse the y-axis (Total Switching Actions) and z-axis (Weighted Depth Metric) in the 2D projections
+    axs[0].invert_yaxis()
+    axs[1].invert_yaxis()
+    axs[2].invert_yaxis()
+
     for ax in axs:
         ax.legend()
         ax.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
     
     plt.tight_layout()
     plt.show()
+    
+    
+    
 
 # ---- Main Function ----
 def main():
-    base_json_path = 'C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs'  # The base path where the JSON files are stored
-    date = '2024-10-11'
-    scenarios = ['default', 'opponent', 'time_constraint', 'max_rho_0.7', 'max_rho_0.8', 'max_rho_0.9']
-    parameters_list = [
-        {'opponent': 'False', 'reuse': 'none', 'max_rho': '0.95'},  # Default parameters
-        {'opponent': 'True', 'reuse': 'none', 'max_rho': '0.95'},   # Opponent scenario
-        {'opponent': 'False', 'time_constraint': 'True', 'reuse': 'none', 'max_rho': '0.95'},  # Time constraint scenario
-        {'opponent': 'False', 'reuse': 'none', 'max_rho': '0.7'},   # Max rho 0.7
-        {'opponent': 'False', 'reuse': 'none', 'max_rho': '0.8'},   # Max rho 0.8
-        {'opponent': 'False', 'reuse': 'none', 'max_rho': '0.9'},   # Max rho 0.9
-    ]
+    base_json_path = 'C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\trial'  # The base path where the JSON files are stored
+    scenarios = ['Baseline', 'Maxrho', 'Opponent', 'Reuse', 'Time']
+    names = ['Baseline', 'rho095', 'rho090', 'rho080', 'rho070', 'Opponent',  ]
+    
+    name=names[0]
     scenario = scenarios[0]
-    parameters = parameters_list[0]
     reward_names = ['TopoDepth', 'TopoActionHour']
 
     # Loop through scenarios and parameters
     print(f"Processing scenario: {scenario}")
     # Create an ExperimentAnalysis object
-    analysis = ExperimentAnalysis(date, scenario, parameters, reward_names, base_json_path)
+    analysis = ExperimentAnalysis(scenario=scenario, name=name, base_json_path=base_json_path)
     # Perform the analyses
     analysis.calculate_metrics()
     analysis.plot_pareto_frontiers()
-    if scenario == 'default':
+    if scenario == 'Baseline':
         # Perform in-depth analysis on a selected seed
         analysis.in_depth_analysis(seed=0)  # For example, seed 0
-        analysis.analyse_pareto_values_and_plot()
+        analysis.analyse_pareto_values_and_plot() 
     else:
         analysis.compare_policies()
 
