@@ -1398,7 +1398,7 @@ def calculate_hypervolume_and_sparsity(json_data):
     return hv_3d, sparsity_3d
 
 
-def compare_hv_with_combined_boxplots(base_path):
+def compare_hv_with_combined_boxplots(base_path, scenario):
     """
     Compares the HV (Hypervolume), Sparsity, and Min/Max Returns metrics for the settings:
     - Baseline
@@ -1408,11 +1408,19 @@ def compare_hv_with_combined_boxplots(base_path):
     1. Boxplot showing Hypervolume and Sparsity side-by-side for each setting.
     2. Boxplot showing Min/Max Returns for X, Y, Z coordinates side-by-side for each setting.
     """
-    settings = ["Baseline", "Full", "Partial"]
+    if scenario == 'Reuse':
+        settings = ["Baseline", "Full", "Partial"]
+        
+    elif scenario == 'Opponent':
+        setting = ['Baseline', 'Opponent']
     reuse_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
         "Full": os.path.join(base_path, "re_full"),
         "Partial": os.path.join(base_path, "re_partial"),
+    }
+    opponent_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Opponent": os.path.join(base_path, "Opponent")
     }
 
     # Initialize dictionary to store results
@@ -1421,13 +1429,17 @@ def compare_hv_with_combined_boxplots(base_path):
 
     # Loop through the settings and load corresponding JSON files
     for setting in settings:
-        reuse_path = reuse_paths[setting]
+        if scenario == 'Reuse':
+            path = reuse_paths[setting]
+        elif scenario == 'Opponent':
+            path = opponent_paths[setting]
+            
 
         # Load the JSON log files for this setting
-        json_files = [f for f in os.listdir(reuse_path) if f.startswith("morl_logs")]
+        json_files = [f for f in os.listdir(path) if f.startswith("morl_logs")]
 
         for json_file in json_files:
-            file_path = os.path.join(reuse_path, json_file)
+            file_path = os.path.join(path, json_file)
 
             # Load the JSON data
             data = load_json_data(json_path=file_path)
@@ -1531,7 +1543,8 @@ def main():
         analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario))
-
+    if scenario == 'Opponent':
+        compare_hv_with_combined_boxplots(os.path.join(base_json_path, 'OLS', scenario))
 
 if __name__ == "__main__":
     main()
