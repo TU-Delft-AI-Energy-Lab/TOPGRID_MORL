@@ -1534,12 +1534,12 @@ def compare_policies_weights(base_path, scenario):
     for setting in settings:
         path = opponent_paths[setting]
         seed_paths = []
-        for seed in range(5):
+        for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
         
-        seed_paths = seed_paths[0]
+        seed_paths = seed_paths[0]  # Just for seed 0
         print(f"Processing for setting: {setting} with seed path: {seed_paths}")
             
         # Process data for this scenario and setting
@@ -1556,60 +1556,50 @@ def compare_policies_weights(base_path, scenario):
             # Non-default runs (exclude [1.0, 0.0, 0.0])
             non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
             
-            # Extract 'test_steps' and 'test_actions' explicitly
-            non_default_runs['test_steps'] = non_default_runs['test_chronic_0'].apply(lambda x: x['test_steps'])
-            non_default_runs['test_actions'] = non_default_runs['test_chronic_0'].apply(lambda x: len(x['test_actions']))
+            # Extract 'test_steps' for both chronic_0 and chronic_1
+            non_default_runs['avg_test_steps'] = non_default_runs.apply(
+                lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
+            )
             
-            # Identify the top run with the highest number of steps, using fewer actions to break ties
-            best_run = non_default_runs.sort_values(by=['test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
+            non_default_runs['test_actions'] = non_default_runs.apply(
+                lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
+            )
+            
+            # Identify the top run with the highest average test_steps, using fewer actions to break ties
+            best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
             
             # Best run data
-            best_run_actions = len(best_run['test_chronic_0']['test_actions'])
-            best_run_steps = best_run['test_chronic_0']['test_steps']
+            best_run_actions = best_run['test_actions']
+            best_run_steps = best_run['avg_test_steps']
             best_run_weights = best_run['Weights']
                
-            # Extract 'test_steps' and 'test_actions' explicitly for both test_chronic_0 and test_chronic_1
-            for chronic in ['test_chronic_0', 'test_chronic_1']:
-                non_default_runs[f'{chronic}_steps'] = non_default_runs[chronic].apply(lambda x: x['test_steps'])
-                non_default_runs[f'{chronic}_actions'] = non_default_runs[chronic].apply(lambda x: len(x['test_actions']))
+            # Save the results for the best non-default run
+            results.append({
+                'Seed': seed,
+                'Setting': f'{setting} (Best Non-Default)',
+                'Run Type': f'Non-Default ({np.round(best_run_weights, 1)})',
+                'Switching Actions': best_run_actions,
+                'Steps': best_run_steps
+            })
                 
-                # Identify the top run with the highest number of steps, using fewer actions to break ties
-                best_run = non_default_runs.sort_values(by=[f'{chronic}_steps', f'{chronic}_actions'], ascending=[False, True]).iloc[0]
-                
-                # Best run data for the specific chronic
-                best_run_actions = len(best_run[chronic]['test_actions'])
-                best_run_steps = best_run[chronic]['test_steps']
-                best_run_weights = best_run['Weights']
-                   
-                # Save the results for the best non-default run
-                results.append({
-                    'Seed': seed,
-                    'Setting': f'{setting} (Best Non-Default)',
-                    'Chronic': chronic,
-                    'Run Type': f'Non-Default ({np.round(best_run_weights, 1)})',
-                    'Switching Actions': best_run_actions,
-                    'Steps': best_run_steps
-                })
-                    
-                # Default run data for the specific chronic
-                default_run_actions = len(default_run[chronic]['test_actions'])
-                default_run_steps = default_run[chronic]['test_steps']
-                results.append({
-                    'Seed': seed,
-                    'Setting': f'{setting} (Default)',
-                    'Chronic': chronic,
-                    'Run Type': 'Default [1,0,0]',
-                    'Switching Actions': default_run_actions,
-                    'Steps': default_run_steps
-                })
+            # Default run data
+            default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
+            default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
+            results.append({
+                'Seed': seed,
+                'Setting': f'{setting} (Default)',
+                'Run Type': 'Default [1,0,0]',
+                'Switching Actions': default_run_actions,
+                'Steps': default_run_steps
+            })
     
     # Convert the results into a DataFrame for plotting
     df_results = pd.DataFrame(results)
     
     # Plotting the comparison of switching actions
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(14, 8))
     sns.barplot(x='Setting', y='Switching Actions', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Switching Actions for Baseline and Opponent (Seed 0)')
+    plt.title('Comparison of Switching Actions for Baseline and Opponent (Chronic 0 and Chronic 1)')
     plt.ylabel('Number of Switching Actions')
     plt.xlabel('Setting (Baseline vs Opponent)')
     plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -1617,10 +1607,10 @@ def compare_policies_weights(base_path, scenario):
     plt.show()
     
     # Plotting the comparison of steps
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(14, 8))
     sns.barplot(x='Setting', y='Steps', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Steps for Baseline and Opponent (Seed 0)')
-    plt.ylabel('Number of Steps')
+    plt.title('Comparison of Steps for Baseline and Opponent (Chronic 0 and Chronic 1)')
+    plt.ylabel('Average Number of Steps')
     plt.xlabel('Setting (Baseline vs Opponent)')
     plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
     plt.tight_layout()
