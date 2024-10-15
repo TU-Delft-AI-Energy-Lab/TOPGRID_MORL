@@ -176,7 +176,6 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     ccs_data = []  # This will store the agent and weights for each CCS entry
     values = []
     ccs_list = []
-
    
     # Initialize the necessary directories
     current_date = datetime.now().strftime("%Y-%m-%d")
