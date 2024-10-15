@@ -1517,11 +1517,110 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
 
-def compare_policies_weights(base_path, scenario):
+def compare_policies_weights_all_seeds(base_path, scenario):
     import seaborn as sns
     import matplotlib.pyplot as plt
     import pandas as pd
     import numpy as np
+
+    opponent_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Opponent": os.path.join(base_path, "Opponent")
+    }
+
+    settings = ['Baseline', 'Opponent']
+    results = []
+
+    # Loop over each setting (Baseline and Opponent)
+    for setting in settings:
+        path = opponent_paths[setting]
+        
+        # Loop over each seed (0 to 4)
+        for seed in range(5):  
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            
+            print(f"Processing for setting: {setting} with seed path: {seed_path}")
+            
+            # Process data for this scenario and setting
+            df_ccs_matching_seeds = process_data(seed_paths=[seed_path], wrapper='ols', output_dir=path)
+            
+            # For each seed, process the data
+            for seed, group in df_ccs_matching_seeds.groupby('seed'):
+                # Default run [1,0,0]
+                default_runs = group[group['Weights'].apply(lambda w: w == [1.0, 0.0, 0.0])]
+                default_run = default_runs.loc[
+                    default_runs['test_chronic_0'].apply(lambda x: x['test_steps']).idxmax()
+                ]
+                
+                # Non-default runs (exclude [1.0, 0.0, 0.0])
+                non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
+                
+                # Extract 'test_steps' for both chronic_0 and chronic_1
+                non_default_runs['avg_test_steps'] = non_default_runs.apply(
+                    lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
+                )
+                
+                non_default_runs['test_actions'] = non_default_runs.apply(
+                    lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
+                )
+                
+                # Identify the top run with the highest average test_steps, using fewer actions to break ties
+                best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
+                
+                # Best run data
+                best_run_actions = best_run['test_actions']
+                best_run_steps = best_run['avg_test_steps']
+                best_run_weights = best_run['Weights']
+                
+                # Save the results for the best non-default run
+                results.append({
+                    'Seed': seed,
+                    'Setting': f'{setting} (Best Non-Default)',
+                    'Run Type': f'Non-Default',
+                    'Switching Actions': best_run_actions,
+                    'Steps': best_run_steps
+                })
+                
+                # Default run data
+                default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
+                default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
+                results.append({
+                    'Seed': seed,
+                    'Setting': f'{setting} (Default)',
+                    'Run Type': 'Default [1,0,0]',
+                    'Switching Actions': default_run_actions,
+                    'Steps': default_run_steps
+                })
+    
+    # Convert the results into a DataFrame for plotting
+    df_results = pd.DataFrame(results)
+    
+    # Boxplot of Switching Actions for Baseline and Opponent
+    plt.figure(figsize=(14, 8))
+    sns.boxplot(x='Setting', y='Switching Actions', hue='Run Type', data=df_results, palette="Set3")
+    plt.title('Boxplot of Switching Actions for Baseline and Opponent (All Seeds)')
+    plt.ylabel('Number of Switching Actions')
+    plt.xlabel('Setting (Baseline vs Opponent)')
+    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+    
+    # Boxplot of Steps for Baseline and Opponent
+    plt.figure(figsize=(14, 8))
+    sns.boxplot(x='Setting', y='Steps', hue='Run Type', data=df_results, palette="Set3")
+    plt.title('Boxplot of Steps for Baseline and Opponent (All Seeds)')
+    plt.ylabel('Average Number of Steps')
+    plt.xlabel('Setting (Baseline vs Opponent)')
+    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+
+    return df_results
+
+
+def compare_policies_weights(base_path, scenario):
+    
     
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
@@ -1646,6 +1745,7 @@ def main():
     if scenario == "Reuse":
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario))
     if scenario == 'Opponent':
+        compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
 
 if __name__ == "__main__":
