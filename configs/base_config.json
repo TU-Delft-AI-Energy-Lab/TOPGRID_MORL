@@ -23,7 +23,11 @@
         "device": "cpu"
     },
     "env_params": {
-        "max_rho": 0.95
+        "max_rho": 0.95,
+        "use_opponent": "hard",
+        "reuse": "partial",
+        "max_gym_steps": 64
+
     }, 
     "network_params":{
         "net_arch": [16,16],
@@ -32,7 +36,7 @@
     "reuse": "partial",
     "ols_iterations": 5,
     "case_study": "trial", 
-    "use_opponent": false, 
+    "use_opponent": "hard", 
 
     "weight_vectors": [
         [1, 0, 0]

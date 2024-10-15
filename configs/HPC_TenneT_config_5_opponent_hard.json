@@ -32,7 +32,7 @@
     "reuse": "None",
     "ols_iterations": 10,
     "case_study": "opponent", 
-    "use_opponent": "normal", 
+    "use_opponent": "hard", 
     
     "weight_vectors": [
         [0, 1, 0]
