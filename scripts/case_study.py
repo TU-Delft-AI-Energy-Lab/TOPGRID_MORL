@@ -72,9 +72,11 @@ class ExperimentAnalysis:
         # Generate the 2D Pareto frontier plots
         print("Plotting Pareto frontiers...")
         # For OLS seeds
+        
         plot_2d_projections_matplotlib(
             self.seed_paths, "ols", save_dir=self.output_dir, rewards=rewards
         )
+        plot_super_pareto_frontier_2d(seed_paths = self.seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"])
         # For MC seed
         if os.path.exists(self.mc_seed_path):
             plot_2d_projections_matplotlib(
@@ -956,7 +958,201 @@ def plot_2d_projections_matplotlib(
         if save_dir:
             plt.savefig(os.path.join(save_dir, "ols_pareto_frontiers.png"))
         plt.show()
+        
+def plot_super_pareto_frontier_2d(seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
+    """
+    Plots the super Pareto frontier across all seeds on the 2D projections (X vs Y, X vs Z, Y vs Z) using matplotlib.
+    """
+    import matplotlib.pyplot as plt
+    import os
 
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3)
+
+    # Initialize lists to collect all data points
+    x_all_seeds = []
+    y_all_seeds = []
+    z_all_seeds = []
+
+    # Initialize lists to collect weights, if needed
+    coords_all = []
+    weights_all = []
+
+    for seed_path in seed_paths:
+        data = load_json_data(seed_path)
+        ccs_list = data["ccs_list"][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+        x_all_seeds.extend(x_all)
+        y_all_seeds.extend(y_all)
+        z_all_seeds.extend(z_all)
+        # Collect weights for annotations
+        matching_entries = find_matching_weights_and_agent(
+            ccs_list, data["ccs_data"]
+        )
+        # Create a mapping from coordinates to weights
+        coord_to_weight = {}
+        for entry in matching_entries:
+            x, y, z = entry["returns"]
+            weight = entry["weights"]
+            coord_to_weight[(x, y, z)] = weight
+        # Convert coordinates to tuples for matching
+        coords = list(zip(x_all, y_all, z_all))
+        coords_all.extend(coords)
+        # Create an array of weights corresponding to each point
+        weights = [coord_to_weight.get(coord, None) for coord in coords]
+        weights_all.extend(weights)
+
+    # Now, compute the super Pareto frontiers in 2D
+    x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all_seeds, y_all_seeds)
+    x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all_seeds, z_all_seeds)
+    y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all_seeds, z_all_seeds)
+
+    # Plot all data points in gray
+    gray_color = 'gray'
+    # X vs Y
+    axs[0].scatter(
+        x_all_seeds,
+        y_all_seeds,
+        color=gray_color,
+        alpha=0.5,
+        label='All Data Points',
+    )
+    # X vs Z
+    axs[1].scatter(
+        x_all_seeds,
+        z_all_seeds,
+        color=gray_color,
+        alpha=0.5,
+        label='All Data Points',
+    )
+    # Y vs Z
+    axs[2].scatter(
+        y_all_seeds,
+        z_all_seeds,
+        color=gray_color,
+        alpha=0.5,
+        label='All Data Points',
+    )
+
+    # Plot the super Pareto frontiers
+    pareto_color = 'red'
+    # X vs Y
+    axs[0].scatter(
+        x_pareto_xy,
+        y_pareto_xy,
+        color=pareto_color,
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Super Pareto Frontier',
+    )
+    axs[0].set_xlabel(rewards[0])
+    axs[0].set_ylabel(rewards[1])
+
+    # Annotate extrema points for X vs Y
+    for idx in pareto_indices_xy:
+        weight = weights_all[idx]
+        if weight is not None:
+            if is_extreme_weight(weight):
+                x = x_all_seeds[idx]
+                y = y_all_seeds[idx]
+                label = weight_label(weight)
+                axs[0].annotate(
+                    label,
+                    (x, y),
+                    textcoords="offset points",
+                    xytext=(0, 10),
+                    ha="center",
+                    fontsize=12,
+                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                )
+
+    # X vs Z
+    axs[1].scatter(
+        x_pareto_xz,
+        z_pareto_xz,
+        color=pareto_color,
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Super Pareto Frontier',
+    )
+    axs[1].set_xlabel(rewards[0])
+    axs[1].set_ylabel(rewards[2])
+
+    # Annotate extrema points for X vs Z
+    for idx in pareto_indices_xz:
+        weight = weights_all[idx]
+        if weight is not None:
+            if is_extreme_weight(weight):
+                x = x_all_seeds[idx]
+                z = z_all_seeds[idx]
+                label = weight_label(weight)
+                axs[1].annotate(
+                    label,
+                    (x, z),
+                    textcoords="offset points",
+                    xytext=(0, 10),
+                    ha="center",
+                    fontsize=12,
+                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                )
+
+    # Y vs Z
+    axs[2].scatter(
+        y_pareto_yz,
+        z_pareto_yz,
+        color=pareto_color,
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Super Pareto Frontier',
+    )
+    axs[2].set_xlabel(rewards[1])
+    axs[2].set_ylabel(rewards[2])
+
+    # Annotate extrema points for Y vs Z
+    for idx in pareto_indices_yz:
+        weight = weights_all[idx]
+        if weight is not None:
+            if is_extreme_weight(weight):
+                y = y_all_seeds[idx]
+                z = z_all_seeds[idx]
+                label = weight_label(weight)
+                axs[2].annotate(
+                    label,
+                    (y, z),
+                    textcoords="offset points",
+                    xytext=(0, 10),
+                    ha="center",
+                    fontsize=12,
+                    arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                )
+
+    for ax in axs:
+        ax.legend()
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+    plt.suptitle("Super Pareto Frontier Projections in Return Domain", fontsize=20)
+    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+    if save_dir:
+        plt.savefig(os.path.join(save_dir, "super_pareto_frontiers.png"))
+    plt.show()
 
 def topo_depth_process_and_plot(csv_path):
     # Read the CSV file
@@ -1420,7 +1616,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     2. Boxplot showing Min/Max Returns for X, Y, Z coordinates side-by-side for each setting.
     """
     if scenario == 'Reuse':
-        settings = ["Baseline", "Full", "Partial"]
+        settings = ["Baseline", "Full", "Partial", "Baseline_1024", "Full_1024", "Partial_1024"]
         
     elif scenario == 'Opponent':
         settings = ['Baseline', 'Opponent']
@@ -1428,6 +1624,9 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
         "Baseline": os.path.join(base_path, "Baseline"),
         "Full": os.path.join(base_path, "re_full"),
         "Partial": os.path.join(base_path, "re_partial"),
+        "Baseline_1024": os.path.join(base_path, "Baseline_1024"),
+        "Full_1024": os.path.join(base_path, "re_full_1024"),
+        "Partial_1024": os.path.join(base_path, "re_partial_1024"),
     }
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
@@ -1533,71 +1732,97 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         "Baseline": os.path.join(base_path, "Baseline"),
         "Opponent": os.path.join(base_path, "Opponent")
     }
-
-    settings = ['Baseline', 'Opponent']
+    
+    time_paths =  {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "time_1024": os.path.join(base_path, "time_1024")
+    }
+    
+    rho_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        'rho90': os.path.join(base_path, 'rho90'),
+        'rho80': os.path.join(base_path, 'rho80'),
+        'rho70': os.path.join(base_path, 'rho70')
+        
+    }
+    
+    if scenario == 'Opponent':
+        settings = ['Baseline', 'Opponent']
+    elif scenario == "Time":
+        settings = ['Baseline', "time_1024"]
+    elif scenario == "max_rho":
+        settings = ['Baseline', 'rho90', 'rho80', 'rho70']
+            
     results = []
 
     # Loop over each setting (Baseline and Opponent)
     for setting in settings:
-        path = opponent_paths[setting]
-        
+        if scenario == 'Opponent':
+            path = opponent_paths[setting]
+        elif scenario == "Time":
+            path = time_paths[setting]
+        elif scenario == 'max_rho':
+            path = rho_paths[setting]
         # Loop over each seed (0 to 4)
-        for seed in range(5):  
+       
+        seed_paths = []
+        for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
+            seed_paths.append(seed_path)
             
-            print(f"Processing for setting: {setting} with seed path: {seed_path}")
+        print(f"Processing for setting: {setting} with seed path: {seed_path}")
+    
+        # Process data for this scenario and setting
+        df_ccs_matching_seeds = process_data(seed_paths=seed_paths, wrapper='ols', output_dir=path)
             
-            # Process data for this scenario and setting
-            df_ccs_matching_seeds = process_data(seed_paths=[seed_path], wrapper='ols', output_dir=path)
-            
-            # For each seed, process the data
-            for seed, group in df_ccs_matching_seeds.groupby('seed'):
-                # Default run [1,0,0]
-                default_runs = group[group['Weights'].apply(lambda w: w == [1.0, 0.0, 0.0])]
-                default_run = default_runs.loc[
-                    default_runs['test_chronic_0'].apply(lambda x: x['test_steps']).idxmax()
-                ]
+        # For each seed, process the data
+        for seed, group in df_ccs_matching_seeds.groupby('seed'):
+            # Default run [1,0,0]
+            default_runs = group[group['Weights'].apply(lambda w: w == [1.0, 0.0, 0.0])]
+            default_run = default_runs.loc[
+                default_runs['test_chronic_0'].apply(lambda x: x['test_steps']).idxmax()
+            ]
                 
-                # Non-default runs (exclude [1.0, 0.0, 0.0])
-                non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
+            # Non-default runs (exclude [1.0, 0.0, 0.0])
+            non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
                 
-                # Extract 'test_steps' for both chronic_0 and chronic_1
-                non_default_runs['avg_test_steps'] = non_default_runs.apply(
-                    lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
-                )
+            # Extract 'test_steps' for both chronic_0 and chronic_1
+            non_default_runs['avg_test_steps'] = non_default_runs.apply(
+                lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
+            )
                 
-                non_default_runs['test_actions'] = non_default_runs.apply(
-                    lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
-                )
+            non_default_runs['test_actions'] = non_default_runs.apply(
+                lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
+            )
                 
-                # Identify the top run with the highest average test_steps, using fewer actions to break ties
-                best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
+            # Identify the top run with the highest average test_steps, using fewer actions to break ties
+            best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
                 
-                # Best run data
-                best_run_actions = best_run['test_actions']
-                best_run_steps = best_run['avg_test_steps']
-                best_run_weights = best_run['Weights']
+            # Best run data
+            best_run_actions = best_run['test_actions']
+            best_run_steps = best_run['avg_test_steps']
+            best_run_weights = best_run['Weights']
                 
-                # Save the results for the best non-default run
-                results.append({
-                    'Seed': seed,
-                    'Setting': f'{setting} (Best Non-Default)',
-                    'Run Type': f'Non-Default',
-                    'Switching Actions': best_run_actions,
-                    'Steps': best_run_steps
-                })
+            # Save the results for the best non-default run
+            results.append({
+                'Seed': seed,
+                'Setting': f'{setting} (Best Non-Default)',
+                'Run Type': f'Non-Default',
+                'Switching Actions': best_run_actions,
+                'Steps': best_run_steps
+            })
                 
-                # Default run data
-                default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
-                default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
-                results.append({
+            # Default run data
+            default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
+            default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
+            results.append({
                     'Seed': seed,
                     'Setting': f'{setting} (Default)',
                     'Run Type': 'Default [1,0,0]',
                     'Switching Actions': default_run_actions,
                     'Steps': default_run_steps
-                })
+            })
     
     # Convert the results into a DataFrame for plotting
     df_results = pd.DataFrame(results)
@@ -1633,11 +1858,37 @@ def compare_policies_weights(base_path, scenario):
         "Opponent": os.path.join(base_path, "Opponent")
     }
     
-    settings = ['Baseline', 'Opponent']
+    time_paths =  {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "time_1024": os.path.join(base_path, "time_1024")
+    }
+    
+    rho_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        'rho90': os.path.join(base_path, 'rho90'),
+        'rho80': os.path.join(base_path, 'rho80'),
+        'rho70': os.path.join(base_path, 'rho70')
+        
+    }
+    
+    if scenario == 'Opponent':
+        settings = ['Baseline', 'Opponent']
+    elif scenario == "Time":
+        settings = ['Baseline', "time_1024"]
+    elif scenario == "max_rho":
+        settings = ['Baseline', 'rho90', 'rho80', 'rho70']
+        
+        
     results = []
     
+    # Loop over each setting (Baseline and Opponent)
     for setting in settings:
-        path = opponent_paths[setting]
+        if scenario == 'Opponent':
+            path = opponent_paths[setting]
+        elif scenario == "Time":
+            path = time_paths[setting]
+        elif scenario == 'max_rho':
+            path = rho_paths[setting]
         seed_paths = []
         for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
@@ -1744,13 +1995,17 @@ def main():
 
     if scenario == "Baseline":
         # Perform in-depth analysis on a selected seed
+        
         analysis.calculate_metrics()
         analysis.plot_pareto_frontiers(rewards=reward_names)
         analysis.in_depth_analysis(seed=0)  # For example, seed 0
         analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
-        compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario))
+        compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario=scenario)
     if scenario == 'Opponent':
+        compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+    if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
 
