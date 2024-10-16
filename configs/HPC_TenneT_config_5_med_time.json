@@ -39,7 +39,7 @@
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 1.536,
+    "max_gym_steps": 1536,
     "rewards": {
         "first": "L2RPN",
         "second": "TopoDepth",

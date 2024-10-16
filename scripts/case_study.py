@@ -617,9 +617,12 @@ def plot_2d_projections_matplotlib(
 ):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
+    Connects the points of each Pareto frontier with lines to make it easier to see the different Pareto frontiers.
     Annotates the extrema points corresponding to extreme weight vectors like (1,0,0), (0,1,0), (0,0,1).
     """
     import matplotlib.pyplot as plt
+    import numpy as np  # Import numpy for array operations
+    import os  # Ensure os is imported for save_dir functionality
 
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update(
@@ -672,14 +675,24 @@ def plot_2d_projections_matplotlib(
         x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
         y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
 
+        # Sort the Pareto frontier points for plotting lines
+        sorted_indices_xy = np.argsort(x_pareto_xy)
+        x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
+        y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
+
+        sorted_indices_xz = np.argsort(x_pareto_xz)
+        x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
+        z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
+
+        sorted_indices_yz = np.argsort(y_pareto_yz)
+        y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
+        z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
+
         # Plot color is gray
         gray_color = "gray"
 
-        # Plot full dataset and Pareto frontiers for each projection
+        # Plot Pareto frontiers with lines
         # X vs Y
-        #axs[0].scatter(
-        #    x_all, y_all, color=gray_color, alpha=0.5, label="RS-Benchmark Data"
-        #)
         axs[0].scatter(
             x_pareto_xy,
             y_pareto_xy,
@@ -689,32 +702,17 @@ def plot_2d_projections_matplotlib(
             s=100,
             label="RS-Benchmark Pareto",
         )
-        """
-        # Annotate extrema points
-        for idx in pareto_indices_xy:
-            weight = weights_all[idx]
-            if weight is not None:
-                if is_extreme_weight(weight):
-                    x = x_all[idx]
-                    y = y_all[idx]
-                    label = weight_label(weight)
-                    axs[0].annotate(
-                        label,
-                        (x, y),
-                        textcoords="offset points",
-                        xytext=(0, 10),
-                        ha="center",
-                        fontsize=12,
-                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                    )
-        """
+        axs[0].plot(
+            x_pareto_xy_sorted,
+            y_pareto_xy_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )
         axs[0].set_xlabel(rewards[0])
         axs[0].set_ylabel(rewards[1])
 
         # X vs Z
-        axs[1].scatter(
-            x_all, z_all, color=gray_color, alpha=0.5, label="RS-Benchmark Data"
-        )
         axs[1].scatter(
             x_pareto_xz,
             z_pareto_xz,
@@ -724,29 +722,17 @@ def plot_2d_projections_matplotlib(
             s=100,
             label="RS-Benchmark Pareto",
         )
-
-        # Annotate extrema points
-        for idx in pareto_indices_xz:
-            weight = weights_all[idx]
-            if weight is not None:
-                if is_extreme_weight(weight):
-                    x = x_all[idx]
-                    z = z_all[idx]
-                    label = weight_label(weight)
-                    axs[1].annotate(
-                        label,
-                        (x, z),
-                        textcoords="offset points",
-                        xytext=(0, 10),
-                        ha="center",
-                        fontsize=12,
-                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                    )
-
-        axs[1].set_xlabel(rewards[1])
+        axs[1].plot(
+            x_pareto_xz_sorted,
+            z_pareto_xz_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )
+        axs[1].set_xlabel(rewards[0])
         axs[1].set_ylabel(rewards[2])
 
-       
+        # Y vs Z
         axs[2].scatter(
             y_pareto_yz,
             z_pareto_yz,
@@ -756,25 +742,13 @@ def plot_2d_projections_matplotlib(
             s=100,
             label="RS-Benchmark Pareto",
         )
-        """
-        # Annotate extrema points
-        for idx in pareto_indices_yz:
-            weight = weights_all[idx]
-            if weight is not None:
-                if is_extreme_weight(weight):
-                    y = y_all[idx]
-                    z = z_all[idx]
-                    label = weight_label(weight)
-                    axs[2].annotate(
-                        label,
-                        (y, z),
-                        textcoords="offset points",
-                        xytext=(0, 10),
-                        ha="center",
-                        fontsize=12,
-                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                    )
-        """
+        axs[2].plot(
+            y_pareto_yz_sorted,
+            z_pareto_yz_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )
         axs[2].set_xlabel(rewards[1])
         axs[2].set_ylabel(rewards[2])
 
@@ -792,8 +766,8 @@ def plot_2d_projections_matplotlib(
     else:
         # Handle OLS paths
         colors = plt.cm.tab10.colors  # Use a colormap for different seeds
-        
-        for i, seed_path in enumerate(seed_paths):
+
+        for i, seed_path in enumerate(seed_paths[:5]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -826,17 +800,22 @@ def plot_2d_projections_matplotlib(
             y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(
                 y_all, z_all
             )
-            """
-            # Plot full dataset and Pareto frontiers for each projection
+
+            # Sort the Pareto frontier points for plotting lines
+            sorted_indices_xy = np.argsort(x_pareto_xy)
+            x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
+            y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
+
+            sorted_indices_xz = np.argsort(x_pareto_xz)
+            x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
+            z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
+
+            sorted_indices_yz = np.argsort(y_pareto_yz)
+            y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
+            z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
+
+            # Plot Pareto frontiers with lines
             # X vs Y
-            axs[0].scatter(
-                x_all,
-                y_all,
-                color=colors[i % len(colors)],
-                alpha=0.5,
-                label=f"Seed {i+1} Data",
-            )
-            """
             axs[0].scatter(
                 x_pareto_xy,
                 y_pareto_xy,
@@ -846,37 +825,17 @@ def plot_2d_projections_matplotlib(
                 s=100,
                 label=f"Seed {i+1}",
             )
-            """
-            # Annotate extrema points
-            for idx in pareto_indices_xy:
-                weight = weights_all[idx]
-                if weight is not None:
-                    if is_extreme_weight(weight):
-                        x = x_all[idx]
-                        y = y_all[idx]
-                        label = weight_label(weight)
-                        axs[0].annotate(
-                            label,
-                            (x, y),
-                            textcoords="offset points",
-                            xytext=(0, 10),
-                            ha="center",
-                            fontsize=12,
-                            arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                        )
-            """
+            axs[0].plot(
+                x_pareto_xy_sorted,
+                y_pareto_xy_sorted,
+                color=colors[i % len(colors)],
+                linestyle="-",
+                linewidth=3,
+            )
             axs[0].set_xlabel(rewards[0])
             axs[0].set_ylabel(rewards[1])
-            """
+
             # X vs Z
-            axs[1].scatter(
-                x_all,
-                z_all,
-                color=colors[i % len(colors)],
-                alpha=0.5,
-                label=f"Seed {i+1} Data",
-            )
-            """
             axs[1].scatter(
                 x_pareto_xz,
                 z_pareto_xz,
@@ -884,39 +843,19 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label=f"Seed {i+1} Pareto",
+                label=f"Seed {i+1}",
             )
-            """
-            # Annotate extrema points
-            for idx in pareto_indices_xz:
-                weight = weights_all[idx]
-                if weight is not None:
-                    if is_extreme_weight(weight):
-                        x = x_all[idx]
-                        z = z_all[idx]
-                        label = weight_label(weight)
-                        axs[1].annotate(
-                            label,
-                            (x, z),
-                            textcoords="offset points",
-                            xytext=(0, 10),
-                            ha="center",
-                            fontsize=12,
-                            arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                        )
-            """
+            axs[1].plot(
+                x_pareto_xz_sorted,
+                z_pareto_xz_sorted,
+                color=colors[i % len(colors)],
+                linestyle="-",
+                linewidth=3,
+            )
             axs[1].set_xlabel(rewards[0])
             axs[1].set_ylabel(rewards[2])
-            """
+
             # Y vs Z
-            axs[2].scatter(
-                y_all,
-                z_all,
-                color=colors[i % len(colors)],
-                alpha=0.5,
-                label=f"Seed {i+1} Data",
-            )
-            """
             axs[2].scatter(
                 y_pareto_yz,
                 z_pareto_yz,
@@ -924,27 +863,15 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label=f"Seed {i+1} Pareto",
+                label=f"Seed {i+1}",
             )
-            """
-            # Annotate extrema points
-            for idx in pareto_indices_yz:
-                weight = weights_all[idx]
-                if weight is not None:
-                    if is_extreme_weight(weight):
-                        y = y_all[idx]
-                        z = z_all[idx]
-                        label = weight_label(weight)
-                        axs[2].annotate(
-                            label,
-                            (y, z),
-                            textcoords="offset points",
-                            xytext=(0, 10),
-                            ha="center",
-                            fontsize=12,
-                            arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
-                        )
-            """
+            axs[2].plot(
+                y_pareto_yz_sorted,
+                z_pareto_yz_sorted,
+                color=colors[i % len(colors)],
+                linestyle="-",
+                linewidth=3,
+            )
             axs[2].set_xlabel(rewards[1])
             axs[2].set_ylabel(rewards[2])
 
@@ -953,7 +880,7 @@ def plot_2d_projections_matplotlib(
             ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
         plt.tight_layout()
-        plt.suptitle("Projections of Pareo Frontier in Return Domain", fontsize=20)
+        plt.suptitle("Projections of Pareto Frontier in Return Domain", fontsize=20)
         plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
         if save_dir:
             plt.savefig(os.path.join(save_dir, "ols_pareto_frontiers.png"))
@@ -1382,6 +1309,26 @@ def plot_super_pareto_frontier_2d_multiple_settings(base_path, scenario, setting
     plt.show()
 
 def topo_depth_process_and_plot(csv_path):
+    """
+    Processes the CSV data and plots the topological depth trajectories for Pareto frontier points.
+    Adjusts the design and layout for a more scientific appearance.
+    """
+    
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (12, 8),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 20,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
     # Read the CSV file
     df = pd.read_csv(csv_path)
 
@@ -1392,73 +1339,75 @@ def topo_depth_process_and_plot(csv_path):
     df = df[df["test_chronic_0"].apply(lambda x: x["test_steps"] == 2016)]
 
     # Limit to the first 5 points that reach 2016 steps
-    df = df.head(5)
+    df = df.head(2)
 
     # Initialize the plot
     fig, ax = plt.subplots(figsize=(12, 8))
 
     # Set a title for the plot
-    ax.set_title("Topological Trajectory for PF Points", fontsize=20, weight="bold")
+    ax.set_title("Topological Trajectory for PF Points", fontsize=20)
 
-    # Generate colors for each Pareto point using a qualitative colormap
-    color_map = plt.get_cmap('tab10', 4)
-    colors = [color_map(i) for i in range(4)]
-    #colors = [color_map(i) for i in range(len(df))]
+    # Initialize index for alternatives
+    alternative_idx = 1
+
+    # Define label to color mapping
+    label_to_color = {
+        "S-O": "black",
+        "M-O alternative [1]": "red",
+        "M-O alternative [2]": "blue",
+        "M-O alternative [3]": "green",
+    }
 
     # Iterate through each row in the dataframe
     for idx, row in df.iterrows():
-        color = colors[idx % len(colors)]
         weights = [round(float(w), 2) for w in ast.literal_eval(row["Weights"])]
+
+        # Determine the label based on weights
+        if np.allclose(weights, [1.0, 0.0, 0.0], atol=1e-2):
+            label = "S-O"
+        else:
+            label = f"M-O alternative [{alternative_idx}]"
+            alternative_idx += 1
+
+        # Get color based on label
+        color = label_to_color.get(label, "black")  # Default to black if label not found
 
         # Extract the timestamp and topological depth information from test_chronic_0
         chronic = "test_chronic_0"
-        actions = row[chronic]["test_actions"]
         timestamps = [0.0] + list(map(float, row[chronic]["test_action_timestamp"]))
         topo_depths = [0.0] + [
             0.0 if t is None else t for t in row[chronic]["test_topo_distance"]
         ]
-        linesyles = [':', '-', '--', '.']
         substations = row[chronic]["test_sub_ids"]
-        # Plot each action on the graph and fill the area underneath
+
+        # Plot each action as rectangular steps and fill the area underneath
         for i in range(len(timestamps) - 1):
             if topo_depths[i] is not None and topo_depths[i + 1] is not None:
-                # Draw rectangular lines connecting the points starting from (0,0)
-                if i ==0:
-                    ax.plot(
-                        [timestamps[i], timestamps[i + 1]],
-                        [topo_depths[i], topo_depths[i]],
-                        color=color,
-                        linestyle=':',
-                        linewidth=5,
-                        label=f"Weights: {weights}",
-                    
-                    )
-                else: 
-                    ax.plot(
-                        [timestamps[i], timestamps[i + 1]],
-                        [topo_depths[i], topo_depths[i]],
-                        color=color,
-                        linestyle=':',
-                        linewidth=5,
-                    )
+                # Horizontal line: from timestamps[i] to timestamps[i+1] at topo_depths[i]
+                ax.plot(
+                    [timestamps[i], timestamps[i + 1]],
+                    [topo_depths[i], topo_depths[i]],
+                    color=color,
+                    linestyle='-',
+                    linewidth=3,  # Increased line width
+                    label=label if i == 0 else "",
+                )
+                # Vertical line: from topo_depths[i] to topo_depths[i+1] at timestamps[i+1]
                 ax.plot(
                     [timestamps[i + 1], timestamps[i + 1]],
                     [topo_depths[i], topo_depths[i + 1]],
                     color=color,
-                    linestyle=':',
-                    linewidth=5,
+                    linestyle='-',
+                    linewidth=3,  # Increased line width
                 )
-                # Fill the area underneath the rectangular lines
+                # Fill the area underneath the horizontal line
                 ax.fill_between(
                     [timestamps[i], timestamps[i + 1]],
                     0,
                     topo_depths[i],
                     color=color,
                     alpha=0.1,
-                    
                 )
-        # Plot the trajectory line with label for legend
-        
 
         # Plot markers at action points
         ax.scatter(
@@ -1466,30 +1415,28 @@ def topo_depth_process_and_plot(csv_path):
             topo_depths,
             color=color,
             marker='o',
-            s=100
+            s=75  # Increased marker size
         )
 
-        # Annotate switching actions with adjusted offsets to reduce overlap
-        for j, (timestamp, topo_depth, substation) in enumerate(
-            zip(timestamps, topo_depths, substations)
-        ):
+        # Annotate switching actions directly next to the points
+        for timestamp, topo_depth, substation in zip(timestamps, topo_depths, substations):
             if topo_depth is not None and timestamp != 0.0:
-                # Offset annotations slightly differently for each trajectory
-                offset = (idx % 5) * 10  # Adjust as needed
                 ax.annotate(
                     f"Sub {substation[0]}",
                     (timestamp, topo_depth),
                     textcoords="offset points",
-                    xytext=(0, 10 + offset),
-                    ha="center",
-                    fontsize=8,
+                    xytext=(5, 0),
+                    ha="left",
+                    va="center",
+                    fontsize=10,
                     color=color
                 )
 
     # Formatting the plot
     ax.set_xlabel("Timestamp", fontsize=14)
     ax.set_ylabel("Topological Depth", fontsize=14)
-    ax.grid(True)
+    ax.set_yticks([0, 1, 2])
+    ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
     ax.legend(title="Trajectories")
 
     plt.tight_layout()
@@ -1558,6 +1505,17 @@ def sub_id_process_and_plot(csv_path):
 
 
 def analyse_pf_values_and_plot_projections(csv_path):
+    """
+    Analyzes Pareto frontier values and plots 2D projections in the power system domain.
+    Adjusts the design to have the same color for all points, transparent points for those not reaching 2016 steps,
+    highlights the best result per graph in red, and the single objective point in black.
+    Ensures that red and black points are plotted over blue ones in case of overlapping points.
+    """
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import ast
+    import numpy as np
+
     # Read the CSV file
     df = pd.read_csv(csv_path)
 
@@ -1659,9 +1617,29 @@ def analyse_pf_values_and_plot_projections(csv_path):
     results_df = pd.DataFrame(results)
 
     # Prepare data for plotting
-    seeds = results_df["seed"].unique()
-    colors = plt.cm.tab10.colors  # Use a colormap for different seeds
-    color_map = {seed: colors[i % len(colors)] for i, seed in enumerate(seeds)}
+    avg_steps_list = results_df["Average Steps"].values
+    weighted_depth_list = results_df["Weighted Depth Metric"].values
+    total_actions_list = results_df["Total Switching Actions"].values
+    weights_list = results_df["Weights"].values
+    steps_list = results_df["Steps"].values
+
+    # Determine which points reached 2016 steps
+    is_2016_steps = steps_list >= 2016
+
+    # Alpha values: 1 for points reaching 2016 steps, 0.2 for others
+    alpha_values = np.where(is_2016_steps, 1, 0.2)
+
+    # Determine indices of single objective points
+    is_single_objective = [np.allclose(w, [1, 0, 0], atol=1e-2) for w in weights_list]
+    idx_single_objective = np.where(is_single_objective)[0]
+
+    # For plotting best points per graph, find indices
+    # For x (Average Steps), best is max x
+    idx_best_x = np.argmax(np.where(is_2016_steps, avg_steps_list, -np.inf))
+    # For y (Weighted Depth Metric), best is min y
+    idx_best_y = np.argmin(np.where(is_2016_steps, weighted_depth_list, np.inf))
+    # For z (Total Switching Actions), best is min z
+    idx_best_z = np.argmin(np.where(is_2016_steps, total_actions_list, np.inf))
 
     # --- Set up matplotlib parameters for a more scientific look ---
     plt.rcParams.update(
@@ -1682,122 +1660,117 @@ def analyse_pf_values_and_plot_projections(csv_path):
     fig2, axs = plt.subplots(1, 3, figsize=(20, 6))
     fig2.suptitle("2D Projections of Pareto Frontier in Power System Domain")
 
-    for seed in seeds:
-        seed_data = results_df[results_df["seed"] == seed]
-        avg_steps_list = seed_data["Average Steps"].values
-        total_actions_list = seed_data["Total Switching Actions"].values
-        weighted_depth_list = seed_data["Weighted Depth Metric"].values
-        weights_list = seed_data["Weights"].values
-        steps_list = seed_data["Steps"].values
+    # General plotting color
+    general_color = 'blue'
 
-        color = color_map[seed]
+    # First subplot: x vs y (Average Steps vs Weighted Depth Metric)
+    # Plot blue points first
+    axs[0].scatter(
+        avg_steps_list,
+        weighted_depth_list,
+        color=general_color,
+        alpha=alpha_values,
+        label="Pareto Points from Return Domain",
+    )
 
-        # Darker blue for points with 2016 steps
-        darker_color = [0, 0, 0.5]  # Darker blue
-        is_2016_steps = steps_list >= 2016
+    # Plot single objective points in black over blue points
+    axs[0].scatter(
+        avg_steps_list[idx_single_objective],
+        weighted_depth_list[idx_single_objective],
+        color='black',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='S-O Point',
+    )
 
-        # X vs Y
-        axs[0].scatter(
-            avg_steps_list,
-            total_actions_list,
-            color=color,
-            alpha=0.2,  # Add transparency to non-2016 points
-            label=f"Seed {seed} Data",
-        )
-        axs[0].scatter(
-            avg_steps_list[is_2016_steps],
-            total_actions_list[is_2016_steps],
-            color=darker_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label=f"Steps=2016 (Seed {seed})",
-        )
+    # Plot best point in red over others
+    axs[0].scatter(
+        avg_steps_list[idx_best_x],
+        weighted_depth_list[idx_best_y],
+        color='red',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Dominating M-O Case',
+    )
 
-        # Annotate only the points with weights [1, 0, 0]
-        for idx in np.where(is_2016_steps)[0]:
-            if weights_list[idx] == [1, 0, 0]:
-                axs[0].annotate(
-                    "S-O RL policy",
-                    (avg_steps_list[idx], total_actions_list[idx]),
-                    textcoords="offset points",
-                    xytext=(0, 10),
-                    ha="center",
-                    color="black",
-                )
-
-        axs[0].set_xlabel("Average Steps")
-        axs[0].set_ylabel("Total Switching Actions")
-
-        # X vs Z
-        axs[1].scatter(
-            avg_steps_list,
-            weighted_depth_list,
-            color=color,
-            alpha=0.2,  # Add transparency to non-2016 points
-            label=f"Seed {seed} Data",
-        )
-        axs[1].scatter(
-            avg_steps_list[is_2016_steps],
-            weighted_depth_list[is_2016_steps],
-            color=darker_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label=f"Steps=2016 (Seed {seed})",
-        )
-
-        for idx in np.where(is_2016_steps)[0]:
-            if weights_list[idx] == [1, 0, 0]:
-                axs[1].annotate(
-                    "S-O RL policy",
-                    (avg_steps_list[idx], weighted_depth_list[idx]),
-                    textcoords="offset points",
-                    xytext=(0, 10),
-                    ha="center",
-                    color="black",
-                )
-
-        axs[1].set_xlabel("Average Steps")
-        axs[1].set_ylabel("Weighted Depth Metric")
-
-        # Y vs Z
-        axs[2].scatter(
-            total_actions_list,
-            weighted_depth_list,
-            color=color,
-            alpha=0.2,  # Add transparency to non-2016 points
-            label=f"Seed {seed} Data",
-        )
-        axs[2].scatter(
-            total_actions_list[is_2016_steps],
-            weighted_depth_list[is_2016_steps],
-            color=darker_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label=f"Steps=2016 (Seed {seed})",
-        )
-
-        for idx in np.where(is_2016_steps)[0]:
-            if weights_list[idx] == [1, 0, 0]:
-                axs[2].annotate(
-                    "S-O RL policy",
-                    (total_actions_list[idx], weighted_depth_list[idx]),
-                    textcoords="offset points",
-                    xytext=(0, 10),
-                    ha="center",
-                    color="black",
-                )
-
-        axs[2].set_xlabel("Total Switching Actions")
-        axs[2].set_ylabel("Weighted Depth Metric")
-
-    # Reverse the y-axis (Total Switching Actions) and z-axis (Weighted Depth Metric) in the 2D projections
+    axs[0].set_xlabel("Average Steps")
+    axs[0].set_ylabel("Weighted Depth Metric")
     axs[0].invert_yaxis()
+
+    # Second subplot: x vs z (Average Steps vs Total Switching Actions)
+    # Plot blue points first
+    axs[1].scatter(
+        avg_steps_list,
+        total_actions_list,
+        color=general_color,
+        alpha=alpha_values,
+        label="Pareto Points from Return Domain",
+    )
+
+    # Plot single objective points in black over blue points
+    axs[1].scatter(
+        avg_steps_list[idx_single_objective],
+        total_actions_list[idx_single_objective],
+        color='black',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='S-O Case',
+    )
+
+    # Plot best point in red over others
+    axs[1].scatter(
+        avg_steps_list[idx_best_z],
+        total_actions_list[idx_best_z],
+        color='red',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Dominating M-O Case',
+    )
+
+    axs[1].set_xlabel("Average Steps")
+    axs[1].set_ylabel("Total Switching Actions")
     axs[1].invert_yaxis()
-    axs[2].invert_yaxis()
+
+    # Third subplot: y vs z (Weighted Depth Metric vs Total Switching Actions)
+    # Plot blue points first
+    axs[2].scatter(
+        weighted_depth_list,
+        total_actions_list,
+        color=general_color,
+        alpha=alpha_values,
+        label="Pareto Points from Return Domain",
+    )
+
+    # Plot single objective points in black over blue points
+    axs[2].scatter(
+        weighted_depth_list[idx_single_objective],
+        total_actions_list[idx_single_objective],
+        color='black',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='S-O Case',
+    )
+
+    # Plot best point in red over others
+    axs[2].scatter(
+        weighted_depth_list[idx_best_y],
+        total_actions_list[idx_best_y],
+        color='red',
+        edgecolors='black',
+        marker='o',
+        s=100,
+        label='Dominating M-O Case',
+    )
+
+    axs[2].set_xlabel("Weighted Depth Metric")
+    axs[2].set_ylabel("Total Switching Actions")
     axs[2].invert_xaxis()
+    axs[2].invert_yaxis()
 
     for ax in axs:
         ax.legend()
@@ -1912,8 +1885,6 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Min Return Y")
                 return_metrics["Value"].append(min_return_y)
-
-                
 
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Min Return Z")
@@ -2218,7 +2189,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[0]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
