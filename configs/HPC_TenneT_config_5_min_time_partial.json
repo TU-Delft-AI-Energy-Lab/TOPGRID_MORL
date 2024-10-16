@@ -32,6 +32,8 @@
     "reuse": "Partial",
     "ols_iterations": 10,
     "case_study": "time", 
+    "name": "min_time_partial",
+
     "use_opponent": false, 
     
     "weight_vectors": [

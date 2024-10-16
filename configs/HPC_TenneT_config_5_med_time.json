@@ -31,7 +31,9 @@
     },
     "reuse": "None",
     "ols_iterations": 10,
-    "case_study": "default", 
+    "case_study": "reuse",
+    "name": "med_time_none", 
+
     "use_opponent": false, 
     
     "weight_vectors": [

@@ -31,7 +31,10 @@
     },
     "reuse": "None",
     "ols_iterations": 10,
-    "case_study": "default", 
+    "case_study": "Baseline", 
+    "setting": "Baseline",
+
+
     "use_opponent": false, 
     
     "weight_vectors": [

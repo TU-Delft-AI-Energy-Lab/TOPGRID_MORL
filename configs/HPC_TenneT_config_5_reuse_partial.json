@@ -32,6 +32,9 @@
     "reuse": "partial",
     "ols_iterations": 10,
     "case_study": "reuse", 
+    "name": "Partial_Reuse",
+
+
     "use_opponent": false, 
     
     "weight_vectors": [

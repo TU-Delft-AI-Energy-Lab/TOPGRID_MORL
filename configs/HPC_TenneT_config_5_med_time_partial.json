@@ -31,7 +31,10 @@
     },
     "reuse": "Partial",
     "ols_iterations": 10,
-    "case_study": "default", 
+    "case_study": "reuse", 
+    "name": "med_time_partial",
+
+
     "use_opponent": false, 
     
     "weight_vectors": [

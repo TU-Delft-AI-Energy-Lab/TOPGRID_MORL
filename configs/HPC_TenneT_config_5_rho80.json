@@ -23,18 +23,19 @@
         "device": "cpu"
     },
     "env_params": {
-        "max_rho": 0.95
+        "max_rho": 0.80
     }, 
     "network_params":{
         "net_arch": [256,256],
-        "act_fct": "relu" 
+        "act_fct": "relu"
     },
     "reuse": "None",
     "ols_iterations": 10,
-    "case_study": "opponent", 
-    "name": "op_hard",
+    "case_study": "max_rho", 
+    "setting": "Rho80",
 
-    "use_opponent": "hard", 
+
+    "use_opponent": false, 
     
     "weight_vectors": [
         [0, 1, 0]

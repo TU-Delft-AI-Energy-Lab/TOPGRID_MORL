@@ -91,6 +91,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     reuse = config['reuse']
     case_study = config['case_study']
     use_opponent = config['use_opponent']
+    name = config['name']
     rewards = config["rewards"]
     reward_list = [rewards["second"], rewards["third"]]
     
@@ -181,14 +182,10 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     current_date = datetime.now().strftime("%Y-%m-%d")
     dir_path = os.path.join(
         "morl_logs",
-        case_study,
+        "2ndtrial",
         "OLS",
-        env_name,
-        f"{current_date}",
-        f"{reward_list}",
-        f"re_{reuse}",
-        f"op_{use_opponent}",
-        f"rho_{max_rho}",
+        case_study,
+        name,
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
@@ -203,7 +200,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
             obs_dim=obs_dim,
             action_dim=action_dim,
             reward_dim=reward_dim,
-            run_name="OLS",
+            run_name=name,
             project_name=project_name,
             net_arch=net_arch,
             g2op_env=g2op_env, 

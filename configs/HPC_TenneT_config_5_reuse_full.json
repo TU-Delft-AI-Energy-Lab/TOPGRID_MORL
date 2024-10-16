@@ -27,14 +27,14 @@
     }, 
     "network_params":{
         "net_arch": [256,256],
-        "act_fct": "relu" 
+        "act_fct": "relu"
     },
-    "reuse": "None",
+    "reuse": "Full",
     "ols_iterations": 10,
-    "case_study": "opponent", 
-    "name": "op_hard",
-
-    "use_opponent": "hard", 
+    "case_study": "reuse", 
+    "name": "Full_Reuse",
+    
+    "use_opponent": false, 
     
     "weight_vectors": [
         [0, 1, 0]

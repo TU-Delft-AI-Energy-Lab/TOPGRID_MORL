@@ -1154,6 +1154,233 @@ def plot_super_pareto_frontier_2d(seed_paths, save_dir=None, rewards=["L2RPN", "
         plt.savefig(os.path.join(save_dir, "super_pareto_frontiers.png"))
     plt.show()
 
+def plot_super_pareto_frontier_2d_multiple_settings(base_path, scenario, settings, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
+    """
+    Plots the super Pareto frontier across different settings on the 2D projections (X vs Y, X vs Z, Y vs Z) using matplotlib.
+    Each setting is plotted with a different color and label.
+    
+    Parameters:
+    - base_path: The base directory where the JSON log files are stored.
+    - scenario: The scenario name (e.g., "Reuse", "Opponent").
+    - settings: A list of setting names (e.g., ["Baseline", "Full", "Partial"]).
+    - save_dir: Directory to save the plot image (optional).
+    - rewards: List of reward names for labeling axes.
+    """
+    import matplotlib.pyplot as plt
+    import os
+
+    # --- Generate paths within the function ---
+    if scenario == 'Reuse':
+        settings_paths = {
+            "Baseline": os.path.join(base_path, "Baseline"),
+            "Full": os.path.join(base_path, "re_full"),
+            "Partial": os.path.join(base_path, "re_partial"),
+            # Add more settings if needed
+        }
+    elif scenario == 'Opponent':
+        settings_paths = {
+            "Baseline": os.path.join(base_path, "Baseline"),
+            "Opponent": os.path.join(base_path, "Opponent")
+        }
+    # Add additional scenarios as needed
+
+    # Prepare the settings_paths dictionary
+    settings_seed_paths = {}
+    for setting in settings:
+        path = settings_paths.get(setting)
+        if not path:
+            print(f"Path for setting '{setting}' not found.")
+            continue
+
+        seed_paths = []
+        for seed in range(5):  # Adjust the range based on your seeds
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            if os.path.exists(seed_path):
+                seed_paths.append(seed_path)
+            else:
+                print(f"Seed path not found: {seed_path}")
+        settings_seed_paths[setting] = seed_paths
+
+    # --- Plotting starts here ---
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3)
+
+    # Get a list of colors to assign to settings
+    colors = plt.cm.tab10.colors  # You can choose other colormaps
+
+    for idx, (setting_name, seed_paths) in enumerate(settings_seed_paths.items()):
+        # Initialize lists to collect all data points for this setting
+        x_all_seeds = []
+        y_all_seeds = []
+        z_all_seeds = []
+
+        # Initialize lists to collect weights, if needed
+        coords_all = []
+        weights_all = []
+
+        for seed_path in seed_paths:
+            if not os.path.exists(seed_path):
+                print(f"File not found: {seed_path}")
+                continue
+
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            x_all_seeds.extend(x_all)
+            y_all_seeds.extend(y_all)
+            z_all_seeds.extend(z_all)
+            # Collect weights for annotations
+            matching_entries = find_matching_weights_and_agent(
+                ccs_list, data["ccs_data"]
+            )
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry["returns"]
+                weight = entry["weights"]
+                coord_to_weight[(x, y, z)] = weight
+            # Convert coordinates to tuples for matching
+            coords = list(zip(x_all, y_all, z_all))
+            coords_all.extend(coords)
+            # Create an array of weights corresponding to each point
+            weights = [coord_to_weight.get(coord, None) for coord in coords]
+            weights_all.extend(weights)
+
+        if not x_all_seeds:
+            print(f"No data for setting {setting_name}")
+            continue
+
+        # Now, compute the super Pareto frontiers in 2D for this setting
+        x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all_seeds, y_all_seeds)
+        x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all_seeds, z_all_seeds)
+        y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all_seeds, z_all_seeds)
+
+        # Assign a color to this setting
+        color = colors[idx % len(colors)]
+
+        # Plot the super Pareto frontiers
+        # X vs Y
+        axs[0].scatter(
+            x_pareto_xy,
+            y_pareto_xy,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name}',
+        )
+        axs[0].set_xlabel(rewards[0])
+        axs[0].set_ylabel(rewards[1])
+
+        # Annotate extrema points for X vs Y
+        for idx_pareto in pareto_indices_xy:
+            weight = weights_all[idx_pareto]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    x = x_all_seeds[idx_pareto]
+                    y = y_all_seeds[idx_pareto]
+                    label = weight_label(weight)
+                    axs[0].annotate(
+                        label,
+                        (x, y),
+                        textcoords="offset points",
+                        xytext=(0, 10),
+                        ha="center",
+                        fontsize=12,
+                        color=color,
+                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                    )
+
+        # X vs Z
+        axs[1].scatter(
+            x_pareto_xz,
+            z_pareto_xz,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name}',
+        )
+        axs[1].set_xlabel(rewards[0])
+        axs[1].set_ylabel(rewards[2])
+
+        # Annotate extrema points for X vs Z
+        for idx_pareto in pareto_indices_xz:
+            weight = weights_all[idx_pareto]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    x = x_all_seeds[idx_pareto]
+                    z = z_all_seeds[idx_pareto]
+                    label = weight_label(weight)
+                    axs[1].annotate(
+                        label,
+                        (x, z),
+                        textcoords="offset points",
+                        xytext=(0, 10),
+                        ha="center",
+                        fontsize=12,
+                        color=color,
+                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                    )
+
+        # Y vs Z
+        axs[2].scatter(
+            y_pareto_yz,
+            z_pareto_yz,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name}',
+        )
+        axs[2].set_xlabel(rewards[1])
+        axs[2].set_ylabel(rewards[2])
+
+        # Annotate extrema points for Y vs Z
+        for idx_pareto in pareto_indices_yz:
+            weight = weights_all[idx_pareto]
+            if weight is not None:
+                if is_extreme_weight(weight):
+                    y = y_all_seeds[idx_pareto]
+                    z = z_all_seeds[idx_pareto]
+                    label = weight_label(weight)
+                    axs[2].annotate(
+                        label,
+                        (y, z),
+                        textcoords="offset points",
+                        xytext=(0, 10),
+                        ha="center",
+                        fontsize=12,
+                        color=color,
+                        arrowprops=dict(arrowstyle="->", connectionstyle="arc3"),
+                    )
+
+    for ax in axs:
+        ax.legend()
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+    plt.suptitle(f"Super Pareto Frontier Projections ({scenario} Scenario)", fontsize=20)
+    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+    if save_dir:
+        plt.savefig(os.path.join(save_dir, f"super_pareto_frontiers_{scenario}.png"))
+    plt.show()
+
 def topo_depth_process_and_plot(csv_path):
     # Read the CSV file
     df = pd.read_csv(csv_path)
@@ -1634,9 +1861,8 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     }
 
     # Initialize dictionary to store results
-    hv_metrics = {"Setting": [], "Metric": [], "Value": []}
+    hv_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
     return_metrics = {"Setting": [], "Metric": [], "Value": []}
-
     # Loop through the settings and load corresponding JSON files
     for setting in settings:
         if scenario == 'Reuse':
@@ -1647,7 +1873,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
         # Load the JSON log files for this setting
         json_files = [f for f in os.listdir(path) if f.startswith("morl_logs")]
-
+        seed=0
         for json_file in json_files:
             file_path = os.path.join(path, json_file)
 
@@ -1666,17 +1892,19 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
             if hv_3d is not None and sparsity_3d is not None:
                 # Store Hypervolume and Sparsity in the hv_metrics dictionary
+                hv_metrics["Seed"].append(seed)
                 hv_metrics["Setting"].append(setting)
                 hv_metrics["Metric"].append("Hypervolume")
                 hv_metrics["Value"].append(hv_3d)
-
+                
+                hv_metrics["Seed"].append(seed)
                 hv_metrics["Setting"].append(setting)
                 hv_metrics["Metric"].append("Sparsity")
                 hv_metrics["Value"].append(sparsity_3d)
 
                 # Store Min/Max Returns for X, Y, Z coordinates in return_metrics dictionary
                 
-
+                
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Max Return X")
                 return_metrics["Value"].append(max_return_x)
@@ -1690,18 +1918,26 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Min Return Z")
                 return_metrics["Value"].append(min_return_z)
-
+            seed+=1
                 
 
     # Convert the dictionaries to DataFrames for easier comparison and visualization
     df_hv_metrics = pd.DataFrame(hv_metrics)
     df_return_metrics = pd.DataFrame(return_metrics)
 
+    # Compute mean and std for hv_metrics
+    hv_stats = df_hv_metrics.groupby(['Setting', 'Metric'])['Value'].agg(['mean', 'std']).reset_index()
+    # Compute mean and std for return_metrics
+    return_stats = df_return_metrics.groupby(['Setting', 'Metric'])['Value'].agg(['mean', 'std']).reset_index()
+
+    # Combine the stats into a single DataFrame for printing
+    df_mean_std = pd.concat([hv_stats, return_stats], ignore_index=True)
+
     # Print the results
-    print("Hypervolume and Sparsity Metrics:")
-    print(df_hv_metrics)
-    print("\nMin/Max Returns:")
-    print(df_return_metrics)
+    print("\nHypervolume and Sparsity Metrics (Mean and Std):")
+    print(hv_stats.to_string(index=False))
+    print("\nMin/Max Returns (Mean and Std):")
+    print(return_stats.to_string(index=False))
 
     # Boxplot for Hypervolume and Sparsity
     plt.figure(figsize=(12, 6))
@@ -1982,7 +2218,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[0]
+    scenario = scenarios[3]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -1995,13 +2231,13 @@ def main():
 
     if scenario == "Baseline":
         # Perform in-depth analysis on a selected seed
-        
         analysis.calculate_metrics()
         analysis.plot_pareto_frontiers(rewards=reward_names)
         analysis.in_depth_analysis(seed=0)  # For example, seed 0
         analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario=scenario)
+        plot_super_pareto_frontier_2d_multiple_settings(os.path.join(base_json_path, "OLS", scenario), scenario=scenario, settings = ["Baseline", "Full", "Partial"] )
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)

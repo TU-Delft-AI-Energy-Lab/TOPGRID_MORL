@@ -43,7 +43,7 @@ num_seeds = 5  # Change this to the number of seeds you want to use
 
 # Create a batch file for each seed and config file, then submit
 for config_file in config_files:
-    config_path = os.path.join(config_dir, config_file)
+    config_path =  config_file
     config_name = os.path.splitext(config_file)[0]  # Remove the .json extension
     
     for seed in range(num_seeds):

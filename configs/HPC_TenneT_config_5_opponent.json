@@ -32,6 +32,9 @@
     "reuse": "None",
     "ols_iterations": 10,
     "case_study": "opponent", 
+    "name": "op_normal",
+
+
     "use_opponent": "normal", 
     
     "weight_vectors": [

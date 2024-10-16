@@ -5,9 +5,9 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 32,
-        "num_minibatches": 4,
-        "update_epochs": 2,
+        "steps_per_iteration": 8,
+        "num_minibatches": 2,
+        "update_epochs": 1,
         "learning_rate": 5e-4,
         "gamma": 0.99,
         "anneal_lr": false,
@@ -34,14 +34,15 @@
         "act_fct": "relu"
     },
     "reuse": "partial",
-    "ols_iterations": 5,
-    "case_study": "trial", 
+    "ols_iterations": 10,
+    "case_study": "name", 
     "use_opponent": "hard", 
+    "name": "name", 
 
     "weight_vectors": [
         [1, 0, 0]
     ],
-    "max_gym_steps": 64,
+    "max_gym_steps": 16,
     "rewards": {
         "first": "L2RPN",
         "second": "TopoDepth",
