@@ -1934,128 +1934,436 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     return df_hv_metrics, df_return_metrics
 
 def compare_policies_weights_all_seeds(base_path, scenario):
-    
+    """
+    Compares policies across all seeds for different scenarios and plots the results.
+    Modifications:
+    - Titles and setting descriptions are made dependent on the scenario.
+    - For scenario 'Opponent', title is '... under contingencies', settings are 'Baseline' and 'moderate contingencies'.
+    - For scenario 'Time', title is '... under time constraints', settings are 'Baseline' and 'moderate time constraints'.
+    - For scenario 'max_rho', title is '... for unknown max line loading', settings are 'Baseline' and 'rho 90%'.
+    """
+    import os
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Opponent": os.path.join(base_path, "Opponent")
+        "moderate contingencies": os.path.join(base_path, "Opponent")
     }
-    
-    time_paths =  {
+
+    time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "time_1024": os.path.join(base_path, "time_1024")
+        "moderate time constraints": os.path.join(base_path, "time_1024")
     }
-    
+
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        'rho90': os.path.join(base_path, 'rho90'),
-        'rho80': os.path.join(base_path, 'rho80'),
-        'rho70': os.path.join(base_path, 'rho70')
-        
+        "rho 90%": os.path.join(base_path, 'rho90')
+        # Add more rho settings here if needed
     }
-    
+
+    # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ['Baseline', 'Opponent']
+        settings = ['Baseline', 'moderate contingencies']
+        paths = opponent_paths
+        title = 'Single- and Multi-Objective Solutions under contingencies'
     elif scenario == "Time":
-        settings = ['Baseline', "time_1024"]
+        settings = ['Baseline', 'moderate time constraints']
+        paths = time_paths
+        title = 'Single- and Multi-Objective Solutions under time constraints'
     elif scenario == "max_rho":
-        settings = ['Baseline', 'rho90', 'rho80', 'rho70']
-            
+        settings = ['Baseline', 'rho 90%']
+        paths = rho_paths
+        title = 'Single- and Multi-Objective Solutions for unknown max line loading'
+    else:
+        raise ValueError("Invalid scenario provided.")
+
     results = []
 
-    # Loop over each setting (Baseline and Opponent)
+    # Loop over each setting
     for setting in settings:
-        if scenario == 'Opponent':
-            path = opponent_paths[setting]
-        elif scenario == "Time":
-            path = time_paths[setting]
-        elif scenario == 'max_rho':
-            path = rho_paths[setting]
-        # Loop over each seed (0 to 4)
-       
+        path = paths[setting]
         seed_paths = []
         for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
-            
-        print(f"Processing for setting: {setting} with seed path: {seed_path}")
-    
+
+        print(f"Processing for setting: {setting} with seed paths.")
+
         # Process data for this scenario and setting
-        df_ccs_matching_seeds = process_data(seed_paths=seed_paths, wrapper='ols', output_dir=path)
-            
+        df_ccs_matching_seeds = process_data(
+            seed_paths=seed_paths, wrapper='ols', output_dir=path)
+
         # For each seed, process the data
         for seed, group in df_ccs_matching_seeds.groupby('seed'):
-            # Default run [1,0,0]
-            default_runs = group[group['Weights'].apply(lambda w: w == [1.0, 0.0, 0.0])]
+            # S-O Case [1,0,0]
+            default_runs = group[group['Weights'].apply(
+                lambda w: w == [1.0, 0.0, 0.0])]
             default_run = default_runs.loc[
-                default_runs['test_chronic_0'].apply(lambda x: x['test_steps']).idxmax()
+                default_runs['test_chronic_0'].apply(
+                    lambda x: x['test_steps']).idxmax()
             ]
-                
-            # Non-default runs (exclude [1.0, 0.0, 0.0])
-            non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
-                
-            # Extract 'test_steps' for both chronic_0 and chronic_1
+
+            # M-O Case (exclude [1.0, 0.0, 0.0])
+            non_default_runs = group[group['Weights'].apply(
+                lambda w: w != [1.0, 0.0, 0.0])]
+
+            # Extract 'test_steps' and 'test_actions' for both chronic_0 and chronic_1
             non_default_runs['avg_test_steps'] = non_default_runs.apply(
-                lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
+                lambda row: (row['test_chronic_0']['test_steps'] +
+                             row['test_chronic_1']['test_steps']) / 2, axis=1
             )
-                
+
             non_default_runs['test_actions'] = non_default_runs.apply(
-                lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
+                lambda row: len(row['test_chronic_0']['test_actions']) +
+                len(row['test_chronic_1']['test_actions']), axis=1
             )
-                
-            # Identify the top run with the highest average test_steps, using fewer actions to break ties
-            best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
-                
+
+            # Identify the top run with the highest average test_steps,
+            # using fewer actions to break ties
+            best_run = non_default_runs.sort_values(
+                by=['avg_test_steps', 'test_actions'],
+                ascending=[False, True]
+            ).iloc[0]
+
             # Best run data
             best_run_actions = best_run['test_actions']
             best_run_steps = best_run['avg_test_steps']
-            best_run_weights = best_run['Weights']
-                
-            # Save the results for the best non-default run
+
+            # Save the results for the M-O Case
             results.append({
                 'Seed': seed,
-                'Setting': f'{setting} (Best Non-Default)',
-                'Run Type': f'Non-Default',
+                'Setting': setting,
+                'Run Type': 'M-O Case',
                 'Switching Actions': best_run_actions,
                 'Steps': best_run_steps
             })
-                
-            # Default run data
-            default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
-            default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
+
+            # S-O Case data
+            default_run_actions = (
+                len(default_run['test_chronic_0']['test_actions']) +
+                len(default_run['test_chronic_1']['test_actions'])
+            )
+            default_run_steps = (
+                default_run['test_chronic_0']['test_steps'] +
+                default_run['test_chronic_1']['test_steps']
+            ) / 2
+
             results.append({
-                    'Seed': seed,
-                    'Setting': f'{setting} (Default)',
-                    'Run Type': 'Default [1,0,0]',
-                    'Switching Actions': default_run_actions,
-                    'Steps': default_run_steps
+                'Seed': seed,
+                'Setting': setting,
+                'Run Type': 'S-O Case',
+                'Switching Actions': default_run_actions,
+                'Steps': default_run_steps
             })
-    
+
     # Convert the results into a DataFrame for plotting
     df_results = pd.DataFrame(results)
-    
-    # Boxplot of Switching Actions for Baseline and Opponent
+
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (14, 8),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
+
+    # Plotting
+    sns.set_style("whitegrid")
+
+    # Define custom colors
+    box_colors = {'S-O Case': 'grey', 'M-O Case': 'lightcoral'}  # light red
+    dot_colors = {'S-O Case': 'black', 'M-O Case': 'red'}
+
+    # Define hue order to ensure consistent ordering
+    hue_order = ['S-O Case', 'M-O Case']
+
+    # Boxplot of Switching Actions
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='Setting', y='Switching Actions', hue='Run Type', data=df_results, palette="Set3")
-    plt.title('Boxplot of Switching Actions for Baseline and Opponent (All Seeds)')
+    ax1 = sns.boxplot(
+        x='Setting', y='Switching Actions', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
+        medianprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        capprops={'color': 'black'},
+        flierprops={'color': 'black', 'markeredgecolor': 'black'},
+        showcaps=True
+    )
+
+    # Swarmplot with edge colors
+    sns.swarmplot(
+        x='Setting', y='Switching Actions', hue='Run Type',
+        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
+        edgecolor='black', linewidth=0.5, ax=ax1
+    )
+
+    plt.title(title)
     plt.ylabel('Number of Switching Actions')
-    plt.xlabel('Setting (Baseline vs Opponent)')
-    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax1.get_legend_handles_labels()
+    n = len(hue_order)
+    ax1.legend(handles[:n], labels[:n], title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
     plt.tight_layout()
     plt.show()
-    
-    # Boxplot of Steps for Baseline and Opponent
+
+    # Boxplot of Steps
     plt.figure(figsize=(14, 8))
-    sns.boxplot(x='Setting', y='Steps', hue='Run Type', data=df_results, palette="Set3")
-    plt.title('Boxplot of Steps for Baseline and Opponent (All Seeds)')
+    ax2 = sns.boxplot(
+        x='Setting', y='Steps', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
+        medianprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        capprops={'color': 'black'},
+        flierprops={'color': 'black', 'markeredgecolor': 'black'},
+        showcaps=True
+    )
+
+    # Swarmplot with edge colors
+    sns.swarmplot(
+        x='Setting', y='Steps', hue='Run Type',
+        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
+        edgecolor='black', linewidth=0.5, ax=ax2
+    )
+
+    plt.title(title)
     plt.ylabel('Average Number of Steps')
-    plt.xlabel('Setting (Baseline vs Opponent)')
-    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles[:n], labels[:n], title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
     plt.tight_layout()
     plt.show()
 
     return df_results
 
+def compare_policies_weights_all_seeds(base_path, scenario):
+    """
+    Compares policies across all seeds for different scenarios and plots the results.
+    Modifications:
+    - Titles and setting descriptions are made dependent on the scenario.
+    - For scenario 'Opponent', title is '... under contingencies', settings are 'Baseline' and 'moderate contingencies'.
+    - For scenario 'Time', title is '... under time constraints', settings are 'Baseline' and 'moderate time constraints'.
+    - For scenario 'max_rho', title is '... for unknown max line loading', settings are 'Baseline' and 'rho 90%'.
+    """
+    
+    # Paths for different scenarios
+    opponent_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "moderate contingencies": os.path.join(base_path, "Opponent")
+    }
+
+    time_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "moderate time constraints": os.path.join(base_path, "time_1024")
+    }
+
+    rho_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "rho 90%": os.path.join(base_path, 'rho90')
+        # Add more rho settings here if needed
+    }
+
+    # Determine settings and titles based on scenario
+    if scenario == 'Opponent':
+        settings = ['Baseline', 'moderate contingencies']
+        paths = opponent_paths
+        title = 'Single- and Multi-Objective Solutions under contingencies'
+    elif scenario == "Time":
+        settings = ['Baseline', 'moderate time constraints']
+        paths = time_paths
+        title = 'Single- and Multi-Objective Solutions under time constraints'
+    elif scenario == "max_rho":
+        settings = ['Baseline', 'rho 90%']
+        paths = rho_paths
+        title = 'Single- and Multi-Objective Solutions for unknown max line loading'
+    else:
+        raise ValueError("Invalid scenario provided.")
+
+    results = []
+
+    # Loop over each setting
+    for setting in settings:
+        path = paths[setting]
+        seed_paths = []
+        for seed in range(5):  # Adjust the range as needed
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            seed_paths.append(seed_path)
+
+        print(f"Processing for setting: {setting} with seed paths.")
+
+        # Process data for this scenario and setting
+        df_ccs_matching_seeds = process_data(
+            seed_paths=seed_paths, wrapper='ols', output_dir=path)
+
+        # For each seed, process the data
+        for seed, group in df_ccs_matching_seeds.groupby('seed'):
+            # S-O Case [1,0,0]
+            default_runs = group[group['Weights'].apply(
+                lambda w: w == [1.0, 0.0, 0.0])]
+            default_run = default_runs.loc[
+                default_runs['test_chronic_0'].apply(
+                    lambda x: x['test_steps']).idxmax()
+            ]
+
+            # M-O Case (exclude [1.0, 0.0, 0.0])
+            non_default_runs = group[group['Weights'].apply(
+                lambda w: w != [1.0, 0.0, 0.0])]
+
+            # Extract 'test_steps' and 'test_actions' for both chronic_0 and chronic_1
+            non_default_runs['avg_test_steps'] = non_default_runs.apply(
+                lambda row: (row['test_chronic_0']['test_steps'] +
+                             row['test_chronic_1']['test_steps']) / 2, axis=1
+            )
+
+            non_default_runs['test_actions'] = non_default_runs.apply(
+                lambda row: len(row['test_chronic_0']['test_actions']) +
+                len(row['test_chronic_1']['test_actions']), axis=1
+            )
+
+            # Identify the top run with the highest average test_steps,
+            # using fewer actions to break ties
+            best_run = non_default_runs.sort_values(
+                by=['avg_test_steps', 'test_actions'],
+                ascending=[False, True]
+            ).iloc[0]
+
+            # Best run data
+            best_run_actions = best_run['test_actions']
+            best_run_steps = best_run['avg_test_steps']
+
+            # Save the results for the M-O Case
+            results.append({
+                'Seed': seed,
+                'Setting': setting,
+                'Run Type': 'M-O Case',
+                'Switching Actions': best_run_actions,
+                'Steps': best_run_steps
+            })
+
+            # S-O Case data
+            default_run_actions = (
+                len(default_run['test_chronic_0']['test_actions']) +
+                len(default_run['test_chronic_1']['test_actions'])
+            )
+            default_run_steps = (
+                default_run['test_chronic_0']['test_steps'] +
+                default_run['test_chronic_1']['test_steps']
+            ) / 2
+
+            results.append({
+                'Seed': seed,
+                'Setting': setting,
+                'Run Type': 'S-O Case',
+                'Switching Actions': default_run_actions,
+                'Steps': default_run_steps
+            })
+
+    # Convert the results into a DataFrame for plotting
+    df_results = pd.DataFrame(results)
+
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (14, 8),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
+
+    # Plotting
+    sns.set_style("whitegrid")
+
+    # Define custom colors
+    box_colors = {'S-O Case': 'grey', 'M-O Case': 'lightcoral'}  # light red
+    dot_colors = {'S-O Case': 'black', 'M-O Case': 'red'}
+
+    # Define hue order to ensure consistent ordering
+    hue_order = ['S-O Case', 'M-O Case']
+
+    # Boxplot of Switching Actions
+    plt.figure(figsize=(14, 8))
+    ax1 = sns.boxplot(
+        x='Setting', y='Switching Actions', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
+        medianprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        capprops={'color': 'black'},
+        flierprops={'color': 'black', 'markeredgecolor': 'black'},
+        showcaps=True
+    )
+
+    # Swarmplot with edge colors
+    sns.swarmplot(
+        x='Setting', y='Switching Actions', hue='Run Type',
+        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
+        edgecolor='black', linewidth=0.5, ax=ax1
+    )
+
+    plt.title(title)
+    plt.ylabel('Number of Switching Actions')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax1.get_legend_handles_labels()
+    n = len(hue_order)
+    ax1.legend(handles[:n], labels[:n], title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Boxplot of Steps
+    plt.figure(figsize=(14, 8))
+    ax2 = sns.boxplot(
+        x='Setting', y='Steps', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
+        medianprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        capprops={'color': 'black'},
+        flierprops={'color': 'black', 'markeredgecolor': 'black'},
+        showcaps=True
+    )
+
+    # Swarmplot with edge colors
+    sns.swarmplot(
+        x='Setting', y='Steps', hue='Run Type',
+        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
+        edgecolor='black', linewidth=0.5, ax=ax2
+    )
+
+    plt.title(title)
+    plt.ylabel('Average Number of Steps')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax2.get_legend_handles_labels()
+    ax2.legend(handles[:n], labels[:n], title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+
+    return df_results
 
 def compare_policies_weights(base_path, scenario):
     
@@ -2140,7 +2448,7 @@ def compare_policies_weights(base_path, scenario):
             results.append({
                 'Seed': seed,
                 'Setting': f'{setting} (Best Non-Default)',
-                'Run Type': f'Non-Default ({np.round(best_run_weights, 1)})',
+                'Run Type': f'M-O Case ({np.round(best_run_weights, 1)})',
                 'Switching Actions': best_run_actions,
                 'Steps': best_run_steps
             })
@@ -2151,7 +2459,7 @@ def compare_policies_weights(base_path, scenario):
             results.append({
                 'Seed': seed,
                 'Setting': f'{setting} (Default)',
-                'Run Type': 'Default [1,0,0]',
+                'Run Type': 'S-O Case [1,0,0]',
                 'Switching Actions': default_run_actions,
                 'Steps': default_run_steps
             })
@@ -2181,7 +2489,6 @@ def compare_policies_weights(base_path, scenario):
 
     return df_results
     
-    
 # ---- Main Function ----
 def main():
     base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\trial"  # The base path where the JSON files are stored
@@ -2189,7 +2496,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[0]
+    scenario = scenarios[2]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
