@@ -38,7 +38,7 @@ class ExperimentAnalysis:
             self.seed_paths.append(seed_path)
         # For MC seed (1 seed)
         mc_seed_file = "morl_logs_seed_0.json"
-        mc_seed_dir = os.path.join(self.base_json_path, "MC", self.scenario)
+        mc_seed_dir = os.path.join(self.base_json_path, "RS", self.scenario)
         self.mc_seed_path = os.path.join(mc_seed_dir, mc_seed_file)
 
     def load_data(self):
@@ -72,15 +72,21 @@ class ExperimentAnalysis:
         # Generate the 2D Pareto frontier plots
         print("Plotting Pareto frontiers...")
         # For OLS seeds
-        
+        if os.path.exists(self.mc_seed_path):
+            plot_2d_projections_matplotlib(
+                self.mc_seed_path, self.mc_seed_path, "mc", save_dir=self.output_dir, rewards=rewards
+            )
+        else:
+            print(f"MC seed path not found: {self.mc_seed_path}")
+            
         plot_2d_projections_matplotlib(
-            self.seed_paths, "ols", save_dir=self.output_dir, rewards=rewards
+            self.seed_paths, self.mc_seed_path, "ols", save_dir=self.output_dir, rewards=rewards
         )
         plot_super_pareto_frontier_2d(seed_paths = self.seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"])
         # For MC seed
         if os.path.exists(self.mc_seed_path):
             plot_2d_projections_matplotlib(
-                self.mc_seed_path, "mc", save_dir=self.output_dir, rewards=rewards
+                self.mc_seed_path, self.mc_seed_path, "mc", save_dir=self.output_dir, rewards=rewards
             )
         else:
             print(f"MC seed path not found: {self.mc_seed_path}")
@@ -613,7 +619,7 @@ def process_data(seed_paths, wrapper, output_dir):
 
 
 def plot_2d_projections_matplotlib(
-    seed_paths, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
+    seed_paths,  mc_path, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
 ):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
@@ -756,18 +762,18 @@ def plot_2d_projections_matplotlib(
             ax.legend()
             ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
-        plt.tight_layout()
-        plt.suptitle("RS-Benchmark", fontsize=20)
-        plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
-        if save_dir:
-            plt.savefig(os.path.join(save_dir, "mc_pareto_frontiers.png"))
-        plt.show()
+        #plt.tight_layout()
+        #plt.suptitle("RS-Benchmark", fontsize=20)
+        #plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+        #if save_dir:
+        #   plt.savefig(os.path.join(save_dir, "mc_pareto_frontiers.png"))
+        #plt.show()
 
     else:
         # Handle OLS paths
         colors = plt.cm.tab10.colors  # Use a colormap for different seeds
 
-        for i, seed_path in enumerate(seed_paths[:5]):
+        for i, seed_path in enumerate(seed_paths[:3]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -874,6 +880,110 @@ def plot_2d_projections_matplotlib(
             )
             axs[2].set_xlabel(rewards[1])
             axs[2].set_ylabel(rewards[2])
+
+        #processing RS data
+        # Load data
+        data = load_json_data(json_path=mc_path)
+        ccs_list = data["ccs_list"][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+        # Get matching weights for each point
+        matching_entries = find_matching_weights_and_agent(ccs_list, data["ccs_data"])
+
+        # Create a mapping from coordinates to weights
+        coord_to_weight = {}
+        for entry in matching_entries:
+            x, y, z = entry["returns"]
+            weight = entry["weights"]
+            coord_to_weight[(x, y, z)] = weight
+
+        # Convert coordinates to tuples for matching
+        coords_all = list(zip(x_all, y_all, z_all))
+
+        # Create an array of weights corresponding to each point
+        weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+        # Pareto frontiers
+        x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
+        x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
+        y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
+
+        # Sort the Pareto frontier points for plotting lines
+        sorted_indices_xy = np.argsort(x_pareto_xy)
+        x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
+        y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
+
+        sorted_indices_xz = np.argsort(x_pareto_xz)
+        x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
+        z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
+
+        sorted_indices_yz = np.argsort(y_pareto_yz)
+        y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
+        z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
+
+        # Plot color is gray
+        gray_color = "black"
+
+        # Plot Pareto frontiers with lines
+        # X vs Y
+        axs[0].scatter(
+            x_pareto_xy,
+            y_pareto_xy,
+            color=gray_color,
+            edgecolors="black",
+            marker="o",
+            s=100,
+            label="RS-Benchmark Pareto",
+        )
+        axs[0].plot(
+            x_pareto_xy_sorted,
+            y_pareto_xy_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )
+        axs[0].set_xlabel(rewards[0])
+        axs[0].set_ylabel(rewards[1])
+
+        # X vs Z
+        axs[1].scatter(
+            x_pareto_xz,
+            z_pareto_xz,
+            color=gray_color,
+            edgecolors="black",
+            marker="o",
+            s=100,
+            label="RS-Benchmark Pareto",
+        )
+        axs[1].plot(
+            x_pareto_xz_sorted,
+            z_pareto_xz_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )
+        axs[1].set_xlabel(rewards[0])
+        axs[1].set_ylabel(rewards[2])
+
+        # Y vs Z
+        axs[2].scatter(
+            y_pareto_yz,
+            z_pareto_yz,
+            color=gray_color,
+            edgecolors="black",
+            marker="o",
+            s=100,
+            label="RS-Benchmark Pareto",
+        )
+        axs[2].plot(
+            y_pareto_yz_sorted,
+            z_pareto_yz_sorted,
+            color=gray_color,
+            linestyle="-",
+            linewidth=2,
+        )   
+
+
 
         for ax in axs:
             ax.legend()
@@ -1100,8 +1210,8 @@ def plot_super_pareto_frontier_2d_multiple_settings(base_path, scenario, setting
     if scenario == 'Reuse':
         settings_paths = {
             "Baseline": os.path.join(base_path, "Baseline"),
-            "Full": os.path.join(base_path, "re_full"),
-            "Partial": os.path.join(base_path, "re_partial"),
+            "Full": os.path.join(base_path, "Full_Reuse"),
+            "Partial": os.path.join(base_path, "Partial_Reuse"),
             # Add more settings if needed
         }
     elif scenario == 'Opponent':
@@ -1816,21 +1926,26 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     2. Boxplot showing Min/Max Returns for X, Y, Z coordinates side-by-side for each setting.
     """
     if scenario == 'Reuse':
-        settings = ["Baseline", "Full", "Partial", "Baseline_1024", "Full_1024", "Partial_1024"]
+        settings = ["Baseline", "Full", "Partial", "Baseline_reduced", "Full_reduced", "Partial_reduced", "Baseline_min", "Full_min", "Partial_min"]
         
     elif scenario == 'Opponent':
         settings = ['Baseline', 'Opponent']
     reuse_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Full": os.path.join(base_path, "re_full"),
-        "Partial": os.path.join(base_path, "re_partial"),
-        "Baseline_1024": os.path.join(base_path, "Baseline_1024"),
-        "Full_1024": os.path.join(base_path, "re_full_1024"),
-        "Partial_1024": os.path.join(base_path, "re_partial_1024"),
+        "Full": os.path.join(base_path, "Full_Reuse"),
+        "Partial": os.path.join(base_path, "Partial_Reuse"),
+        "Baseline_reduced": os.path.join(base_path, "med_time_none"),
+        "Full_reduced": os.path.join(base_path, "med_time_full"),
+        "Partial_reduced": os.path.join(base_path, "med_time_partial"),
+        "Baseline_min": os.path.join(base_path, "min_time"),
+        "Full_min": os.path.join(base_path, "min_time_full"),
+        "Partial_min": os.path.join(base_path, "min_time_partial"),
+        
+        
     }
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Opponent": os.path.join(base_path, "Opponent")
+        "Opponent": os.path.join(base_path, "Opponen")
     }
 
     # Initialize dictionary to store results
@@ -1942,20 +2057,19 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     - For scenario 'Time', title is '... under time constraints', settings are 'Baseline' and 'moderate time constraints'.
     - For scenario 'max_rho', title is '... for unknown max line loading', settings are 'Baseline' and 'rho 90%'.
     """
-    import os
-    import pandas as pd
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    
 
     # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate contingencies": os.path.join(base_path, "Opponent")
+        "moderate contingencies": os.path.join(base_path, "op_normal"),
+        "high contingencies": os.path.join(base_path, "op_hard")
     }
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate time constraints": os.path.join(base_path, "time_1024")
+        "moderate time constraints": os.path.join(base_path, "med_time_none"),
+        "high time constraints": os.path.join(base_path, "min_time")
     }
 
     rho_paths = {
@@ -1963,14 +2077,14 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         "rho 90%": os.path.join(base_path, 'rho90')
         # Add more rho settings here if needed
     }
-
+    scenario='Opponent'
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ['Baseline', 'moderate contingencies']
+        settings = ['Baseline', 'moderate contingencies',"high contingencies" ]
         paths = opponent_paths
         title = 'Single- and Multi-Objective Solutions under contingencies'
     elif scenario == "Time":
-        settings = ['Baseline', 'moderate time constraints']
+        settings = ['Baseline', 'moderate time constraints', "high time constraints"]
         paths = time_paths
         title = 'Single- and Multi-Objective Solutions under time constraints'
     elif scenario == "max_rho":
@@ -1981,17 +2095,19 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         raise ValueError("Invalid scenario provided.")
 
     results = []
-
+    print('settings')
+    print(settings)
     # Loop over each setting
     for setting in settings:
         path = paths[setting]
         seed_paths = []
+        print(path)
         for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
 
-        print(f"Processing for setting: {setting} with seed paths.")
+        print(f"Processing for setting: {setting} with seed paths. {seed_paths}")
 
         # Process data for this scenario and setting
         df_ccs_matching_seeds = process_data(
@@ -2164,12 +2280,14 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate contingencies": os.path.join(base_path, "Opponent")
+        "moderate contingencies": os.path.join(base_path, "op_normal"),
+        "high contingencies": os.path.join(base_path, "op_hard")
     }
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate time constraints": os.path.join(base_path, "time_1024")
+        'moderate learning constraints': os.path.join(base_path, "med_time_none"), 
+        'high learning constraints': os.path.join(base_path, "min_time")
     }
 
     rho_paths = {
@@ -2180,13 +2298,13 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ['Baseline', 'moderate contingencies']
+        settings = ['Baseline', 'moderate contingencies', "high contingencies"]
         paths = opponent_paths
         title = 'Single- and Multi-Objective Solutions under contingencies'
     elif scenario == "Time":
-        settings = ['Baseline', 'moderate time constraints']
+        settings = ['Baseline', 'moderate learning constraints', 'high learning constraints']
         paths = time_paths
-        title = 'Single- and Multi-Objective Solutions under time constraints'
+        title = 'Single- and Multi-Objective Solutions under learning constraints'
     elif scenario == "max_rho":
         settings = ['Baseline', 'rho 90%']
         paths = rho_paths
@@ -2205,7 +2323,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
 
-        print(f"Processing for setting: {setting} with seed paths.")
+        print(f"Processing for setting: {setting} with seed paths. {seed_paths}")
 
         # Process data for this scenario and setting
         df_ccs_matching_seeds = process_data(
@@ -2392,7 +2510,7 @@ def compare_policies_weights(base_path, scenario):
         settings = ['Baseline', "time_1024"]
     elif scenario == "max_rho":
         settings = ['Baseline', 'rho90', 'rho80', 'rho70']
-        
+    
         
     results = []
     
@@ -2470,7 +2588,7 @@ def compare_policies_weights(base_path, scenario):
     # Plotting the comparison of switching actions
     plt.figure(figsize=(14, 8))
     sns.barplot(x='Setting', y='Switching Actions', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Switching Actions for Baseline and Opponent (Chronic 0 and Chronic 1)')
+    plt.title('Comparison of Switching Actions for Baseline and Opponent')
     plt.ylabel('Number of Switching Actions')
     plt.xlabel('Setting (Baseline vs Opponent)')
     plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -2480,7 +2598,7 @@ def compare_policies_weights(base_path, scenario):
     # Plotting the comparison of steps
     plt.figure(figsize=(14, 8))
     sns.barplot(x='Setting', y='Steps', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Steps for Baseline and Opponent (Chronic 0 and Chronic 1)')
+    plt.title('Comparison of Steps for Baseline and Opponent')
     plt.ylabel('Average Number of Steps')
     plt.xlabel('Setting (Baseline vs Opponent)')
     plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
@@ -2491,12 +2609,12 @@ def compare_policies_weights(base_path, scenario):
     
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\trial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\2ndtrial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Maxrho", "Opponent", "Reuse", "Time"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[0]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
