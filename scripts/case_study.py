@@ -1991,8 +1991,6 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
                 hv_metrics["Value"].append(sparsity_3d)
 
                 # Store Min/Max Returns for X, Y, Z coordinates in return_metrics dictionary
-                
-                
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Max Return X")
                 return_metrics["Value"].append(max_return_x)
@@ -2027,23 +2025,42 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
     # Boxplot for Hypervolume and Sparsity
     plt.figure(figsize=(12, 6))
+    
+    # Update settings to display combined x-axis labels
+    combined_labels = ['Baseline (Baseline)', 'Baseline (75% Interactions)', 'Baseline (50% Interactions)',
+                       'Full Reuse (Baseline)', 'Full Reuse (75% Interactions)', 'Full Reuse (50% Interactions)',
+                       'Partial Reuse (Baseline)', 'Partial Reuse (75% Interactions)', 'Partial Reuse (50% Interactions)']
+    
     sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_hv_metrics)
+    
+    # Set updated x-axis labels
+    plt.xticks(ticks=range(len(settings)), labels=combined_labels, rotation=45)
+    
     plt.title("Boxplot of Hypervolume and Sparsity across Different Settings")
     plt.ylabel("Metric Value")
     plt.xlabel("Settings")
-    plt.legend(title="Metric", bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # Adjust legend location to be inside the plot
+    plt.legend(title="Metric", loc='upper right', bbox_to_anchor=(0.95, 0.95))
     plt.tight_layout()
     plt.show()
 
     # Boxplot for Min/Max Returns
     plt.figure(figsize=(12, 6))
     sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_return_metrics)
+    
+    # Set updated x-axis labels for return metrics as well
+    plt.xticks(ticks=range(len(settings)), labels=combined_labels, rotation=45)
+    
     plt.title("Boxplot of Min/Max Returns (X, Y, Z) across Different Settings")
     plt.ylabel("Return Value")
     plt.xlabel("Settings")
-    plt.legend(title="Metric", bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    # Adjust legend location to be inside the plot
+    plt.legend(title="Metric", loc='upper right', bbox_to_anchor=(0.95, 0.95))
     plt.tight_layout()
     plt.show()
+
 
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
@@ -2614,7 +2631,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[0]
+    scenario = scenarios[3]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
