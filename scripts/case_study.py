@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
 from scipy.spatial import ConvexHull
+from itertools import cycle
+from collections import OrderedDict
 
 
 class ExperimentAnalysis:
@@ -626,10 +628,7 @@ def plot_2d_projections_matplotlib(
     Connects the points of each Pareto frontier with lines to make it easier to see the different Pareto frontiers.
     Annotates the extrema points corresponding to extreme weight vectors like (1,0,0), (0,1,0), (0,0,1).
     """
-    import matplotlib.pyplot as plt
-    import numpy as np  # Import numpy for array operations
-    import os  # Ensure os is imported for save_dir functionality
-
+    
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update(
         {
@@ -836,7 +835,7 @@ def plot_2d_projections_matplotlib(
                 y_pareto_xy_sorted,
                 color=colors[i % len(colors)],
                 linestyle="-",
-                linewidth=3,
+                linewidth=1,
             )
             axs[0].set_xlabel(rewards[0])
             axs[0].set_ylabel(rewards[1])
@@ -856,7 +855,7 @@ def plot_2d_projections_matplotlib(
                 z_pareto_xz_sorted,
                 color=colors[i % len(colors)],
                 linestyle="-",
-                linewidth=3,
+                linewidth=1,
             )
             axs[1].set_xlabel(rewards[0])
             axs[1].set_ylabel(rewards[2])
@@ -876,7 +875,7 @@ def plot_2d_projections_matplotlib(
                 z_pareto_yz_sorted,
                 color=colors[i % len(colors)],
                 linestyle="-",
-                linewidth=3,
+                linewidth=1,
             )
             axs[2].set_xlabel(rewards[1])
             axs[2].set_ylabel(rewards[2])
@@ -1924,6 +1923,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     Generates two separate boxplots:
     1. Boxplot showing Hypervolume and Sparsity side-by-side for each setting.
     2. Boxplot showing Min/Max Returns for X, Y, Z coordinates side-by-side for each setting.
+    3. A plot showing the average delta (range) of returns for each return dimension and setting.
     """
     if scenario == 'Reuse':
         settings = ["Baseline", "Full", "Partial", "Baseline_reduced", "Full_reduced", "Partial_reduced", "Baseline_min", "Full_min", "Partial_min"]
@@ -1940,8 +1940,6 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
         "Baseline_min": os.path.join(base_path, "min_time"),
         "Full_min": os.path.join(base_path, "min_time_full"),
         "Partial_min": os.path.join(base_path, "min_time_partial"),
-        
-        
     }
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
@@ -1950,18 +1948,17 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
     # Initialize dictionary to store results
     hv_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
-    return_metrics = {"Setting": [], "Metric": [], "Value": []}
+    return_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
     # Loop through the settings and load corresponding JSON files
     for setting in settings:
         if scenario == 'Reuse':
             path = reuse_paths[setting]
         elif scenario == 'Opponent':
             path = opponent_paths[setting]
-            
 
         # Load the JSON log files for this setting
         json_files = [f for f in os.listdir(path) if f.startswith("morl_logs")]
-        seed=0
+        seed = 0
         for json_file in json_files:
             file_path = os.path.join(path, json_file)
 
@@ -1991,19 +1988,38 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
                 hv_metrics["Value"].append(sparsity_3d)
 
                 # Store Min/Max Returns for X, Y, Z coordinates in return_metrics dictionary
+                # Include seed information
+                return_metrics["Seed"].append(seed)
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Max Return X")
                 return_metrics["Value"].append(max_return_x)
+                
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return X")
+                return_metrics["Value"].append(min_return_x)
 
+                return_metrics["Seed"].append(seed)
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Min Return Y")
                 return_metrics["Value"].append(min_return_y)
+                
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Y")
+                return_metrics["Value"].append(max_return_y)
 
+                return_metrics["Seed"].append(seed)
                 return_metrics["Setting"].append(setting)
                 return_metrics["Metric"].append("Min Return Z")
                 return_metrics["Value"].append(min_return_z)
-            seed+=1
                 
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Z")
+                return_metrics["Value"].append(max_return_z)
+                
+            seed += 1
 
     # Convert the dictionaries to DataFrames for easier comparison and visualization
     df_hv_metrics = pd.DataFrame(hv_metrics)
@@ -2022,7 +2038,9 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     print(hv_stats.to_string(index=False))
     print("\nMin/Max Returns (Mean and Std):")
     print(return_stats.to_string(index=False))
-
+    # Plotting the Average Delta of Returns
+    import numpy as np
+    import matplotlib.pyplot as plt
     # Boxplot for Hypervolume and Sparsity
     plt.figure(figsize=(12, 6))
     
@@ -2060,10 +2078,70 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     plt.legend(title="Metric", loc='upper right', bbox_to_anchor=(0.95, 0.95))
     plt.tight_layout()
     plt.show()
+    
+    # Fourth Plot: Average Delta of Returns
+    # Create 'Return Type' and 'Return Dimension' columns
+    def get_return_type(metric):
+        if 'Min' in metric:
+            return 'Min'
+        elif 'Max' in metric:
+            return 'Max'
+        else:
+            return None
 
+    def get_return_dimension(metric):
+        if 'Return X' in metric:
+            return 'X'
+        elif 'Return Y' in metric:
+            return 'Y'
+        elif 'Return Z' in metric:
+            return 'Z'
+        else:
+            return None
+
+    return_stats['Return Type'] = return_stats['Metric'].apply(get_return_type)
+    return_stats['Return Dimension'] = return_stats['Metric'].apply(get_return_dimension)
+
+    # Pivot the DataFrame to get Mean Min and Mean Max Returns
+    df_returns = return_stats[['Setting', 'Return Dimension', 'Return Type', 'mean']]
+    df_pivot = df_returns.pivot_table(index=['Setting', 'Return Dimension'], columns='Return Type', values='mean').reset_index()
+    df_pivot.rename(columns={'Max': 'Mean Max Return', 'Min': 'Mean Min Return'}, inplace=True)
+
+    
+
+    settings = df_pivot['Setting'].unique()
+    return_dims = df_pivot['Return Dimension'].unique()
+
+    num_settings = len(settings)
+    num_return_dims = len(return_dims)
+    bar_width = 0.2  # Adjust as needed
+
+    x = np.arange(num_settings)  # The label locations
+    offsets = np.linspace(- (num_return_dims -1) * bar_width / 2, (num_return_dims -1) * bar_width / 2, num_return_dims)
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    colors = {'X': 'red', 'Y': 'green', 'Z': 'blue'}
+
+    for i, return_dim in enumerate(return_dims):
+        data = df_pivot[df_pivot['Return Dimension'] == return_dim]
+        x_positions = x + offsets[i]
+        bottom = data['Mean Min Return'].values
+        height = (data['Mean Max Return'] - data['Mean Min Return']).values
+        ax.bar(x_positions, height, width=bar_width, bottom=bottom, color=colors[return_dim], label=f'Return {return_dim}', alpha=0.7)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(settings, rotation=45)
+    ax.set_xlabel('Settings')
+    ax.set_ylabel('Return Value')
+    ax.set_title('Average Delta of Returns for Each Setting and Return Dimension')
+    ax.legend(title='Return Dimension')
+    plt.tight_layout()
+    plt.show()
 
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
+
 
 def compare_policies_weights_all_seeds(base_path, scenario):
     """
@@ -2091,10 +2169,12 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 90%": os.path.join(base_path, 'rho90')
+        "rho 90%": os.path.join(base_path, 'Rho 90'),
+        "rho 80%": os.path.join(base_path, 'Rho 80'),
+        "rho 70%": os.path.join(base_path, 'Rho 70'),
         # Add more rho settings here if needed
     }
-    scenario='Opponent'
+    
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
         settings = ['Baseline', 'moderate contingencies',"high contingencies" ]
@@ -2104,8 +2184,8 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         settings = ['Baseline', 'moderate time constraints', "high time constraints"]
         paths = time_paths
         title = 'Single- and Multi-Objective Solutions under time constraints'
-    elif scenario == "max_rho":
-        settings = ['Baseline', 'rho 90%']
+    elif scenario == "Max_rho":
+        settings = ['Baseline', 'rho 90%', 'rho 80%','rho 70%']
         paths = rho_paths
         title = 'Single- and Multi-Objective Solutions for unknown max line loading'
     else:
@@ -2303,14 +2383,16 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        'moderate learning constraints': os.path.join(base_path, "med_time_none"), 
-        'high learning constraints': os.path.join(base_path, "min_time")
+        'moderate learning constraints': os.path.join(base_path, "med_learning_none"), 
+        'high learning constraints': os.path.join(base_path, "min_learning_none")
     }
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 90%": os.path.join(base_path, 'rho90')
-        # Add more rho settings here if needed
+        'rho 90%': os.path.join(base_path, 'rho90'),
+        'rho 80%': os.path.join(base_path, 'rho80'),
+        'rho 70%': os.path.join(base_path, 'rho70')
+        
     }
 
     # Determine settings and titles based on scenario
@@ -2322,8 +2404,8 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         settings = ['Baseline', 'moderate learning constraints', 'high learning constraints']
         paths = time_paths
         title = 'Single- and Multi-Objective Solutions under learning constraints'
-    elif scenario == "max_rho":
-        settings = ['Baseline', 'rho 90%']
+    elif scenario == "Max_rho":
+        settings = ['Baseline', 'rho 90%', 'rho 80%', 'rho 70%']
         paths = rho_paths
         title = 'Single- and Multi-Objective Solutions for unknown max line loading'
     else:
@@ -2501,124 +2583,216 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     return df_results
 
 def compare_policies_weights(base_path, scenario):
-    
-    
+    """
+    Compares policies for the given scenario and plots the results using barplots.
+    Modifications:
+    - Switched from boxplots and swarmplots to barplots.
+    - Used the same coloring scheme as previously discussed.
+    - Assigned different colors to M-O cases for different settings.
+    - Included the weights of the best M-O alternative in the labels.
+    """
+    # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Opponent": os.path.join(base_path, "Opponent")
+        "moderate contingencies": os.path.join(base_path, "op_normal"),
+        "high contingencies": os.path.join(base_path, "op_hard")
     }
-    
-    time_paths =  {
+
+    time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "time_1024": os.path.join(base_path, "time_1024")
+        'moderate learning constraints': os.path.join(base_path, "med_time_none"),
+        'high learning constraints': os.path.join(base_path, "min_time")
     }
-    
+
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        'rho90': os.path.join(base_path, 'rho90'),
-        'rho80': os.path.join(base_path, 'rho80'),
-        'rho70': os.path.join(base_path, 'rho70')
-        
+        'rho 90%': os.path.join(base_path, 'rho90'),
+        'rho 80%': os.path.join(base_path, 'rho80'),
+        'rho 70%': os.path.join(base_path, 'rho70')
     }
-    
+
+    # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ['Baseline', 'Opponent']
+        settings = ['Baseline', 'moderate contingencies', "high contingencies"]
+        paths = opponent_paths
+        title = 'Single- and Multi-Objective Solutions under contingencies'
     elif scenario == "Time":
-        settings = ['Baseline', "time_1024"]
-    elif scenario == "max_rho":
-        settings = ['Baseline', 'rho90', 'rho80', 'rho70']
-    
-        
+        settings = ['Baseline', 'moderate learning constraints', 'high learning constraints']
+        paths = time_paths
+        title = 'Single- and Multi-Objective Solutions under learning constraints'
+    elif scenario == "Max_rho":
+        settings = ['Baseline', 'rho 90%', 'rho 80%', 'rho 70%']
+        paths = rho_paths
+        title = 'Single- and Multi-Objective Solutions for unknown max line loading'
+    else:
+        raise ValueError("Invalid scenario provided.")
+
     results = []
-    
-    # Loop over each setting (Baseline and Opponent)
+
+    # Loop over each setting
     for setting in settings:
-        if scenario == 'Opponent':
-            path = opponent_paths[setting]
-        elif scenario == "Time":
-            path = time_paths[setting]
-        elif scenario == 'max_rho':
-            path = rho_paths[setting]
+        path = paths[setting]
         seed_paths = []
         for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
-        
-        seed_paths = seed_paths[0]  # Just for seed 0
-        print(f"Processing for setting: {setting} with seed path: {seed_paths}")
-            
+
+        seed_paths = [seed_paths[0]]  # Only using seed 0
+        print(f"Processing for setting: {setting} with seed path: {seed_paths[0]}")
+
         # Process data for this scenario and setting
-        df_ccs_matching_seeds = process_data(seed_paths=[seed_paths], wrapper='ols', output_dir=path)
-        
-        # For each seed (only seed=0 here), process the data
+        df_ccs_matching_seeds = process_data(
+            seed_paths=seed_paths, wrapper='ols', output_dir=path)
+
+        # For seed=0, process the data
         for seed, group in df_ccs_matching_seeds.groupby('seed'):
-            # Default run [1,0,0]
-            default_runs = group[group['Weights'].apply(lambda w: w == [1.0, 0.0, 0.0])]
+            # S-O Case [1,0,0]
+            default_runs = group[group['Weights'].apply(
+                lambda w: w == [1.0, 0.0, 0.0])]
             default_run = default_runs.loc[
-                default_runs['test_chronic_0'].apply(lambda x: x['test_steps']).idxmax()
+                default_runs['test_chronic_0'].apply(
+                    lambda x: x['test_steps']).idxmax()
             ]
-            
-            # Non-default runs (exclude [1.0, 0.0, 0.0])
-            non_default_runs = group[group['Weights'].apply(lambda w: w != [1.0, 0.0, 0.0])]
-            
-            # Extract 'test_steps' for both chronic_0 and chronic_1
+
+            # M-O Case (exclude [1.0, 0.0, 0.0])
+            non_default_runs = group[group['Weights'].apply(
+                lambda w: w != [1.0, 0.0, 0.0])]
+
+            # Extract 'test_steps' and 'test_actions' for both chronic_0 and chronic_1
             non_default_runs['avg_test_steps'] = non_default_runs.apply(
-                lambda row: (row['test_chronic_0']['test_steps'] + row['test_chronic_1']['test_steps']) / 2, axis=1
+                lambda row: (row['test_chronic_0']['test_steps'] +
+                             row['test_chronic_1']['test_steps']) / 2, axis=1
             )
-            
+
             non_default_runs['test_actions'] = non_default_runs.apply(
-                lambda row: len(row['test_chronic_0']['test_actions']) + len(row['test_chronic_1']['test_actions']), axis=1
+                lambda row: len(row['test_chronic_0']['test_actions']) +
+                len(row['test_chronic_1']['test_actions']), axis=1
             )
-            
-            # Identify the top run with the highest average test_steps, using fewer actions to break ties
-            best_run = non_default_runs.sort_values(by=['avg_test_steps', 'test_actions'], ascending=[False, True]).iloc[0]
-            
+
+            # Identify the top run with the highest average test_steps,
+            # using fewer actions to break ties
+            best_run = non_default_runs.sort_values(
+                by=['avg_test_steps', 'test_actions'],
+                ascending=[False, True]
+            ).iloc[0]
+
             # Best run data
             best_run_actions = best_run['test_actions']
             best_run_steps = best_run['avg_test_steps']
-            best_run_weights = best_run['Weights']
-               
-            # Save the results for the best non-default run
+            best_run_weights = np.round(best_run['Weights'], 1)
+
+            # Save the results for the M-O Case, including weights in the label
             results.append({
                 'Seed': seed,
-                'Setting': f'{setting} (Best Non-Default)',
-                'Run Type': f'M-O Case ({np.round(best_run_weights, 1)})',
+                'Setting': setting,
+                'Run Type': f'M-O Case {best_run_weights}',
                 'Switching Actions': best_run_actions,
                 'Steps': best_run_steps
             })
-                
-            # Default run data
-            default_run_actions = len(default_run['test_chronic_0']['test_actions']) + len(default_run['test_chronic_1']['test_actions'])
-            default_run_steps = (default_run['test_chronic_0']['test_steps'] + default_run['test_chronic_1']['test_steps']) / 2
+
+            # S-O Case data
+            default_run_actions = (
+                len(default_run['test_chronic_0']['test_actions']) +
+                len(default_run['test_chronic_1']['test_actions'])
+            )
+            default_run_steps = (
+                default_run['test_chronic_0']['test_steps'] +
+                default_run['test_chronic_1']['test_steps']
+            ) / 2
+
             results.append({
                 'Seed': seed,
-                'Setting': f'{setting} (Default)',
-                'Run Type': 'S-O Case [1,0,0]',
+                'Setting': setting,
+                'Run Type': 'S-O Case [1.0, 0.0, 0.0]',
                 'Switching Actions': default_run_actions,
                 'Steps': default_run_steps
             })
-    
+
     # Convert the results into a DataFrame for plotting
     df_results = pd.DataFrame(results)
-    
-    # Plotting the comparison of switching actions
+
+    # Set up matplotlib parameters for a consistent look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (14, 8),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
+
+    # Plotting
+    sns.set_style("whitegrid")
+
+    # Create a list of unique 'Run Type' labels
+    unique_run_types = df_results['Run Type'].unique()
+
+    # Generate a list of colors for M-O Cases
+    mo_colors = ['lightcoral', 'skyblue', 'lightgreen', 'gold', 'violet']  # Add more colors as needed
+
+    # Create iterators for colors
+    mo_color_cycle = cycle(mo_colors)
+
+    palette = {}
+    for run_type in unique_run_types:
+        if 'S-O Case' in run_type:
+            palette[run_type] = 'grey'
+        elif 'M-O Case' in run_type:
+            palette[run_type] = next(mo_color_cycle)
+
+    # Define hue order to ensure consistent ordering
+    hue_order = ['S-O Case [1.0, 0.0, 0.0]']
+    # Add the M-O Cases in the order they appear
+    mo_run_types = [rt for rt in unique_run_types if 'M-O Case' in rt]
+    hue_order.extend(mo_run_types)
+
+    # Barplot of Switching Actions
     plt.figure(figsize=(14, 8))
-    sns.barplot(x='Setting', y='Switching Actions', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Switching Actions for Baseline and Opponent')
+    ax1 = sns.barplot(
+        x='Setting', y='Switching Actions', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=palette, ci=None
+    )
+
+    plt.title(title)
     plt.ylabel('Number of Switching Actions')
-    plt.xlabel('Setting (Baseline vs Opponent)')
-    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax1.get_legend_handles_labels()
+    new_labels = OrderedDict()
+    for handle, label in zip(handles, labels):
+        if label not in new_labels:
+            new_labels[label] = handle
+    ax1.legend(new_labels.values(), new_labels.keys(), title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
     plt.tight_layout()
     plt.show()
-    
-    # Plotting the comparison of steps
+
+    # Barplot of Steps
     plt.figure(figsize=(14, 8))
-    sns.barplot(x='Setting', y='Steps', hue='Run Type', data=df_results, palette="Set2")
-    plt.title('Comparison of Steps for Baseline and Opponent')
+    ax2 = sns.barplot(
+        x='Setting', y='Steps', hue='Run Type',
+        data=df_results, hue_order=hue_order, palette=palette, ci=None
+    )
+
+    plt.title(title)
     plt.ylabel('Average Number of Steps')
-    plt.xlabel('Setting (Baseline vs Opponent)')
-    plt.legend(title='Run Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.xlabel('Setting')
+
+    # Adjust legend to prevent duplicates
+    handles, labels = ax2.get_legend_handles_labels()
+    new_labels = OrderedDict()
+    for handle, label in zip(handles, labels):
+        if label not in new_labels:
+            new_labels[label] = handle
+    ax2.legend(new_labels.values(), new_labels.keys(), title='Run Type',
+               bbox_to_anchor=(1.05, 1), loc='upper left')
+
     plt.tight_layout()
     plt.show()
 
@@ -2627,11 +2801,11 @@ def compare_policies_weights(base_path, scenario):
 # ---- Main Function ----
 def main():
     base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\2ndtrial"  # The base path where the JSON files are stored
-    scenarios = ["Baseline", "Maxrho", "Opponent", "Reuse", "Time"]
+    scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[2]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -2641,7 +2815,6 @@ def main():
         scenario=scenario, name=name, base_json_path=base_json_path
     )
     # Perform the analyses
-
     if scenario == "Baseline":
         # Perform in-depth analysis on a selected seed
         analysis.calculate_metrics()
@@ -2655,6 +2828,9 @@ def main():
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
     if scenario == 'Time':
+        compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+    if scenario == "Max_rho": 
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
 
