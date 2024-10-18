@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 384,
+        "steps_per_iteration": 512,
         "num_minibatches": 4,
         "update_epochs": 10,
         "learning_rate": 5e-5,
@@ -31,15 +31,15 @@
     },
     "reuse": "none",
     "ols_iterations": 10,
-    "case_study": "reuse",
-    "name": "med_time_none", 
+    "case_study": "reuse", 
+    "name": "min_learning_none",
 
     "use_opponent": false, 
     
     "weight_vectors": [
         [0, 1, 0]
     ],
-    "max_gym_steps": 1536,
+    "max_gym_steps": 1024,
     "rewards": {
         "first": "L2RPN",
         "second": "TopoDepth",

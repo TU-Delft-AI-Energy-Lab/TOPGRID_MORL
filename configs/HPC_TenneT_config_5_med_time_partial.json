@@ -29,7 +29,7 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "Partial",
+    "reuse": "partial",
     "ols_iterations": 10,
     "case_study": "reuse", 
     "name": "med_time_partial",

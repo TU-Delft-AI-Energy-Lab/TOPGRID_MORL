@@ -5,7 +5,7 @@
     "agent_params": {
         "id": 1,
         "log": true,
-        "steps_per_iteration": 384,
+        "steps_per_iteration": 512,
         "num_minibatches": 4,
         "update_epochs": 10,
         "learning_rate": 5e-5,
@@ -29,10 +29,11 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "none",
+    "reuse": "partial",
     "ols_iterations": 10,
-    "case_study": "reuse",
-    "name": "med_time_none", 
+    "case_study": "reuse", 
+    "name": "med_learning_partial",
+
 
     "use_opponent": false, 
     

@@ -4,7 +4,7 @@ import os
 template = """#!/bin/bash
 
 #SBATCH --job-name="TOPGRID_MORL_5bus_{seed}_{config_name}"
-#SBATCH --time=4:00:00
+#SBATCH --time=3:30:00
 #SBATCH --partition=compute
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32
@@ -39,7 +39,7 @@ config_dir = "configs"  # Update this path if your config files are in a differe
 config_files = [f for f in os.listdir(config_dir) if '_5_' in f and f.endswith('.json')]
 
 # Number of seeds
-num_seeds = 5  # Change this to the number of seeds you want to use
+num_seeds = 20  # Change this to the number of seeds you want to use
 
 # Create a batch file for each seed and config file, then submit
 for config_file in config_files:

@@ -29,11 +29,11 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "None",
+    "reuse": "none",
     "ols_iterations": 10,
+
     "case_study": "opponent", 
     "name": "op_normal",
-
 
     "use_opponent": "normal", 
     

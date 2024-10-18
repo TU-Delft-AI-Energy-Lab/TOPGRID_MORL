@@ -29,7 +29,7 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "Full",
+    "reuse": "full",
     "ols_iterations": 10,
     "case_study": "reuse", 
     "name": "min_time_full",

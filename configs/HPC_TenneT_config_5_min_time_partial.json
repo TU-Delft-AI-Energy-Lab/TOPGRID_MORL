@@ -29,9 +29,9 @@
         "net_arch": [256,256],
         "act_fct": "relu"
     },
-    "reuse": "Partial",
+    "reuse": "partial",
     "ols_iterations": 10,
-    "case_study": "time", 
+    "case_study": "reuse", 
     "name": "min_time_partial",
 
     "use_opponent": false, 

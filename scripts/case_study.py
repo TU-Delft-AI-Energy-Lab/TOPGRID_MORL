@@ -2586,7 +2586,8 @@ def compare_policies_weights(base_path, scenario):
     """
     Compares policies for the given scenario and plots the results using barplots.
     Modifications:
-    - Switched from boxplots and swarmplots to barplots.
+    - Adjusted the plotting code to make the number of bars per setting generic depending on the scenario.
+    - Switched the 'x' and 'hue' parameters in the barplot to accommodate variable numbers of bars per setting.
     - Used the same coloring scheme as previously discussed.
     - Assigned different colors to M-O cases for different settings.
     - Included the weights of the best M-O alternative in the labels.
@@ -2728,38 +2729,32 @@ def compare_policies_weights(base_path, scenario):
     # Plotting
     sns.set_style("whitegrid")
 
-    # Create a list of unique 'Run Type' labels
-    unique_run_types = df_results['Run Type'].unique()
+    # Create a list of unique 'Setting' labels
+    unique_settings = df_results['Setting'].unique()
 
-    # Generate a list of colors for M-O Cases
-    mo_colors = ['lightcoral', 'skyblue', 'lightgreen', 'gold', 'violet']  # Add more colors as needed
+    # Generate a list of colors for Settings
+    setting_colors = ['lightcoral', 'skyblue', 'lightgreen', 'gold', 'violet', 'orange']  # Add more colors as needed
 
     # Create iterators for colors
-    mo_color_cycle = cycle(mo_colors)
+    setting_color_cycle = cycle(setting_colors)
 
     palette = {}
-    for run_type in unique_run_types:
-        if 'S-O Case' in run_type:
-            palette[run_type] = 'grey'
-        elif 'M-O Case' in run_type:
-            palette[run_type] = next(mo_color_cycle)
+    for setting in unique_settings:
+        palette[setting] = next(setting_color_cycle)
 
     # Define hue order to ensure consistent ordering
-    hue_order = ['S-O Case [1.0, 0.0, 0.0]']
-    # Add the M-O Cases in the order they appear
-    mo_run_types = [rt for rt in unique_run_types if 'M-O Case' in rt]
-    hue_order.extend(mo_run_types)
+    hue_order = unique_settings.tolist()
 
     # Barplot of Switching Actions
     plt.figure(figsize=(14, 8))
     ax1 = sns.barplot(
-        x='Setting', y='Switching Actions', hue='Run Type',
+        x='Run Type', y='Switching Actions', hue='Setting',
         data=df_results, hue_order=hue_order, palette=palette, ci=None
     )
 
     plt.title(title)
     plt.ylabel('Number of Switching Actions')
-    plt.xlabel('Setting')
+    plt.xlabel('Run Type')
 
     # Adjust legend to prevent duplicates
     handles, labels = ax1.get_legend_handles_labels()
@@ -2767,7 +2762,7 @@ def compare_policies_weights(base_path, scenario):
     for handle, label in zip(handles, labels):
         if label not in new_labels:
             new_labels[label] = handle
-    ax1.legend(new_labels.values(), new_labels.keys(), title='Run Type',
+    ax1.legend(new_labels.values(), new_labels.keys(), title='Setting',
                bbox_to_anchor=(1.05, 1), loc='upper left')
 
     plt.tight_layout()
@@ -2776,13 +2771,13 @@ def compare_policies_weights(base_path, scenario):
     # Barplot of Steps
     plt.figure(figsize=(14, 8))
     ax2 = sns.barplot(
-        x='Setting', y='Steps', hue='Run Type',
+        x='Run Type', y='Steps', hue='Setting',
         data=df_results, hue_order=hue_order, palette=palette, ci=None
     )
 
     plt.title(title)
     plt.ylabel('Average Number of Steps')
-    plt.xlabel('Setting')
+    plt.xlabel('Run Type')
 
     # Adjust legend to prevent duplicates
     handles, labels = ax2.get_legend_handles_labels()
@@ -2790,7 +2785,7 @@ def compare_policies_weights(base_path, scenario):
     for handle, label in zip(handles, labels):
         if label not in new_labels:
             new_labels[label] = handle
-    ax2.legend(new_labels.values(), new_labels.keys(), title='Run Type',
+    ax2.legend(new_labels.values(), new_labels.keys(), title='Setting',
                bbox_to_anchor=(1.05, 1), loc='upper left')
 
     plt.tight_layout()
@@ -2805,7 +2800,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[1]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
