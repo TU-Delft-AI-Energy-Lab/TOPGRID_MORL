@@ -210,6 +210,8 @@ def find_matching_weights_and_agent(ccs_list, ccs_data):
                         "agent_file": data_entry.get("agent_file", None),
                         "test_chronic_0": data_entry.get("test_chronic_0", {}),
                         "test_chronic_1": data_entry.get("test_chronic_1", {}),
+                        "eval_chronic_0": data_entry.get("eval_chronic_0", {}),
+                        "eval_chronic_1": data_entry.get("eval_chronic_1", {}),
                         "seed": data_entry.get("seed", None),
                     }
                 )
@@ -605,6 +607,8 @@ def process_data(seed_paths, wrapper, output_dir):
                     "Weights": entry["weights"],
                     "test_chronic_0": entry["test_chronic_0"],
                     "test_chronic_1": entry["test_chronic_1"],
+                    "eval_chronic_0": entry['eval_chronic_0'],
+                    "eval_chronic_1": entry['eval_chronic_1']
                 }
             )
 
@@ -1450,7 +1454,7 @@ def topo_depth_process_and_plot(csv_path):
     df = df[df["test_chronic_0"].apply(lambda x: x["test_steps"] == 2016)]
 
     # Limit to the first 5 points that reach 2016 steps
-    df = df.head(2)
+    df = df.head(4)
 
     # Initialize the plot
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -1643,6 +1647,7 @@ def analyse_pf_values_and_plot_projections(csv_path):
         test_data = row[chronic]
         steps = test_data["test_steps"]  # Total steps in the test
         actions = test_data["test_actions"]  # List of actions taken
+        topo_vects = test_data['topo_vect']
         topo_depths = test_data.get("test_topo_distance")
         timestamps = test_data.get("test_action_timestamp")
 

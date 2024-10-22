@@ -260,6 +260,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 "test_actions": test_data_0_conv.get("eval_actions"),
                 'test_action_timestamp': test_data_0_conv.get('eval_action_timestamp'),
                 'test_sub_ids': test_data_0_conv.get('sub_ids'),
+                'test_topo_vect':test_data_0_conv.get('eval_topo_vect'),
                 'test_topo_distance': test_data_0_conv.get('eval_topo_distance'),
                 "test_states": test_data_0_conv.get("eval_states"),
                 "test_steps": test_data_0_conv.get("eval_steps"),
@@ -270,6 +271,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 "test_actions": test_data_1_conv.get("eval_actions"),
                 'test_action_timestamp': test_data_1_conv.get('eval_action_timestamp'),
                 'test_sub_ids': test_data_1_conv.get('sub_ids'),
+                'test_topo_vect':eval_data_1_conv.get('eval_topo_vect'),
                 'test_topo_distance': test_data_1_conv.get('eval_topo_distance'),
                 "test_states": test_data_1_conv.get("eval_states"),
                 "test_steps": test_data_1_conv.get("eval_steps")
@@ -280,6 +282,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 "eval_actions": eval_data_0_conv.get("eval_actions"),
                 'eval_action_timestamp': eval_data_0_conv.get('eval_action_timestamp'),
                 'eval_sub_ids': eval_data_0_conv.get('sub_ids'),
+                'eval_topo_vect':eval_data_0_conv.get('eval_topo_vect'),
                 'eval_topo_distance': eval_data_0_conv.get('eval_topo_distance'),
                 "eval_states": eval_data_0_conv.get("eval_states"),
                 "eval_steps": eval_data_0_conv.get("eval_steps")
@@ -290,6 +293,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 "eval_actions": eval_data_1_conv.get("eval_actions"),
                 'eval_action_timestamp': eval_data_1_conv.get('eval_action_timestamp'),
                 'eval_sub_ids': eval_data_1_conv.get('sub_ids'),
+                'eval_topo_vect':eval_data_1_conv.get('eval_topo_vect'),
                 'eval_topo_distance': eval_data_1_conv.get('eval_topo_distance'),
                 "eval_states": eval_data_1_conv.get("eval_states"),
                 "eval_steps": eval_data_1_conv.get("eval_steps")

@@ -46,7 +46,7 @@ class LinearSupport:
         """
         self.calls_cornerweights = 0
         self.mc_samples = 0 
-        self.num_objectives = num_objectives
+        self.num_objectives = 3
         self.epsilon = epsilon
         self.visited_weights = []  # List of already tested weight vectors
         self.ccs = []
@@ -55,6 +55,7 @@ class LinearSupport:
         self.iteration = 0
         self.ols_ended = False
         self.verbose = verbose
+        self.count = 0
         for w in extrema_weights(self.num_objectives):
             self.queue.append((float("inf"), w))
 
@@ -72,6 +73,10 @@ class LinearSupport:
         Returns:
             np.ndarray: Next weight vector
         """
+        
+        if self.count <self.num_objectives: 
+            self.count +=1
+            return self.queue.pop(0)[1]
         if len(self.ccs) > 0:
             W_corner = self.compute_corner_weights()
             if self.verbose:
@@ -81,6 +86,7 @@ class LinearSupport:
             for wc in W_corner:
                 if algo == "ols":
                     priority = self.ols_priority(wc)
+                
 
                 elif algo == "gpi-ls":
                     if gpi_agent is None:
@@ -96,9 +102,10 @@ class LinearSupport:
             if len(self.queue) > 0:
                 # Sort in descending order of priority
                 self.queue.sort(key=lambda t: t[0], reverse=True)
-                # If all priorities are 0, shuffle the queue to avoid repearting weights every iteration
+                # If all priorities are 0, shuffle the queue to avoid repeating weights every iteration
                 if self.queue[0][0] == 0.0:
                     random.shuffle(self.queue)
+                
             if len(self.queue) == 0:
                 print("Queue is empty after extrema weights. Generating new random weights for exploration.")
                 random_weights = np.random.rand(self.num_objectives)
@@ -108,6 +115,7 @@ class LinearSupport:
 
         if self.verbose:
             print("CCS:", self.ccs, "CCS size:", len(self.ccs))
+            print('Queue:', self.queue)
 
         if len(self.queue) == 0:
             if self.verbose:
@@ -198,6 +206,12 @@ class LinearSupport:
         max_value_ccs = self.max_scalarized_value(w)
         max_optimistic_value = self.max_value_lp(w)
         priority = max_optimistic_value - max_value_ccs
+        
+        print(f'Priority {priority} for weight {w}') #catch infinite priority anomaly
+        if np.isinf(max_value_ccs) or np.isinf(max_optimistic_value):
+            print(max_value_ccs, max_optimistic_value)
+        if np.isinf(priority):
+            priority = 1
         return priority
 
     def gpi_ls_priority(self, w: np.ndarray, gpi_expanded_set: List[np.ndarray]) -> float:
@@ -320,6 +334,7 @@ class LinearSupport:
 
     def compute_corner_weights(self) -> List[np.ndarray]:
         """Returns the corner weights for the current set of values."""
+       
         self.calls_cornerweights += 1
 
         # Ensure the current CCS is not empty before computing

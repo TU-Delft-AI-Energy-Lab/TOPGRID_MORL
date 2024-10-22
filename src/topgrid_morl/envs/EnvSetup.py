@@ -66,9 +66,27 @@ def setup_environment(
     }
 
     # Conditionally add opponent parameters
-    if use_opponent:
+    if use_opponent == 'normal':
         kwargs.update({
             'opponent_attack_cooldown': 144,  # Max 2 attacks per day
+            'opponent_attack_duration': 48,   # 4 hours in a day
+            'opponent_budget_per_ts': 0.333343333333,  # Taken from Blazej
+            'opponent_init_budget': 144,
+            'opponent_action_class': PowerlineSetAction,
+            'opponent_class': RandomLineOpponent,
+            'opponent_budget_class': BaseActionBudget,
+            'kwargs_opponent': {
+                "lines_attacked": [
+                    '0_3_2',
+                    '0_4_3'
+                ]
+            }
+        })
+        
+    # Conditionally add opponent parameters
+    elif use_opponent == 'hard':
+        kwargs.update({
+            'opponent_attack_cooldown': 72,  # Max 2 attacks per day
             'opponent_attack_duration': 48,   # 4 hours in a day
             'opponent_budget_per_ts': 0.333343333333,  # Taken from Blazej
             'opponent_init_budget': 144,
