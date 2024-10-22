@@ -190,6 +190,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
+    ols_iterations = 10
     trainer = MOPPOTrainer(
             iterations=5,
             max_gym_steps=max_gym_steps,

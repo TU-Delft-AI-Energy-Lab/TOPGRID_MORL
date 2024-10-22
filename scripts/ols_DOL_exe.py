@@ -217,6 +217,8 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         print(f"this weights will be given to the MOPPO: {w}")
         
         eval_data, test_data, agent = trainer.run_single(weights=w)
+        print(test_data)
+        print(eval_data)
         #print(test_data)
         
         eval_rewards_1 = np.array(sum_rewards(eval_data['eval_data_0']['eval_rewards']))
@@ -236,14 +238,18 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         
         test_data_0 = test_data.get("test_data_0")
         test_data_1 = test_data.get('test_data_1')
+        eval_data_0 = eval_data.get('eval_data_0')
+        eval_data_1 = eval_data.get('eval_data_1')
 
         # Convert the numpy arrays/tensors to lists
         test_data_0_conv = convert_ndarray_to_list(test_data_0)
         test_data_1_conv = convert_ndarray_to_list(test_data_1)
+        # Convert the numpy arrays/tensors to lists
+        eval_data_0_conv = convert_ndarray_to_list(eval_data_0)
+        eval_data_1_conv = convert_ndarray_to_list(eval_data_1)
         
         # Add the converted data to ccs_data
         ccs_data.append({
-            
             "weights": weights_array,
             "returns": mean_rewards_array,
             "agent_file": agent_filename,
@@ -267,6 +273,26 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 'test_topo_distance': test_data_1_conv.get('eval_topo_distance'),
                 "test_states": test_data_1_conv.get("eval_states"),
                 "test_steps": test_data_1_conv.get("eval_steps")
+            },
+            "eval_chronic_0": {
+                "eval_chronic": eval_data_0_conv.get("eval_chronic"),
+                "eval_rewards": eval_data_0_conv.get("eval_rewards"),
+                "eval_actions": eval_data_0_conv.get("eval_actions"),
+                'eval_action_timestamp': eval_data_0_conv.get('eval_action_timestamp'),
+                'eval_sub_ids': eval_data_0_conv.get('sub_ids'),
+                'eval_topo_distance': eval_data_0_conv.get('eval_topo_distance'),
+                "eval_states": eval_data_0_conv.get("eval_states"),
+                "eval_steps": eval_data_0_conv.get("eval_steps")
+            },
+            "eval_chronic_1": {
+                "eval_chronic": eval_data_1_conv.get("eval_chronic"),
+                "eval_rewards": eval_data_1_conv.get("eval_rewards"),
+                "eval_actions": eval_data_1_conv.get("eval_actions"),
+                'eval_action_timestamp': eval_data_1_conv.get('eval_action_timestamp'),
+                'eval_sub_ids': eval_data_1_conv.get('sub_ids'),
+                'eval_topo_distance': eval_data_1_conv.get('eval_topo_distance'),
+                "eval_states": eval_data_1_conv.get("eval_states"),
+                "eval_steps": eval_data_1_conv.get("eval_steps")
             }
         })
                 

@@ -34,7 +34,7 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(5):
+        for seed in range(20):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
@@ -68,6 +68,8 @@ class ExperimentAnalysis:
             print(f"MC seed path not found: {self.mc_seed_path}")
         # Store metrics
         self.df_all_metrics_ols = df_all_metrics_ols
+        print(self.df_all_metrics_ols)
+        print(self.df_3d_metrics_mc)
         print("Metrics calculation completed.")
 
     def plot_pareto_frontiers(self, rewards):
@@ -772,7 +774,7 @@ def plot_2d_projections_matplotlib(
         # Handle OLS paths
         colors = plt.cm.tab10.colors  # Use a colormap for different seeds
 
-        for i, seed_path in enumerate(seed_paths[:3]):
+        for i, seed_path in enumerate(seed_paths[:1]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -2199,7 +2201,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         path = paths[setting]
         seed_paths = []
         print(path)
-        for seed in range(5):  # Adjust the range as needed
+        for seed in range(20):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
@@ -2417,7 +2419,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     for setting in settings:
         path = paths[setting]
         seed_paths = []
-        for seed in range(5):  # Adjust the range as needed
+        for seed in range(20):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
@@ -2795,12 +2797,12 @@ def compare_policies_weights(base_path, scenario):
     
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\2ndtrial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
 
     name = names[0]
-    scenario = scenarios[1]
+    scenario = scenarios[2]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -2822,6 +2824,13 @@ def main():
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        csv_path_op_normal = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_normal'), "ccs_matching_data.csv")
+        # Perform the topo depth process and plot
+        topo_depth_process_and_plot(csv_path_op_normal)
+        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        csv_path_op_hard = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_hard'), "ccs_matching_data.csv")
+        # Perform the topo depth process and plot
+        topo_depth_process_and_plot(csv_path_op_hard)
     if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
