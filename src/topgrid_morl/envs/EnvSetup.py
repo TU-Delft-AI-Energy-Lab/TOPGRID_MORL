@@ -89,7 +89,7 @@ def setup_environment(
             'opponent_attack_cooldown': 72,  # Max 2 attacks per day
             'opponent_attack_duration': 48,   # 4 hours in a day
             'opponent_budget_per_ts': 0.333343333333,  # Taken from Blazej
-            'opponent_init_budget': 144,
+            'opponent_init_budget': 288,
             'opponent_action_class': PowerlineSetAction,
             'opponent_class': RandomLineOpponent,
             'opponent_budget_class': BaseActionBudget,
