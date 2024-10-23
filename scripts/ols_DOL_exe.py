@@ -182,7 +182,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     current_date = datetime.now().strftime("%Y-%m-%d")
     dir_path = os.path.join(
         "morl_logs",
-        "2ndtrial",
+        "3rd_trial",
         "OLS",
         case_study,
         name,
