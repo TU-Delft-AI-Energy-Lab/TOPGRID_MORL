@@ -2665,6 +2665,245 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     plt.show()
 
     return df_results
+def visualize_successful_weights(base_path, scenario):
+    """
+    Visualizes the weight distributions of multi-objective policies that successfully
+    complete the episode (steps=2016) for a given scenario.
+
+    Parameters:
+    - base_path: The base directory path containing the scenario data.
+    - scenario: The scenario name ('Opponent', 'Time', or 'Max_rho').
+
+    The function processes the data for each setting in the scenario, extracts
+    the weight vectors of successful M-O policies, and plots them using matplotlib
+    and seaborn.
+    """
+    import os
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from collections import OrderedDict
+
+    # Paths for different scenarios
+    opponent_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Moderate Contingencies": os.path.join(base_path, "op_normal"),
+        "High Contingencies": os.path.join(base_path, "op_hard")
+    }
+
+    time_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Moderate Learning Constraints": os.path.join(base_path, "med_time_none"),
+        "High Learning Constraints": os.path.join(base_path, "min_time")
+    }
+
+    rho_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "rho 90%": os.path.join(base_path, "rho90"),
+        "rho 80%": os.path.join(base_path, "rho80"),
+        "rho 70%": os.path.join(base_path, "rho70")
+    }
+
+    # Determine settings and titles based on scenario
+    if scenario == 'Opponent':
+        settings = ["Baseline", "Moderate Contingencies", "High Contingencies"]
+        paths = opponent_paths
+        title = 'Weight Distributions of Successful M-O Policies under Contingencies'
+    elif scenario == "Time":
+        settings = ["Baseline", "Moderate Learning Constraints", "High Learning Constraints"]
+        paths = time_paths
+        title = 'Weight Distributions of Successful M-O Policies under Learning Constraints'
+    elif scenario == "Max_rho":
+        settings = ["Baseline", "rho 90%", "rho 80%", "rho 70%"]
+        paths = rho_paths
+        title = 'Weight Distributions of Successful M-O Policies for Unknown Max Line Loading'
+    else:
+        raise ValueError("Invalid scenario provided.")
+
+    results = []
+
+    # Loop over each setting
+    for setting in settings:
+        path = paths[setting]
+        seed_paths = []
+        for seed in range(5):  # Adjust the range as needed
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            if os.path.exists(seed_path):
+                seed_paths.append(seed_path)
+            else:
+                print(f"Seed file not found: {seed_path}")
+
+        # Process data for this scenario and setting
+        for seed_path in seed_paths:
+            print(f"Processing for setting: {setting} with seed path: {seed_path}")
+            # Load the data (implement your own load function or adjust accordingly)
+            df_ccs_matching_seeds = process_data(
+                seed_paths=[seed_path], wrapper='ols', output_dir=path)
+
+            # For each run in the data
+            for index, row in df_ccs_matching_seeds.iterrows():
+                weights = row['Weights']
+                # Check if it's a multi-objective policy (weights not equal to [1.0, 0.0, 0.0])
+                if weights != [1.0, 0.0, 0.0]:
+                    # Check if the policy completes the episode (steps=2016) for both chronic_0 and chronic_1
+                    steps_chronic_0 = row['test_chronic_0']['test_steps']
+                    steps_chronic_1 = row['test_chronic_1']['test_steps']
+                    if steps_chronic_0 == 2016 and steps_chronic_1 == 2016:
+                        avg_steps = (steps_chronic_0 + steps_chronic_1) / 2
+                        results.append({
+                            'Seed': row['seed'],
+                            'Setting': setting,
+                            'Weights': weights,
+                            'Average Steps': avg_steps
+                        })
+
+    # Convert the results into a DataFrame
+    df_results = pd.DataFrame(results)
+
+    if df_results.empty:
+        print("No successful M-O policies found for the given scenario.")
+        return
+
+    # Convert the list of weights to columns for easier plotting
+    weights_array = np.array(df_results['Weights'].tolist())
+    df_results['Weight 1'] = weights_array[:, 0]
+    df_results['Weight 2'] = weights_array[:, 1]
+    df_results['Weight 3'] = weights_array[:, 2]
+
+    # Ensure weights are within the range 0-1
+    df_results['Weight 1'] = df_results['Weight 1'].clip(0, 1)
+    df_results['Weight 2'] = df_results['Weight 2'].clip(0, 1)
+    df_results['Weight 3'] = df_results['Weight 3'].clip(0, 1)
+
+    # Set up matplotlib parameters for a consistent look
+    plt.rcParams.update({
+        'font.size': 12,
+        'axes.grid': True,
+        'axes.labelsize': 14,
+        'axes.titlesize': 16,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'font.family': 'serif',
+    })
+
+    sns.set_style("whitegrid")
+
+    # Create a color palette for the settings
+    unique_settings = df_results['Setting'].unique()
+    palette = sns.color_palette("tab10", len(unique_settings))
+    setting_palette = dict(zip(unique_settings, palette))
+
+    # Figure 1: KDE Plots for Each Weight
+    weights = ['Weight 1', 'Weight 2', 'Weight 3']
+    weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
+
+    fig_kde, axes_kde = plt.subplots(1, 3, figsize=(18, 6))
+
+    # List to store maximum y-values
+    max_y_values = []
+
+    for i, weight in enumerate(weights):
+        ax = axes_kde[i]
+        # Plot KDE
+        sns.kdeplot(
+            data=df_results,
+            x=weight,
+            hue='Setting',
+            palette=setting_palette,
+            ax=ax,
+            common_norm=False,
+            fill=True,
+            clip=(0, 1),
+            legend=False  # We'll add a single legend later
+        )
+
+        ax.set_title(f'Distribution of {weight_titles[i]}')
+        ax.set_xlim(0, 1)
+        ax.set_xlabel('Weight Value')
+        ax.set_ylabel('Density')
+
+        # Collect the maximum y-value for this subplot
+        y_min, y_max = ax.get_ylim()
+        max_y_values.append(y_max)
+
+    # Set the same y-limit for all subplots
+    common_y_max = max(max_y_values)
+    for ax in axes_kde:
+        ax.set_ylim(0, common_y_max)
+
+    # Create a common legend
+    handles, labels = axes_kde[-1].get_legend_handles_labels()
+    # Remove duplicates while preserving order
+    legend_data = OrderedDict()
+    for handle, label in zip(handles, labels):
+        if label not in legend_data:
+            legend_data[label] = handle
+
+    fig_kde.legend(
+        legend_data.values(),
+        legend_data.keys(),
+        title='Setting',
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left'
+    )
+
+    fig_kde.suptitle(title, fontsize=16)
+    fig_kde.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+    plt.show()
+
+    # Figure 2: Stripplots for Each Weight
+    fig_strip, axes_strip = plt.subplots(1, 3, figsize=(18, 6))
+
+    for i, weight in enumerate(weights):
+        ax = axes_strip[i]
+        sns.stripplot(
+            data=df_results,
+            x=weight,
+            y='Setting',  # We can plot horizontally grouped by setting
+            hue='Setting',
+            palette=setting_palette,
+            ax=ax,
+            dodge=False,
+            size=8,  # More expressive points
+            alpha=0.7,
+            jitter=True,
+            legend=False  # We'll add a single legend later
+        )
+
+        ax.set_title(f'Weight Values of {weight_titles[i]}')
+        ax.set_xlim(0, 1)
+        ax.set_xlabel('Weight Value')
+        ax.set_ylabel('Setting')
+
+    # Create a common legend for the stripplots
+    handles, labels = axes_strip[-1].get_legend_handles_labels()
+    # Remove duplicates while preserving order
+    legend_data_strip = OrderedDict()
+    for handle, label in zip(handles, labels):
+        if label not in legend_data_strip:
+            legend_data_strip[label] = handle
+
+    fig_strip.legend(
+        legend_data_strip.values(),
+        legend_data_strip.keys(),
+        title='Setting',
+        bbox_to_anchor=(1.05, 1),
+        loc='upper left'
+    )
+
+    fig_strip.suptitle(f'Weight Values by Setting - {title}', fontsize=16)
+    fig_strip.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+    plt.show()
+
+    # Return the DataFrame for further analysis if needed
+    return df_results
+
+
+
+
 
 def compare_policies_weights(base_path, scenario):
     """
@@ -2884,7 +3123,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[2]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -2906,13 +3145,14 @@ def main():
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        csv_path_op_normal = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_normal'), "ccs_matching_data.csv")
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        #csv_path_op_normal = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_normal'), "ccs_matching_data.csv")
         # Perform the topo depth process and plot
-        topo_depth_process_and_plot(csv_path_op_normal)
-        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        csv_path_op_hard = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_hard'), "ccs_matching_data.csv")
+        #topo_depth_process_and_plot(csv_path_op_normal)
+        #compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        #csv_path_op_hard = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_hard'), "ccs_matching_data.csv")
         # Perform the topo depth process and plot
-        topo_depth_process_and_plot(csv_path_op_hard)
+        #topo_depth_process_and_plot(csv_path_op_hard)
     if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
