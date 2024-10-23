@@ -33,7 +33,7 @@
     "reuse": "none",
     "ols_iterations": 10,
     "case_study": "Baseline", 
-    "setting": "Baseline",
+    "name": "Baseline",
 
 
     "use_opponent": false, 

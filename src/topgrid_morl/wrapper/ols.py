@@ -416,8 +416,8 @@ class LinearSupport:
                 return False
         return True
     
-    #For RS Benchmark only 
-    def rs_sample_weights(self, reward_dim):
+    #For RS Benchmark, with extrema weights
+    def rs_sample_weights_extrema(self, reward_dim):
         # Sample weights and normalize to sum to 1
         """Samples random weight vectors from a uniform distribution."""
         self.mc_samples+=1
@@ -432,5 +432,14 @@ class LinearSupport:
             weights = np.random.rand(reward_dim)
             normalized_weights = weights / np.sum(weights)
             return np.round(normalized_weights, 2)
+
+    #Only random sampling
+    def rs_sample_weights(self, reward_dim):
+        # Sample weights and normalize to sum to 1
+        """Samples random weight vectors from a uniform distribution."""
+        
+        weights = np.random.rand(reward_dim)
+        normalized_weights = weights / np.sum(weights)
+        return np.round(normalized_weights, 2)
 
 

@@ -31,9 +31,9 @@
     },
     
     "reuse": "none",
-    "ols_iterations": 10,
+    "ols_iterations": 30,
     "case_study": "Baseline", 
-    "setting": "Baseline",
+    "name": "Baseline30",
 
 
     "use_opponent": false, 
