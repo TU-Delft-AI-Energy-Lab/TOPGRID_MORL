@@ -1964,7 +1964,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    # Your existing imports and utility functions (e.g., load_json_data, calculate_hypervolume_and_sparsity, etc.)
+    # Your existing imports and utility functions
 
     if scenario == 'Reuse':
         settings = ["Baseline", "Full", "Partial", "Baseline_reduced", "Full_reduced", "Partial_reduced", "Baseline_min", "Full_min", "Partial_min"]
@@ -1981,14 +1981,6 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
         "Baseline_min": os.path.join(base_path, "min_learning_none"),
         "Full_min": os.path.join(base_path, "min_learning_full"),
         "Partial_min": os.path.join(base_path, "min_learning_partial"),
-        
-        #"Baseline_reduced": os.path.join(base_path, "med_time_none"),
-        #"Full_reduced": os.path.join(base_path, "med_time_full"),
-        #"Partial_reduced": os.path.join(base_path, "med_time_partial"),
-        #"Baseline_min": os.path.join(base_path, "min_time_"),
-        #"Full_min": os.path.join(base_path, "min_time_full"),
-        #"Partial_min": os.path.join(base_path, "min_time_partial"),
-        
     }
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
@@ -2076,15 +2068,15 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
     # Add 'Method' and 'Learning' columns based on 'Setting'
     setting_to_method_and_learning = {
-        'Baseline': ('No Reuse\nBaseline', 'full training'),
-        'Baseline_reduced': ('No Reuse\nBaseline', '75% training'),
-        'Baseline_min': ('No Reuse\nBaseline', '50 training'),
+        'Baseline': ('Baseline', 'full training'),
+        'Baseline_reduced': ('Baseline', '75% training'),
+        'Baseline_min': ('Baseline', '50% training'),
         'Full': ('Full Reuse', 'full training'),
         'Full_reduced': ('Full Reuse', '75% training'),
-        'Full_min': ('Full Reuse', '50 training'),
+        'Full_min': ('Full Reuse', '50% training'),
         'Partial': ('Partial Reuse', 'full training'),
         'Partial_reduced': ('Partial Reuse', '75% training'),
-        'Partial_min': ('Partial Reuse', '50 training'),
+        'Partial_min': ('Partial Reuse', '50% training'),
     }
 
     df_hv_metrics['Method'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
@@ -2095,19 +2087,23 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     # Compute mean and std for return_metrics
     return_stats = df_return_metrics.groupby(['Setting', 'Metric'])['Value'].agg(['mean', 'std']).reset_index()
 
-    # Combine the stats into a single DataFrame for printing
-    df_mean_std = pd.concat([hv_stats, return_stats], ignore_index=True)
-
     # Print the results
     print("\nHypervolume and Sparsity Metrics (Mean and Std):")
     print(hv_stats.to_string(index=False))
     print("\nMin/Max Returns (Mean and Std):")
     print(return_stats.to_string(index=False))
 
-    # Plotting the Average Delta of Returns
+    # --- Adjusted Coloring Starts Here ---
+
+    # Define custom colors for Methods to match the desired color scheme
+    method_palette = {
+        'Baseline': 'grey',
+        'Full Reuse': 'lightcoral',  # light red
+        'Partial Reuse': 'red',
+    }
 
     # Boxplot for Hypervolume and Sparsity split into 3 subfigures
-    learning_settings = ['full training', '75% training', '50 training']
+    learning_settings = ['full training', '75% training', '50% training']
     num_learning_settings = len(learning_settings)
 
     fig, axes = plt.subplots(1, num_learning_settings, figsize=(18, 6), sharey=True)
@@ -2115,115 +2111,72 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     for i, learning_setting in enumerate(learning_settings):
         ax = axes[i]
         data_subset = df_hv_metrics[df_hv_metrics['Learning'] == learning_setting]
-        sns.boxplot(ax=ax, x='Method', y='Value', hue='Metric', data=data_subset)
+
+        sns.boxplot(
+            ax=ax,
+            x='Metric',
+            y='Value',
+            hue='Method',
+            data=data_subset,
+            palette=method_palette,
+            medianprops={'color': 'black'},
+            whiskerprops={'color': 'black'},
+            capprops={'color': 'black'},
+            flierprops={'color': 'black', 'markeredgecolor': 'black'},
+            showcaps=True
+        )
         ax.set_title(f"Learning: {learning_setting}")
-        ax.set_xlabel('')
+        ax.set_xlabel('Metric')
 
         # Limit the y-axis to 20
         ax.set_ylim(0, 20)
 
         # Adjust x-axis labels
-        ax.set_xticklabels(data_subset['Method'].unique(), rotation=0)
+        ax.set_xticklabels(data_subset['Metric'].unique(), rotation=0)
 
         if i == 0:
             ax.set_ylabel('Metric Value')
         else:
             ax.set_ylabel('')
+
         if i == num_learning_settings - 1:
-            ax.legend(title='Metric', loc='upper right', bbox_to_anchor=(1.15, 1))
+            ax.legend(title='Method', loc='upper right', bbox_to_anchor=(1.15, 1))
         else:
             ax.legend_.remove()
     plt.tight_layout()
     plt.show()
 
-    # Keep the rest of the functionality as is
-    # Boxplot for Min/Max Returns
+    # Boxplot for Min/Max Returns with adjusted coloring
     plt.figure(figsize=(12, 6))
-    sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_return_metrics)
-    
-    # Set updated x-axis labels for return metrics as well
-    combined_labels = [
-        'No Reuse\nBaseline (Baseline)',
-        'No Reuse\nBaseline (75% training)',
-        'No Reuse\nBaseline (50 training)',
-        'Full Reuse (Baseline)',
-        'Full Reuse (75% training)',
-        'Full Reuse (50 training)',
-        'Partial Reuse (Baseline)',
-        'Partial Reuse (75% training)',
-        'Partial Reuse (50 training)'
-    ]
-    plt.xticks(ticks=range(len(settings)), labels=combined_labels, rotation=45)
-    
+    sns.boxplot(
+        x="Metric",
+        y="Value",
+        hue="Method",
+        data=df_return_metrics,
+        palette=method_palette,
+        medianprops={'color': 'black'},
+        whiskerprops={'color': 'black'},
+        capprops={'color': 'black'},
+        flierprops={'color': 'black', 'markeredgecolor': 'black'},
+        showcaps=True
+    )
+
+    plt.xticks(rotation=45)
     plt.title("Boxplot of Min/Max Returns (X, Y, Z) across Different Settings")
     plt.ylabel("Return Value")
-    plt.xlabel("Settings")
-    
+    plt.xlabel("Metric")
+
     # Adjust legend location to be inside the plot
-    plt.legend(title="Metric", loc='upper right', bbox_to_anchor=(0.95, 0.95))
+    plt.legend(title="Method", loc='upper right', bbox_to_anchor=(0.95, 0.95))
     plt.tight_layout()
     plt.show()
-    
-    # Fourth Plot: Average Delta of Returns
-    # Create 'Return Type' and 'Return Dimension' columns
-    def get_return_type(metric):
-        if 'Min' in metric:
-            return 'Min'
-        elif 'Max' in metric:
-            return 'Max'
-        else:
-            return None
 
-    def get_return_dimension(metric):
-        if 'Return X' in metric:
-            return 'X'
-        elif 'Return Y' in metric:
-            return 'Y'
-        elif 'Return Z' in metric:
-            return 'Z'
-        else:
-            return None
-
-    return_stats['Return Type'] = return_stats['Metric'].apply(get_return_type)
-    return_stats['Return Dimension'] = return_stats['Metric'].apply(get_return_dimension)
-
-    # Pivot the DataFrame to get Mean Min and Mean Max Returns
-    df_returns = return_stats[['Setting', 'Return Dimension', 'Return Type', 'mean']]
-    df_pivot = df_returns.pivot_table(index=['Setting', 'Return Dimension'], columns='Return Type', values='mean').reset_index()
-    df_pivot.rename(columns={'Max': 'Mean Max Return', 'Min': 'Mean Min Return'}, inplace=True)
-
-    settings = df_pivot['Setting'].unique()
-    return_dims = df_pivot['Return Dimension'].unique()
-
-    num_settings = len(settings)
-    num_return_dims = len(return_dims)
-    bar_width = 0.2  # Adjust as needed
-
-    x = np.arange(num_settings)  # The label locations
-    offsets = np.linspace(- (num_return_dims -1) * bar_width / 2, (num_return_dims -1) * bar_width / 2, num_return_dims)
-
-    fig, ax = plt.subplots(figsize=(12, 6))
-
-    colors = {'X': 'red', 'Y': 'green', 'Z': 'blue'}
-
-    for i, return_dim in enumerate(return_dims):
-        data = df_pivot[df_pivot['Return Dimension'] == return_dim]
-        x_positions = x + offsets[i]
-        bottom = data['Mean Min Return'].values
-        height = (data['Mean Max Return'] - data['Mean Min Return']).values
-        ax.bar(x_positions, height, width=bar_width, bottom=bottom, color=colors[return_dim], label=f'Return {return_dim}', alpha=0.7)
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(settings, rotation=45)
-    ax.set_xlabel('Settings')
-    ax.set_ylabel('Return Value')
-    ax.set_title('Average Delta of Returns for Each Setting and Return Dimension')
-    ax.legend(title='Return Dimension')
-    plt.tight_layout()
-    plt.show()
+    # The rest of the function remains unchanged
+    # ...
 
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
+
 
 
 
@@ -2665,6 +2618,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     plt.show()
 
     return df_results
+
 def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     """
     Visualizes the weight distributions of multi-objective policies that successfully
@@ -3164,7 +3118,8 @@ def compare_policies_weights(base_path, scenario):
     plt.show()
 
     return df_results
-    
+
+
 # ---- Main Function ----
 def main():
     base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
@@ -3172,7 +3127,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[3]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
