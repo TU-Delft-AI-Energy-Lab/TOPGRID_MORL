@@ -34,7 +34,7 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(20):
+        for seed in range(1):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
@@ -42,6 +42,15 @@ class ExperimentAnalysis:
         mc_seed_file = "morl_logs_seed_0.json"
         mc_seed_dir = os.path.join(self.base_json_path, "RS", self.scenario)
         self.mc_seed_path = os.path.join(mc_seed_dir, mc_seed_file)
+        
+        self.iteration_paths = []
+        for iteration in [5, 10, 20]:  # List the iteration counts directly
+            iterations_file = f"{iteration}_iteration_morl_logs_seed_{seed}.json"
+            iteration_path = os.path.join(self.output_dir, iterations_file)
+            self.iteration_paths.append(iteration_path)
+            
+        print(self.seed_paths)
+        print(self.iteration_paths)
 
     def load_data(self):
         # Load the data from the JSON files if needed
@@ -69,7 +78,8 @@ class ExperimentAnalysis:
         # Store metrics
         self.df_all_metrics_ols = df_all_metrics_ols
         print(self.df_all_metrics_ols)
-        print(self.df_3d_metrics_mc)
+        if os.path.exists(self.mc_seed_path):
+            print(self.df_3d_metrics_mc)
         print("Metrics calculation completed.")
 
     def plot_pareto_frontiers(self, rewards):
@@ -84,7 +94,10 @@ class ExperimentAnalysis:
             print(f"MC seed path not found: {self.mc_seed_path}")
             
         plot_2d_projections_matplotlib(
-            self.seed_paths, self.mc_seed_path, "ols", save_dir=self.output_dir, rewards=rewards
+            self.seed_paths, self.mc_seed_path, None, "ols", save_dir=self.output_dir, rewards=rewards
+        )
+        plot_2d_projections_matplotlib(
+            self.seed_paths, self.mc_seed_path, self.iteration_paths, "ols", save_dir=self.output_dir, rewards=rewards, iterations=True
         )
         plot_super_pareto_frontier_2d(seed_paths = self.seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"])
         # For MC seed
@@ -627,7 +640,7 @@ def process_data(seed_paths, wrapper, output_dir):
 
 
 def plot_2d_projections_matplotlib(
-    seed_paths,  mc_path, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
+    seed_paths,  mc_path, iteration_paths,  wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False
 ):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
@@ -777,12 +790,16 @@ def plot_2d_projections_matplotlib(
     else:
         # Handle OLS paths
         colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+        if iterations:
+            seed_paths = iteration_paths
+            iter = [5,10,20]
 
-        for i, seed_path in enumerate(seed_paths[:1]):
+        for i, seed_path in enumerate(seed_paths[:3]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
-
+            print(seed_path)
+            print(x_all)
             # Get matching weights for each point
             matching_entries = find_matching_weights_and_agent(
                 ccs_list, data["ccs_data"]
@@ -827,6 +844,12 @@ def plot_2d_projections_matplotlib(
 
             # Plot Pareto frontiers with lines
             # X vs Y
+            if iterations: 
+                label = f"iterations {iter[i]}"
+            else:
+                label = f"Seed {i+1}"
+                
+           
             axs[0].scatter(
                 x_pareto_xy,
                 y_pareto_xy,
@@ -834,8 +857,9 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label=f"Seed {i+1}",
+                label=label,
             )
+                        
             axs[0].plot(
                 x_pareto_xy_sorted,
                 y_pareto_xy_sorted,
@@ -843,6 +867,7 @@ def plot_2d_projections_matplotlib(
                 linestyle="-",
                 linewidth=1,
             )
+            
             axs[0].set_xlabel(rewards[0])
             axs[0].set_ylabel(rewards[1])
 
@@ -854,7 +879,7 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label=f"Seed {i+1}",
+                label=label,
             )
             axs[1].plot(
                 x_pareto_xz_sorted,
@@ -874,7 +899,7 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label=f"Seed {i+1}",
+                label=label,
             )
             axs[2].plot(
                 y_pareto_yz_sorted,
@@ -888,105 +913,106 @@ def plot_2d_projections_matplotlib(
 
         #processing RS data
         # Load data
-        data = load_json_data(json_path=mc_path)
-        ccs_list = data["ccs_list"][-1]
-        x_all, y_all, z_all = extract_coordinates(ccs_list)
+        if os.path.exists(mc_path):
+            data = load_json_data(json_path=mc_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
 
-        # Get matching weights for each point
-        matching_entries = find_matching_weights_and_agent(ccs_list, data["ccs_data"])
+            # Get matching weights for each point
+            matching_entries = find_matching_weights_and_agent(ccs_list, data["ccs_data"])
 
-        # Create a mapping from coordinates to weights
-        coord_to_weight = {}
-        for entry in matching_entries:
-            x, y, z = entry["returns"]
-            weight = entry["weights"]
-            coord_to_weight[(x, y, z)] = weight
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry["returns"]
+                weight = entry["weights"]
+                coord_to_weight[(x, y, z)] = weight
 
-        # Convert coordinates to tuples for matching
-        coords_all = list(zip(x_all, y_all, z_all))
+            # Convert coordinates to tuples for matching
+            coords_all = list(zip(x_all, y_all, z_all))
 
-        # Create an array of weights corresponding to each point
-        weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+            # Create an array of weights corresponding to each point
+            weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
 
-        # Pareto frontiers
-        x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
-        x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
-        y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
+            # Pareto frontiers
+            x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
+            x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
+            y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
 
-        # Sort the Pareto frontier points for plotting lines
-        sorted_indices_xy = np.argsort(x_pareto_xy)
-        x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
-        y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
+            # Sort the Pareto frontier points for plotting lines
+            sorted_indices_xy = np.argsort(x_pareto_xy)
+            x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
+            y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
 
-        sorted_indices_xz = np.argsort(x_pareto_xz)
-        x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
-        z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
+            sorted_indices_xz = np.argsort(x_pareto_xz)
+            x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
+            z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
 
-        sorted_indices_yz = np.argsort(y_pareto_yz)
-        y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
-        z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
+            sorted_indices_yz = np.argsort(y_pareto_yz)
+            y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
+            z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
 
-        # Plot color is gray
-        gray_color = "black"
+            # Plot color is gray
+            gray_color = "black"
 
-        # Plot Pareto frontiers with lines
-        # X vs Y
-        axs[0].scatter(
-            x_pareto_xy,
-            y_pareto_xy,
-            color=gray_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label="RS-Benchmark Pareto",
-        )
-        axs[0].plot(
-            x_pareto_xy_sorted,
-            y_pareto_xy_sorted,
-            color=gray_color,
-            linestyle="-",
-            linewidth=2,
-        )
-        axs[0].set_xlabel(rewards[0])
-        axs[0].set_ylabel(rewards[1])
+            # Plot Pareto frontiers with lines
+            # X vs Y
+            axs[0].scatter(
+                x_pareto_xy,
+                y_pareto_xy,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark Pareto",
+            )
+            axs[0].plot(
+                x_pareto_xy_sorted,
+                y_pareto_xy_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )
+            axs[0].set_xlabel(rewards[0])
+            axs[0].set_ylabel(rewards[1])
 
-        # X vs Z
-        axs[1].scatter(
-            x_pareto_xz,
-            z_pareto_xz,
-            color=gray_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label="RS-Benchmark Pareto",
-        )
-        axs[1].plot(
-            x_pareto_xz_sorted,
-            z_pareto_xz_sorted,
-            color=gray_color,
-            linestyle="-",
-            linewidth=2,
-        )
-        axs[1].set_xlabel(rewards[0])
-        axs[1].set_ylabel(rewards[2])
+            # X vs Z
+            axs[1].scatter(
+                x_pareto_xz,
+                z_pareto_xz,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark Pareto",
+            )
+            axs[1].plot(
+                x_pareto_xz_sorted,
+                z_pareto_xz_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )
+            axs[1].set_xlabel(rewards[0])
+            axs[1].set_ylabel(rewards[2])
 
-        # Y vs Z
-        axs[2].scatter(
-            y_pareto_yz,
-            z_pareto_yz,
-            color=gray_color,
-            edgecolors="black",
-            marker="o",
-            s=100,
-            label="RS-Benchmark Pareto",
-        )
-        axs[2].plot(
-            y_pareto_yz_sorted,
-            z_pareto_yz_sorted,
-            color=gray_color,
-            linestyle="-",
-            linewidth=2,
-        )   
+            # Y vs Z
+            axs[2].scatter(
+                y_pareto_yz,
+                z_pareto_yz,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark Pareto",
+            )
+            axs[2].plot(
+                y_pareto_yz_sorted,
+                z_pareto_yz_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )   
 
 
 
@@ -1647,7 +1673,7 @@ def analyse_pf_values_and_plot_projections(csv_path):
         test_data = row[chronic]
         steps = test_data["test_steps"]  # Total steps in the test
         actions = test_data["test_actions"]  # List of actions taken
-        topo_vects = test_data['topo_vect']
+        topo_vects = test_data['test_topo_vect']
         topo_depths = test_data.get("test_topo_distance")
         timestamps = test_data.get("test_action_timestamp")
 
@@ -1932,21 +1958,37 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     2. Boxplot showing Min/Max Returns for X, Y, Z coordinates side-by-side for each setting.
     3. A plot showing the average delta (range) of returns for each return dimension and setting.
     """
+    import os
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Your existing imports and utility functions (e.g., load_json_data, calculate_hypervolume_and_sparsity, etc.)
+
     if scenario == 'Reuse':
         settings = ["Baseline", "Full", "Partial", "Baseline_reduced", "Full_reduced", "Partial_reduced", "Baseline_min", "Full_min", "Partial_min"]
-        
     elif scenario == 'Opponent':
         settings = ['Baseline', 'Opponent']
+
     reuse_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
         "Full": os.path.join(base_path, "Full_Reuse"),
         "Partial": os.path.join(base_path, "Partial_Reuse"),
-        "Baseline_reduced": os.path.join(base_path, "med_time_none"),
-        "Full_reduced": os.path.join(base_path, "med_time_full"),
-        "Partial_reduced": os.path.join(base_path, "med_time_partial"),
-        "Baseline_min": os.path.join(base_path, "min_time"),
-        "Full_min": os.path.join(base_path, "min_time_full"),
-        "Partial_min": os.path.join(base_path, "min_time_partial"),
+        "Baseline_reduced": os.path.join(base_path, "med_learning_none"),
+        "Full_reduced": os.path.join(base_path, "med_learning_full"),
+        "Partial_reduced": os.path.join(base_path, "med_learning_partial"),
+        "Baseline_min": os.path.join(base_path, "min_learning_none"),
+        "Full_min": os.path.join(base_path, "min_learning_full"),
+        "Partial_min": os.path.join(base_path, "min_learning_partial"),
+        
+        #"Baseline_reduced": os.path.join(base_path, "med_time_none"),
+        #"Full_reduced": os.path.join(base_path, "med_time_full"),
+        #"Partial_reduced": os.path.join(base_path, "med_time_partial"),
+        #"Baseline_min": os.path.join(base_path, "min_time_"),
+        #"Full_min": os.path.join(base_path, "min_time_full"),
+        #"Partial_min": os.path.join(base_path, "min_time_partial"),
+        
     }
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
@@ -2032,6 +2074,22 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     df_hv_metrics = pd.DataFrame(hv_metrics)
     df_return_metrics = pd.DataFrame(return_metrics)
 
+    # Add 'Method' and 'Learning' columns based on 'Setting'
+    setting_to_method_and_learning = {
+        'Baseline': ('No Reuse\nBaseline', 'full training'),
+        'Baseline_reduced': ('No Reuse\nBaseline', '75% training'),
+        'Baseline_min': ('No Reuse\nBaseline', '50 training'),
+        'Full': ('Full Reuse', 'full training'),
+        'Full_reduced': ('Full Reuse', '75% training'),
+        'Full_min': ('Full Reuse', '50 training'),
+        'Partial': ('Partial Reuse', 'full training'),
+        'Partial_reduced': ('Partial Reuse', '75% training'),
+        'Partial_min': ('Partial Reuse', '50 training'),
+    }
+
+    df_hv_metrics['Method'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
+    df_hv_metrics['Learning'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][1])
+
     # Compute mean and std for hv_metrics
     hv_stats = df_hv_metrics.groupby(['Setting', 'Metric'])['Value'].agg(['mean', 'std']).reset_index()
     # Compute mean and std for return_metrics
@@ -2045,36 +2103,56 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     print(hv_stats.to_string(index=False))
     print("\nMin/Max Returns (Mean and Std):")
     print(return_stats.to_string(index=False))
+
     # Plotting the Average Delta of Returns
-    import numpy as np
-    import matplotlib.pyplot as plt
-    # Boxplot for Hypervolume and Sparsity
-    plt.figure(figsize=(12, 6))
-    
-    # Update settings to display combined x-axis labels
-    combined_labels = ['Baseline (Baseline)', 'Baseline (75% Interactions)', 'Baseline (50% Interactions)',
-                       'Full Reuse (Baseline)', 'Full Reuse (75% Interactions)', 'Full Reuse (50% Interactions)',
-                       'Partial Reuse (Baseline)', 'Partial Reuse (75% Interactions)', 'Partial Reuse (50% Interactions)']
-    
-    sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_hv_metrics)
-    
-    # Set updated x-axis labels
-    plt.xticks(ticks=range(len(settings)), labels=combined_labels, rotation=45)
-    
-    plt.title("Boxplot of Hypervolume and Sparsity across Different Settings")
-    plt.ylabel("Metric Value")
-    plt.xlabel("Settings")
-    
-    # Adjust legend location to be inside the plot
-    plt.legend(title="Metric", loc='upper right', bbox_to_anchor=(0.95, 0.95))
+
+    # Boxplot for Hypervolume and Sparsity split into 3 subfigures
+    learning_settings = ['full training', '75% training', '50 training']
+    num_learning_settings = len(learning_settings)
+
+    fig, axes = plt.subplots(1, num_learning_settings, figsize=(18, 6), sharey=True)
+
+    for i, learning_setting in enumerate(learning_settings):
+        ax = axes[i]
+        data_subset = df_hv_metrics[df_hv_metrics['Learning'] == learning_setting]
+        sns.boxplot(ax=ax, x='Method', y='Value', hue='Metric', data=data_subset)
+        ax.set_title(f"Learning: {learning_setting}")
+        ax.set_xlabel('')
+
+        # Limit the y-axis to 20
+        ax.set_ylim(0, 20)
+
+        # Adjust x-axis labels
+        ax.set_xticklabels(data_subset['Method'].unique(), rotation=0)
+
+        if i == 0:
+            ax.set_ylabel('Metric Value')
+        else:
+            ax.set_ylabel('')
+        if i == num_learning_settings - 1:
+            ax.legend(title='Metric', loc='upper right', bbox_to_anchor=(1.15, 1))
+        else:
+            ax.legend_.remove()
     plt.tight_layout()
     plt.show()
 
+    # Keep the rest of the functionality as is
     # Boxplot for Min/Max Returns
     plt.figure(figsize=(12, 6))
     sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_return_metrics)
     
     # Set updated x-axis labels for return metrics as well
+    combined_labels = [
+        'No Reuse\nBaseline (Baseline)',
+        'No Reuse\nBaseline (75% training)',
+        'No Reuse\nBaseline (50 training)',
+        'Full Reuse (Baseline)',
+        'Full Reuse (75% training)',
+        'Full Reuse (50 training)',
+        'Partial Reuse (Baseline)',
+        'Partial Reuse (75% training)',
+        'Partial Reuse (50 training)'
+    ]
     plt.xticks(ticks=range(len(settings)), labels=combined_labels, rotation=45)
     
     plt.title("Boxplot of Min/Max Returns (X, Y, Z) across Different Settings")
@@ -2114,8 +2192,6 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     df_pivot = df_returns.pivot_table(index=['Setting', 'Return Dimension'], columns='Return Type', values='mean').reset_index()
     df_pivot.rename(columns={'Max': 'Mean Max Return', 'Min': 'Mean Min Return'}, inplace=True)
 
-    
-
     settings = df_pivot['Setting'].unique()
     return_dims = df_pivot['Return Dimension'].unique()
 
@@ -2148,6 +2224,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
+
 
 
 def compare_policies_weights_all_seeds(base_path, scenario):
@@ -2803,11 +2880,11 @@ def compare_policies_weights(base_path, scenario):
 # ---- Main Function ----
 def main():
     base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
-    scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time"]
-    names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent"]
+    scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "Name"]
+    names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[3]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters

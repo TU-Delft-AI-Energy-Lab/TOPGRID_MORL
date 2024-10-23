@@ -38,6 +38,7 @@ class MOPPOTrainer:
                  reward_list: List[str] = ["ScaledEpisodeDuration", "ScaledTopoAction"],
                  network_params: dict = {}, 
                  env_params: dict = {}, 
+                 logging_params: dict = {},
                  **agent_params: Any):
         
         self.iterations = iterations
@@ -62,6 +63,7 @@ class MOPPOTrainer:
         self.agent_params = agent_params
         self.env_params = env_params
         self.network_params = network_params
+        self.logging_params = logging_params
         self.models = {}  # Dictionary to store trained models for reuse
         self.np_random = np.random.RandomState(seed)
         self.weight_range = [0, 1]  # Default range for weights
@@ -174,6 +176,7 @@ class MOPPOTrainer:
             wandb.config.update({"rounded_weights": rounded_weights.tolist()})
             wandb.config.update(self.network_params)
             wandb.config.update(self.env_params)
+            wandb.config.update(self.logging_params)
             
             
 
