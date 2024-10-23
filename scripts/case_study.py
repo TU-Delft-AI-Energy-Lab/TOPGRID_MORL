@@ -2247,8 +2247,8 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate time constraints": os.path.join(base_path, "med_time_none"),
-        "high time constraints": os.path.join(base_path, "min_time")
+        "moderate time constraints": os.path.join(base_path, "med_learning_none"),
+        "high time constraints": os.path.join(base_path, "min_time_none")
     }
 
     rho_paths = {
@@ -2665,14 +2665,19 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     plt.show()
 
     return df_results
-def visualize_successful_weights(base_path, scenario):
+def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     """
     Visualizes the weight distributions of multi-objective policies that successfully
     complete the episode (steps=2016) for a given scenario.
 
+    Display Options:
+    - 'combined': For each weight, plot KDE and strip plots across all settings in one figure.
+    - 'separate': For each setting, plot the KDE distributions of all weights in one figure.
+
     Parameters:
     - base_path: The base directory path containing the scenario data.
     - scenario: The scenario name ('Opponent', 'Time', or 'Max_rho').
+    - plot_option: 'combined' or 'separate' (default is 'combined').
 
     The function processes the data for each setting in the scenario, extracts
     the weight vectors of successful M-O policies, and plots them using matplotlib
@@ -2688,14 +2693,14 @@ def visualize_successful_weights(base_path, scenario):
     # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Moderate Contingencies": os.path.join(base_path, "op_normal"),
-        "High Contingencies": os.path.join(base_path, "op_hard")
+        "op_normal": os.path.join(base_path, "op_normal"),
+        "op_hard": os.path.join(base_path, "op_hard")
     }
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "Moderate Learning Constraints": os.path.join(base_path, "med_time_none"),
-        "High Learning Constraints": os.path.join(base_path, "min_time")
+        "moderate learning constraints": os.path.join(base_path, "med_learning_none"),
+        "high learning constraints": os.path.join(base_path, "min_learning_none")
     }
 
     rho_paths = {
@@ -2707,17 +2712,17 @@ def visualize_successful_weights(base_path, scenario):
 
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ["Baseline", "Moderate Contingencies", "High Contingencies"]
+        settings = ["Baseline", "op_normal", "op_hard"]
         paths = opponent_paths
-        title = 'Weight Distributions of Successful M-O Policies under Contingencies'
+        scenario_title = 'Contingencies'
     elif scenario == "Time":
-        settings = ["Baseline", "Moderate Learning Constraints", "High Learning Constraints"]
+        settings = ["Baseline", "moderate learning constraints", "high learning constraints"]
         paths = time_paths
-        title = 'Weight Distributions of Successful M-O Policies under Learning Constraints'
+        scenario_title = 'Learning Constraints'
     elif scenario == "Max_rho":
         settings = ["Baseline", "rho 90%", "rho 80%", "rho 70%"]
         paths = rho_paths
-        title = 'Weight Distributions of Successful M-O Policies for Unknown Max Line Loading'
+        scenario_title = 'Unknown Max Line Loading'
     else:
         raise ValueError("Invalid scenario provided.")
 
@@ -2791,115 +2796,159 @@ def visualize_successful_weights(base_path, scenario):
 
     sns.set_style("whitegrid")
 
-    # Create a color palette for the settings
-    unique_settings = df_results['Setting'].unique()
-    palette = sns.color_palette("tab10", len(unique_settings))
-    setting_palette = dict(zip(unique_settings, palette))
+    if plot_option == 'combined':
+        # Option 1: Combined KDE and Strip Plots by Weight
+        # Create a color palette for the settings
+        unique_settings = df_results['Setting'].unique()
+        palette = sns.color_palette("tab10", len(unique_settings))
+        setting_palette = dict(zip(unique_settings, palette))
 
-    # Figure 1: KDE Plots for Each Weight
-    weights = ['Weight 1', 'Weight 2', 'Weight 3']
-    weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
+        # Figure 1: KDE Plots for Each Weight
+        weights = ['Weight 1', 'Weight 2', 'Weight 3']
+        weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
 
-    fig_kde, axes_kde = plt.subplots(1, 3, figsize=(18, 6))
+        fig_kde, axes_kde = plt.subplots(1, 3, figsize=(18, 6))
 
-    # List to store maximum y-values
-    max_y_values = []
+        # List to store maximum y-values
+        max_y_values = []
 
-    for i, weight in enumerate(weights):
-        ax = axes_kde[i]
-        # Plot KDE
-        sns.kdeplot(
-            data=df_results,
-            x=weight,
-            hue='Setting',
-            palette=setting_palette,
-            ax=ax,
-            common_norm=False,
-            fill=True,
-            clip=(0, 1),
-            legend=False  # We'll add a single legend later
+        for i, weight in enumerate(weights):
+            ax = axes_kde[i]
+            # Plot KDE
+            sns.kdeplot(
+                data=df_results,
+                x=weight,
+                hue='Setting',
+                palette=setting_palette,
+                ax=ax,
+                common_norm=False,
+                fill=True,
+                clip=(0, 1),
+                legend=False  # We'll add a single legend later
+            )
+
+            ax.set_title(f'Distribution of {weight_titles[i]}')
+            ax.set_xlim(0, 1)
+            ax.set_xlabel('Weight Value')
+            ax.set_ylabel('Density')
+
+            # Collect the maximum y-value for this subplot
+            y_min, y_max = ax.get_ylim()
+            max_y_values.append(y_max)
+
+        # Set the same y-limit for all subplots
+        common_y_max = max(max_y_values)
+        for ax in axes_kde:
+            ax.set_ylim(0, common_y_max)
+
+        # Create a common legend
+        handles, labels = axes_kde[-1].get_legend_handles_labels()
+        # Remove duplicates while preserving order
+        legend_data = OrderedDict()
+        for handle, label in zip(handles, labels):
+            if label not in legend_data:
+                legend_data[label] = handle
+
+        fig_kde.legend(
+            legend_data.values(),
+            legend_data.keys(),
+            title='Setting',
+            bbox_to_anchor=(1.05, 1),
+            loc='upper left'
         )
 
-        ax.set_title(f'Distribution of {weight_titles[i]}')
-        ax.set_xlim(0, 1)
-        ax.set_xlabel('Weight Value')
-        ax.set_ylabel('Density')
+        fig_kde.suptitle(f'KDE Plots by Weight - {scenario_title}', fontsize=16)
+        fig_kde.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+        plt.show()
 
-        # Collect the maximum y-value for this subplot
-        y_min, y_max = ax.get_ylim()
-        max_y_values.append(y_max)
+        # Figure 2: Stripplots for Each Weight
+        fig_strip, axes_strip = plt.subplots(1, 3, figsize=(18, 6))
 
-    # Set the same y-limit for all subplots
-    common_y_max = max(max_y_values)
-    for ax in axes_kde:
-        ax.set_ylim(0, common_y_max)
+        for i, weight in enumerate(weights):
+            ax = axes_strip[i]
+            sns.stripplot(
+                data=df_results,
+                x=weight,
+                y='Setting',  # Plot horizontally grouped by setting
+                hue='Setting',
+                palette=setting_palette,
+                ax=ax,
+                dodge=False,
+                size=8,  # More expressive points
+                alpha=0.7,
+                jitter=True,
+                legend=False  # We'll add a single legend later
+            )
 
-    # Create a common legend
-    handles, labels = axes_kde[-1].get_legend_handles_labels()
-    # Remove duplicates while preserving order
-    legend_data = OrderedDict()
-    for handle, label in zip(handles, labels):
-        if label not in legend_data:
-            legend_data[label] = handle
+            ax.set_title(f'Weight Values of {weight_titles[i]}')
+            ax.set_xlim(0, 1)
+            ax.set_xlabel('Weight Value')
+            ax.set_ylabel('Setting')
 
-    fig_kde.legend(
-        legend_data.values(),
-        legend_data.keys(),
-        title='Setting',
-        bbox_to_anchor=(1.05, 1),
-        loc='upper left'
-    )
+        # Create a common legend for the stripplots
+        handles, labels = axes_strip[-1].get_legend_handles_labels()
+        # Remove duplicates while preserving order
+        legend_data_strip = OrderedDict()
+        for handle, label in zip(handles, labels):
+            if label not in legend_data_strip:
+                legend_data_strip[label] = handle
 
-    fig_kde.suptitle(title, fontsize=16)
-    fig_kde.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
-    plt.show()
-
-    # Figure 2: Stripplots for Each Weight
-    fig_strip, axes_strip = plt.subplots(1, 3, figsize=(18, 6))
-
-    for i, weight in enumerate(weights):
-        ax = axes_strip[i]
-        sns.stripplot(
-            data=df_results,
-            x=weight,
-            y='Setting',  # We can plot horizontally grouped by setting
-            hue='Setting',
-            palette=setting_palette,
-            ax=ax,
-            dodge=False,
-            size=8,  # More expressive points
-            alpha=0.7,
-            jitter=True,
-            legend=False  # We'll add a single legend later
+        fig_strip.legend(
+            legend_data_strip.values(),
+            legend_data_strip.keys(),
+            title='Setting',
+            bbox_to_anchor=(1.05, 1),
+            loc='upper left'
         )
 
-        ax.set_title(f'Weight Values of {weight_titles[i]}')
-        ax.set_xlim(0, 1)
-        ax.set_xlabel('Weight Value')
-        ax.set_ylabel('Setting')
+        fig_strip.suptitle(f'Strip Plots by Weight - {scenario_title}', fontsize=16)
+        fig_strip.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+        plt.show()
 
-    # Create a common legend for the stripplots
-    handles, labels = axes_strip[-1].get_legend_handles_labels()
-    # Remove duplicates while preserving order
-    legend_data_strip = OrderedDict()
-    for handle, label in zip(handles, labels):
-        if label not in legend_data_strip:
-            legend_data_strip[label] = handle
+    elif plot_option == 'separate':
+        # Option 2: Separate KDE Plots by Setting
+        # For each setting, plot the KDE distributions of the weights
+        num_settings = len(settings)
+        fig_kde, axes_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_kde = [axes_kde]  # Ensure axes_kde is iterable when there's only one setting
 
-    fig_strip.legend(
-        legend_data_strip.values(),
-        legend_data_strip.keys(),
-        title='Setting',
-        bbox_to_anchor=(1.05, 1),
-        loc='upper left'
-    )
+        for i, setting in enumerate(settings):
+            df_setting = df_results[df_results['Setting'] == setting]
+            if df_setting.empty:
+                print(f"No data available for setting: {setting}")
+                continue
 
-    fig_strip.suptitle(f'Weight Values by Setting - {title}', fontsize=16)
-    fig_strip.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
-    plt.show()
+            weights = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
+
+            for weight, weight_title in zip(weights, weight_titles):
+                sns.kdeplot(
+                    data=df_setting,
+                    x=weight,
+                    label=weight_title,
+                    fill=True,
+                    clip=(0, 1),
+                    common_norm=False,
+                    alpha=0.5,
+                    ax=axes_kde[i]
+                )
+
+            axes_kde[i].set_title(f'KDE of Weights for Setting: {setting} ({scenario_title})')
+            axes_kde[i].set_xlabel('Weight Value')
+            axes_kde[i].set_ylabel('Density')
+            axes_kde[i].set_xlim(0, 1)
+            axes_kde[i].legend(title='Weights')
+
+        plt.tight_layout()
+        plt.show()
+
+    else:
+        print("Invalid plot_option. Please choose 'combined' or 'separate'.")
 
     # Return the DataFrame for further analysis if needed
     return df_results
+
 
 
 
@@ -3144,21 +3193,18 @@ def main():
         plot_super_pareto_frontier_2d_multiple_settings(os.path.join(base_json_path, "OLS", scenario), scenario=scenario, settings = ["Baseline", "Full", "Partial"] )
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        
         visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        #csv_path_op_normal = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_normal'), "ccs_matching_data.csv")
-        # Perform the topo depth process and plot
-        #topo_depth_process_and_plot(csv_path_op_normal)
-        #compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        #csv_path_op_hard = os.path.join(os.path.join(base_json_path, 'OLS', scenario, 'op_hard'), "ccs_matching_data.csv")
-        # Perform the topo depth process and plot
-        #topo_depth_process_and_plot(csv_path_op_hard)
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
     if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
+        
     if scenario == "Max_rho": 
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        compare_policies_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
 
 if __name__ == "__main__":
     main()
