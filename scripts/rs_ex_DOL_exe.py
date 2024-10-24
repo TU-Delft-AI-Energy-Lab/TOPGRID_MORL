@@ -190,7 +190,7 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
     )
     os.makedirs(dir_path, exist_ok=True)
     i=0
-    ols_iterations = 10
+   
     trainer = MOPPOTrainer(
             iterations=5,
             max_gym_steps=max_gym_steps,
@@ -271,7 +271,49 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
                 "test_steps": test_data_1_conv.get("eval_steps")
             }
         })
+        #after 10 ols iterations: stop and save
+        if ols_iterations == 20: 
+            if i == 4: 
+                # Ensure all numpy arrays are converted to lists
+                values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
+                ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
+
                 
+                
+                data_dict = {
+                    'config': config_data,
+                    "ccs_data": ccs_data,
+                    "values": values,  # Already converted to lists
+                    "ccs_list": ccs_list  # Already converted to lists
+                } 
+                
+                filename = f"5_iteration_morl_logs_seed_{seed}.json"
+                filepath = os.path.join(dir_path, filename)
+                
+                with open(filepath, "w") as json_file:
+                    json.dump(data_dict, json_file, indent=4)
+            elif i==9: 
+                # Ensure all numpy arrays are converted to lists
+                values = [v.tolist() if isinstance(v, np.ndarray) else v for v in values]
+                ccs_list = [ccs_item.tolist() if isinstance(ccs_item, np.ndarray) else ccs_item for ccs_item in ccs_list]
+
+                
+                
+                data_dict = {
+                    'config': config_data,
+                    "ccs_data": ccs_data,
+                    "values": values,  # Already converted to lists
+                    "ccs_list": ccs_list  # Already converted to lists
+                } 
+                
+                filename = f"10_iteration_morl_logs_seed_{seed}.json"
+                filepath = os.path.join(dir_path, filename)
+                
+                with open(filepath, "w") as json_file:
+                    json.dump(data_dict, json_file, indent=4)
+                
+        
+              
         i+=1
         
     # Ensure all numpy arrays are converted to lists
@@ -287,7 +329,10 @@ def main(seed: int, config: str, learning_rate: float, vf_coef: float, ent_coef:
         "ccs_list": ccs_list  # Already converted to lists
     } 
     
-    filename = f"morl_logs_seed_{seed}.json"
+    if ols_iterations== 20: 
+        filename = f"20_iteration_morl_logs_seed_{seed}.json"
+    else:    
+        filename = f"morl_logs_seed_{seed}.json"
     filepath = os.path.join(dir_path, filename)
     
     with open(filepath, "w") as json_file:
