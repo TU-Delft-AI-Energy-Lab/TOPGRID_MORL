@@ -34,7 +34,7 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(1):
+        for seed in range(10):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
@@ -94,15 +94,7 @@ class ExperimentAnalysis:
             df_all_metrics_ols.to_csv(
                 os.path.join(self.output_dir, "ols_all_metrics.csv"), index=False
             )
-            # Also process MC seed if available
-            if os.path.exists(self.mc_seed_path):
-                df_3d_metrics_mc = calculate_3d_metrics_only_for_mc(self.mc_seed_path)
-                df_3d_metrics_mc.to_csv(
-                    os.path.join(self.output_dir, "mc_3d_metrics.csv"), index=False
-                )
-                self.df_3d_metrics_mc = df_3d_metrics_mc
-            else:
-                print(f"MC seed path not found: {self.mc_seed_path}")
+            
         # Store metrics
         self.df_all_metrics_ols = df_all_metrics_ols
         print(self.df_all_metrics_ols)
@@ -110,7 +102,7 @@ class ExperimentAnalysis:
             print(self.df_3d_metrics_mc)
         print("Metrics calculation completed.")
 
-    def plot_pareto_frontiers(self, rewards):
+    def plot_pareto_frontiers(self, rewards, iterations):
         # Generate the 2D Pareto frontier plots
         print("Plotting Pareto frontiers...")
         # For OLS seeds
@@ -125,7 +117,7 @@ class ExperimentAnalysis:
             self.seed_paths, self.mc_seed_path, None, None,"ols", save_dir=self.output_dir, rewards=rewards, mc_ex_path=self.mc_ex_seed_path
         )
         plot_2d_projections_matplotlib(
-            self.seed_paths, self.mc_seed_path, self.iteration_paths, self.mc_iteration_paths,"ols", save_dir=self.output_dir, rewards=rewards, iterations=True
+            self.seed_paths, self.mc_seed_path, self.iteration_paths, self.mc_iteration_paths,"ols", save_dir=self.output_dir, rewards=rewards, iterations=iterations
         )
         plot_super_pareto_frontier_2d(seed_paths = self.seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"])
         # For MC seed
@@ -383,7 +375,7 @@ def calculate_all_metrics(seed_paths, wrapper, mc_seed_paths=None, iterations=Fa
 
 def calculate_hypervolumes_and_sparsities(seed_paths, wrapper, mc_seed_path=None):
     """Calculates hypervolumes and sparsities for each seed and aggregates the results."""
-    results = []
+    results = [] 
     all_x, all_y, all_z = [], [], []
 
     hv_xy_list, hv_xz_list, hv_yz_list = [], [], []
@@ -715,8 +707,8 @@ def plot_2d_projections_matplotlib(
         if iterations:
             seed_paths = iteration_paths
             iter = [5,10,20]
-
-        for i, seed_path in enumerate(seed_paths[:3]):
+        print(seed_paths)
+        for i, seed_path in enumerate(seed_paths[:10]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -2006,6 +1998,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
             seed += 1
 
     # Convert the dictionaries to DataFrames for easier comparison and visualization
+    # Convert the dictionaries to DataFrames for easier comparison and visualization
     df_hv_metrics = pd.DataFrame(hv_metrics)
     df_return_metrics = pd.DataFrame(return_metrics)
 
@@ -2022,8 +2015,14 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
         'Partial_min': ('Partial Reuse', '50% training'),
     }
 
+    # For df_hv_metrics
     df_hv_metrics['Method'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
     df_hv_metrics['Learning'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][1])
+
+    # **Add 'Method' and 'Learning' columns to df_return_metrics**
+    df_return_metrics['Method'] = df_return_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
+    df_return_metrics['Learning'] = df_return_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][1])
+
 
     # Compute mean and std for hv_metrics
     hv_stats = df_hv_metrics.groupby(['Setting', 'Metric'])['Value'].agg(['mean', 'std']).reset_index()
@@ -3062,15 +3061,670 @@ def compare_policies_weights(base_path, scenario):
 
     return df_results
 
+def plot_2d_projections_all_points(
+    seed_paths, mc_path, iteration_paths, mc_iteration_paths, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False, mc_ex_path=None
+):
+    """
+    Plots X vs Y, X vs Z, and Y vs Z using matplotlib, plotting all CCS points even if they are not Pareto-optimal in 2D projections.
+    Optionally highlights Pareto frontier points.
+    """
+    
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3)
+
+    if wrapper == 'mc':
+        return None
+    else:
+        # Handle OLS paths
+        colors = plt.cm.tab10.colors  # Use a colormap for different seeds
+        if iterations:
+            seed_paths = iteration_paths
+            iter = [5,10,20]
+
+        for i, seed_path in enumerate(seed_paths[:3]):
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            print(seed_path)
+            print(x_all)
+            # Get matching weights for each point
+            matching_entries = find_matching_weights_and_agent(
+                ccs_list, data["ccs_data"]
+            )
+
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry["returns"]
+                weight = entry["weights"]
+                coord_to_weight[(x, y, z)] = weight
+
+            # Convert coordinates to tuples for matching
+            coords_all = list(zip(x_all, y_all, z_all))
+
+            # Create an array of weights corresponding to each point
+            weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+            # Plot all CCS points
+            if iterations:
+                label = f"iterations {iter[i]}"
+            else:
+                label = f"Seed {i+1}"
+
+            # X vs Y
+            axs[0].scatter(
+                x_all,
+                y_all,
+                color=colors[i % len(colors)],
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label=label,
+            )
+            axs[0].set_xlabel(rewards[0])
+            axs[0].set_ylabel(rewards[1])
+
+            # X vs Z
+            axs[1].scatter(
+                x_all,
+                z_all,
+                color=colors[i % len(colors)],
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label=label,
+            )
+            axs[1].set_xlabel(rewards[0])
+            axs[1].set_ylabel(rewards[2])
+
+            # Y vs Z
+            axs[2].scatter(
+                y_all,
+                z_all,
+                color=colors[i % len(colors)],
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label=label,
+            )
+            axs[2].set_xlabel(rewards[1])
+            axs[2].set_ylabel(rewards[2])
+
+        # Processing RS data
+        # Load data
+        if os.path.exists(mc_path):
+            if iterations: 
+                seed_paths = mc_iteration_paths
+            else: 
+                seed_paths = [mc_path]
+            for i, seed_path in enumerate(seed_paths):
+                data = load_json_data(seed_path)
+                ccs_list = data["ccs_list"][-1]
+                x_all, y_all, z_all = extract_coordinates(ccs_list)
+                print(seed_path)
+                print(x_all)
+                # Get matching weights for each point
+                matching_entries = find_matching_weights_and_agent(
+                    ccs_list, data["ccs_data"]
+                )
+
+                # Create a mapping from coordinates to weights
+                coord_to_weight = {}
+                for entry in matching_entries:
+                    x, y, z = entry["returns"]
+                    weight = entry["weights"]
+                    coord_to_weight[(x, y, z)] = weight
+
+                # Convert coordinates to tuples for matching
+                coords_all = list(zip(x_all, y_all, z_all))
+
+                # Create an array of weights corresponding to each point
+                weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+                # Plot all CCS points
+                if iterations: 
+                    label = f"RS Benchmark iter {iter[i]}"
+                else:
+                    label = f"RS Benchmark {i+1}"
+
+                colors = ["lightgray", 'gray', "black"]
+                # X vs Y
+                axs[0].scatter(
+                    x_all,
+                    y_all,
+                    color=colors[i % len(colors)],
+                    edgecolors="black",
+                    marker="o",
+                    s=100,
+                    label=label,
+                )
+                axs[0].set_xlabel(rewards[0])
+                axs[0].set_ylabel(rewards[1])
+
+                # X vs Z
+                axs[1].scatter(
+                    x_all,
+                    z_all,
+                    color=colors[i % len(colors)],
+                    edgecolors="black",
+                    marker="o",
+                    s=100,
+                    label=label,
+                )
+                axs[1].set_xlabel(rewards[0])
+                axs[1].set_ylabel(rewards[2])
+
+                # Y vs Z
+                axs[2].scatter(
+                    y_all,
+                    z_all,
+                    color=colors[i % len(colors)],
+                    edgecolors="black",
+                    marker="o",
+                    s=100,
+                    label=label,
+                )
+                axs[2].set_xlabel(rewards[1])
+                axs[2].set_ylabel(rewards[2])
+
+        for ax in axs:
+            ax.legend()
+            ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+        plt.tight_layout()
+        plt.suptitle("Projections of CCS Points in Return Domain", fontsize=20)
+        plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, "ols_ccs_projections.png"))
+        plt.show()
+        
+def plot_super_pareto_frontier_2d_multiple_settings_with_3d_pf(base_path, scenario, settings, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
+    """
+    Plots the super Pareto frontier across different settings on the 2D projections (X vs Y, X vs Z, Y vs Z) using matplotlib.
+    Each setting is plotted with a different color and label.
+    Includes all CCS points in the plot.
+    Highlights the points that are on the Pareto frontier in the 3D space.
+    
+    Parameters:
+    - base_path: The base directory where the JSON log files are stored.
+    - scenario: The scenario name (e.g., "Reuse").
+    - settings: A list of setting names (e.g., ["Baseline", "Partial", "Full"]).
+    - save_dir: Directory to save the plot image (optional).
+    - rewards: List of reward names for labeling axes.
+    """
+    import matplotlib.pyplot as plt
+    import os
+
+    # --- Generate paths within the function ---
+    if scenario == 'Reuse':
+        settings_paths = {
+            "Baseline": os.path.join(base_path, "Baseline"),
+            "Partial": os.path.join(base_path, "Partial_Reuse"),
+            "Full": os.path.join(base_path, "Full_Reuse"),
+            # Add more settings if needed
+        }
+    else:
+        print("Scenario not supported.")
+        return
+
+    # Prepare the settings_paths dictionary
+    settings_seed_paths = {}
+    for setting in settings:
+        path = settings_paths.get(setting)
+        if not path:
+            print(f"Path for setting '{setting}' not found.")
+            continue
+
+        seed_paths = []
+        for seed in range(5):  # Adjust the range based on your seeds
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            if os.path.exists(seed_path):
+                seed_paths.append(seed_path)
+            else:
+                print(f"Seed path not found: {seed_path}")
+        settings_seed_paths[setting] = seed_paths
+
+    # --- Plotting starts here ---
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3)
+
+    # Get a list of colors to assign to settings
+    colors = plt.cm.tab10.colors  # You can choose other colormaps
+
+    for idx, (setting_name, seed_paths) in enumerate(settings_seed_paths.items()):
+        # Initialize lists to collect all data points for this setting
+        x_all_seeds = []
+        y_all_seeds = []
+        z_all_seeds = []
+        # List to keep track of which points are on the 3D Pareto frontier
+        is_pareto = []
+
+        # Initialize lists to collect weights, if needed
+        coords_all = []
+        weights_all = []
+
+        for seed_path in seed_paths:
+            if not os.path.exists(seed_path):
+                print(f"File not found: {seed_path}")
+                continue
+
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            # Stack the coordinates
+            coords = np.column_stack((x_all, y_all, z_all))
+            coords_all.extend(coords.tolist())
+
+            # Collect weights for annotations
+            matching_entries = find_matching_weights_and_agent(
+                ccs_list, data["ccs_data"]
+            )
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry["returns"]
+                weight = entry["weights"]
+                coord_to_weight[(x, y, z)] = weight
+            # Create an array of weights corresponding to each point
+            weights = [coord_to_weight.get(tuple(coord), None) for coord in coords]
+            weights_all.extend(weights)
+
+        if not coords_all:
+            print(f"No data for setting {setting_name}")
+            continue
+
+        # Convert lists to numpy arrays
+        coords_all = np.array(coords_all)
+        x_all_seeds = coords_all[:, 0]
+        y_all_seeds = coords_all[:, 1]
+        z_all_seeds = coords_all[:, 2]
+
+        # Compute the 3D Pareto frontier for this setting
+        pareto_mask = get_pareto_front(coords_all)
+        pareto_indices = np.where(pareto_mask)[0]
+
+        # Assign a color to this setting
+        color = colors[idx % len(colors)]
+
+        # Plot all CCS points for this setting
+        # X vs Y
+        axs[0].scatter(
+            x_all_seeds,
+            y_all_seeds,
+            color=color,
+            alpha=0.3,
+            label=f'{setting_name} All Points' if idx == 0 else None,
+        )
+        # X vs Z
+        axs[1].scatter(
+            x_all_seeds,
+            z_all_seeds,
+            color=color,
+            alpha=0.3,
+            label=f'{setting_name} All Points' if idx == 0 else None,
+        )
+        # Y vs Z
+        axs[2].scatter(
+            y_all_seeds,
+            z_all_seeds,
+            color=color,
+            alpha=0.3,
+            label=f'{setting_name} All Points' if idx == 0 else None,
+        )
+
+        # Highlight the points on the 3D Pareto frontier
+        pareto_coords = coords_all[pareto_indices]
+        x_pareto = pareto_coords[:, 0]
+        y_pareto = pareto_coords[:, 1]
+        z_pareto = pareto_coords[:, 2]
+
+        # Use a distinct marker or edgecolor for Pareto points
+        # X vs Y
+        axs[0].scatter(
+            x_pareto,
+            y_pareto,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name} 3D Pareto Frontier',
+        )
+        axs[0].set_xlabel(rewards[0])
+        axs[0].set_ylabel(rewards[1])
+
+        # X vs Z
+        axs[1].scatter(
+            x_pareto,
+            z_pareto,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name} 3D Pareto Frontier',
+        )
+        axs[1].set_xlabel(rewards[0])
+        axs[1].set_ylabel(rewards[2])
+
+        # Y vs Z
+        axs[2].scatter(
+            y_pareto,
+            z_pareto,
+            color=color,
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label=f'{setting_name} 3D Pareto Frontier',
+        )
+        axs[2].set_xlabel(rewards[1])
+        axs[2].set_ylabel(rewards[2])
+
+    for ax in axs:
+        # Remove duplicate legends
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+    plt.suptitle(f"Super Pareto Frontier Projections ({scenario} Scenario)", fontsize=20)
+    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+    if save_dir:
+        plt.savefig(os.path.join(save_dir, f"super_pareto_frontiers_{scenario}_3d_pf.png"))
+    plt.show()
+def get_pareto_front(points):
+    """
+    Identify the Pareto-optimal points in a set of points.
+    Parameters:
+    - points: numpy array of shape (n_points, n_dimensions)
+    Returns:
+    - pareto_mask: boolean array indicating whether each point is Pareto-optimal
+    """
+    import numpy as np
+
+    n_points = points.shape[0]
+    pareto_mask = np.ones(n_points, dtype=bool)
+    for i in range(n_points):
+        for j in range(n_points):
+            if all(points[j] >= points[i]) and any(points[j] > points[i]):
+                pareto_mask[i] = False
+                break
+    return pareto_mask
+
+def plot_super_pareto_frontiers_separate_settings(base_path, scenario, settings, methods, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
+    """
+    Plots the super Pareto frontiers for the reuse settings (Baseline, Partial, Full) separately for the specified training settings (e.g., Baseline and 50% training).
+    Each plot corresponds to a training setting, and within each plot, the super Pareto frontiers for the reuse methods are plotted.
+    
+    Parameters:
+    - base_path: The base directory where the JSON log files are stored.
+    - scenario: The scenario name (e.g., "Reuse").
+    - settings: A list of training setting names (e.g., ["Baseline", "50% training"]).
+    - methods: A list of reuse method names (e.g., ["Baseline", "Partial", "Full"]).
+    - save_dir: Directory to save the plot images (optional).
+    - rewards: List of reward names for labeling axes.
+    """
+    import matplotlib.pyplot as plt
+    import os
+    import numpy as np
+
+    # Reuse paths as provided by you
+    reuse_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Full": os.path.join(base_path, "Full_Reuse"),
+        "Partial": os.path.join(base_path, "Partial_Reuse"),
+        "Baseline_reduced": os.path.join(base_path, "med_learning_none"),
+        "Full_reduced": os.path.join(base_path, "med_learning_full"),
+        "Partial_reduced": os.path.join(base_path, "med_learning_partial"),
+        "Baseline_min": os.path.join(base_path, "min_learning_none"),
+        "Full_min": os.path.join(base_path, "min_learning_full"),
+        "Partial_min": os.path.join(base_path, "min_learning_partial"),
+    }
+
+    # Map the settings to appropriate path suffixes
+    training_suffixes = {
+        "Baseline": "",
+        "50% training": "_min",
+    }
+
+    # Now, for each training setting, plot the super Pareto frontiers for the methods
+    for setting in settings:
+        suffix = training_suffixes.get(setting)
+        if suffix is None:
+            print(f"Unknown training setting: {setting}")
+            continue
+
+        methods_paths = {}
+        for method in methods:
+            # Construct the key for reuse_paths
+            if method == "Baseline":
+                key = "Baseline" + suffix if suffix else "Baseline"
+            else:
+                key = method + suffix if suffix else method
+
+            path = reuse_paths.get(key)
+            if path:
+                methods_paths[method] = path
+            else:
+                print(f"Path for method '{method}' with key '{key}' not found.")
+                continue
+
+        if not methods_paths:
+            print(f"No methods paths for training setting: {setting}")
+            continue
+
+        # Initialize the plot
+        plt.rcParams.update(
+            {
+                "font.size": 14,
+                "figure.figsize": (20, 6),
+                "axes.grid": True,
+                "axes.labelsize": 16,
+                "axes.titlesize": 18,
+                "legend.fontsize": 12,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "font.family": "serif",
+            }
+        )
+
+        fig, axs = plt.subplots(1, 3)
+
+        # Get a list of colors to assign to methods
+        colors = plt.cm.tab10.colors  # You can choose other colormaps
+
+        for idx, method in enumerate(methods):
+            path = methods_paths.get(method)
+            if not path:
+                print(f"Path for method '{method}' in training setting '{setting}' not found.")
+                continue
+
+            seed_paths = []
+            for seed in range(5):  # Adjust the range based on your seeds
+                seed_file = f"morl_logs_seed_{seed}.json"
+                seed_path = os.path.join(path, seed_file)
+                if os.path.exists(seed_path):
+                    seed_paths.append(seed_path)
+                else:
+                    print(f"Seed path not found: {seed_path}")
+
+            if not seed_paths:
+                print(f"No seed paths found for method '{method}' in training setting '{setting}'")
+                continue
+
+            # Initialize lists to collect all data points for this method
+            x_all_seeds = []
+            y_all_seeds = []
+            z_all_seeds = []
+            coords_all = []
+            weights_all = []
+
+            for seed_path in seed_paths:
+                data = load_json_data(seed_path)
+                ccs_list = data["ccs_list"][-1]
+                x_all, y_all, z_all = extract_coordinates(ccs_list)
+                # Stack the coordinates
+                coords = np.column_stack((x_all, y_all, z_all))
+                coords_all.extend(coords.tolist())
+
+                # Collect weights for annotations
+                matching_entries = find_matching_weights_and_agent(
+                    ccs_list, data["ccs_data"]
+                )
+                # Create a mapping from coordinates to weights
+                coord_to_weight = {}
+                for entry in matching_entries:
+                    x, y, z = entry["returns"]
+                    weight = entry["weights"]
+                    coord_to_weight[(x, y, z)] = weight
+                # Create an array of weights corresponding to each point
+                weights = [coord_to_weight.get(tuple(coord), None) for coord in coords]
+                weights_all.extend(weights)
+
+            if not coords_all:
+                print(f"No data for method '{method}' in training setting '{setting}'")
+                continue
+
+            # Convert lists to numpy arrays
+            coords_all = np.array(coords_all)
+            x_all_seeds = coords_all[:, 0]
+            y_all_seeds = coords_all[:, 1]
+            z_all_seeds = coords_all[:, 2]
+
+            # Compute the 3D Pareto frontier for this method
+            # Adjust objectives if necessary (e.g., negate if minimizing)
+            # Assuming the first objective is to be maximized and the others minimized
+            adjusted_coords = coords_all.copy()
+            adjusted_coords[:, 1:] = -adjusted_coords[:, 1:]  # Negate objectives to be minimized
+            pareto_mask = get_pareto_front(adjusted_coords)
+            pareto_indices = np.where(pareto_mask)[0]
+
+            # Assign a color to this method
+            color = colors[idx % len(colors)]
+
+            # Plot all CCS points for this method
+            # X vs Y
+            axs[0].scatter(
+                x_all_seeds,
+                y_all_seeds,
+                color=color,
+                alpha=0.3,
+                label=f'{method} All Points' if idx == 0 else None,
+            )
+            # X vs Z
+            axs[1].scatter(
+                x_all_seeds,
+                z_all_seeds,
+                color=color,
+                alpha=0.3,
+                label=f'{method} All Points' if idx == 0 else None,
+            )
+            # Y vs Z
+            axs[2].scatter(
+                y_all_seeds,
+                z_all_seeds,
+                color=color,
+                alpha=0.3,
+                label=f'{method} All Points' if idx == 0 else None,
+            )
+
+            # Highlight the points on the 3D Pareto frontier
+            pareto_coords = coords_all[pareto_indices]
+            x_pareto = pareto_coords[:, 0]
+            y_pareto = pareto_coords[:, 1]
+            z_pareto = pareto_coords[:, 2]
+
+            # Use a distinct marker or edgecolor for Pareto points
+            # X vs Y
+            axs[0].scatter(
+                x_pareto,
+                y_pareto,
+                color=color,
+                edgecolors='black',
+                marker='o',
+                s=100,
+                label=f'{method} 3D Pareto Frontier',
+            )
+            axs[0].set_xlabel(rewards[0])
+            axs[0].set_ylabel(rewards[1])
+
+            # X vs Z
+            axs[1].scatter(
+                x_pareto,
+                z_pareto,
+                color=color,
+                edgecolors='black',
+                marker='o',
+                s=100,
+                label=f'{method} 3D Pareto Frontier',
+            )
+            axs[1].set_xlabel(rewards[0])
+            axs[1].set_ylabel(rewards[2])
+
+            # Y vs Z
+            axs[2].scatter(
+                y_pareto,
+                z_pareto,
+                color=color,
+                edgecolors='black',
+                marker='o',
+                s=100,
+                label=f'{method} 3D Pareto Frontier',
+            )
+            axs[2].set_xlabel(rewards[1])
+            axs[2].set_ylabel(rewards[2])
+
+        for ax in axs:
+            # Remove duplicate legends
+            handles, labels = ax.get_legend_handles_labels()
+            by_label = dict(zip(labels, handles))
+            ax.legend(by_label.values(), by_label.keys())
+            ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+        plt.tight_layout()
+        plt.suptitle(f"Super Pareto Frontier Projections - Training Setting: {setting}", fontsize=20)
+        plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, f"super_pareto_frontiers_{scenario}_{setting.replace(' ', '_')}.png"))
+        plt.show()
+
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\3rd_trial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[5]
+    scenario = scenarios[3]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -3089,13 +3743,30 @@ def main():
     # Perform the analyses
     if scenario == "Baseline":
         # Perform in-depth analysis on a selected seed
+        
         analysis.calculate_metrics()
-        analysis.plot_pareto_frontiers(rewards=reward_names)
-        analysis.in_depth_analysis(seed=0)  # For example, seed 0
-        analysis.analyse_pareto_values_and_plot()
+        analysis.plot_pareto_frontiers(rewards=reward_names, iterations=False)
+        plot_2d_projections_all_points(
+            analysis.seed_paths, analysis.mc_seed_path, None, None, "ols", save_dir=analysis.output_dir, rewards=reward_names
+        )
+        #analysis.in_depth_analysis(seed=0)  # For example, seed 0
+        #analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario=scenario)
-        plot_super_pareto_frontier_2d_multiple_settings(os.path.join(base_json_path, "OLS", scenario), scenario=scenario, settings = ["Baseline", "Full", "Partial"] )
+        plot_super_pareto_frontiers_separate_settings(
+            os.path.join(base_json_path, "OLS", scenario),
+            scenario=scenario,
+            settings=["Baseline", "50% training"],
+            methods=["Baseline", "Partial", "Full"],
+            rewards=reward_names
+        )
+        plot_super_pareto_frontier_2d_multiple_settings_with_3d_pf(
+            os.path.join(base_json_path, "OLS", scenario),
+            scenario=scenario,
+            settings=["Baseline", "Partial", "Full"],  # Ensure the settings match your data
+            rewards=reward_names
+        )
+        #plot_super_pareto_frontier_2d_multiple_settings(os.path.join(base_json_path, "OLS", scenario), scenario=scenario, settings = ["Baseline", "Full", "Partial"] )
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         
