@@ -2040,8 +2040,8 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     # Define custom colors for Methods to match the desired color scheme
     method_palette = {
         'Baseline': 'grey',
-        'Full Reuse': 'lightcoral',  # light red
-        'Partial Reuse': 'red',
+        'Full Reuse': 'red',  # light red
+        'Partial Reuse': 'lightcoral',
     }
 
     # Boxplot for Hypervolume and Sparsity split into 3 subfigures
@@ -2119,6 +2119,198 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
 
+
+def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
+    import os
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    # Paths for different scenarios (from your provided code)
+    reuse_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Full": os.path.join(base_path, "Full_Reuse"),
+        "Partial": os.path.join(base_path, "Partial_Reuse"),
+        "Baseline_reduced": os.path.join(base_path, "med_learning_none"),
+        "Full_reduced": os.path.join(base_path, "med_learning_full"),
+        "Partial_reduced": os.path.join(base_path, "med_learning_partial"),
+        "Baseline_min": os.path.join(base_path, "min_learning_none"),
+        "Full_min": os.path.join(base_path, "min_learning_full"),
+        "Partial_min": os.path.join(base_path, "min_learning_partial"),
+    }
+
+    settings = ["Baseline", "Full", "Partial",
+                "Baseline_reduced", "Full_reduced", "Partial_reduced",
+                "Baseline_min", "Full_min", "Partial_min"]
+
+    # Initialize dictionaries to store results (from your code)
+    hv_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
+    return_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
+
+    # Loop through the settings and load corresponding JSON files
+    for setting in settings:
+        if scenario == 'Reuse':
+            path = reuse_paths[setting]
+        else:
+            print(f"Scenario '{scenario}' not recognized.")
+            continue
+
+        # Load the JSON log files for this setting
+        json_files = [f for f in os.listdir(path) if f.startswith("morl_logs")]
+        seed = 0
+        for json_file in json_files:
+            file_path = os.path.join(path, json_file)
+
+            # Load the JSON data
+            data = load_json_data(json_path=file_path)
+            print(f"Processing file: {file_path}")
+
+            # Extract coordinates and calculate hypervolume and sparsity
+            hv_3d, sparsity_3d = calculate_hypervolume_and_sparsity(data)
+            x_all, y_all, z_all = extract_coordinates(data['ccs_list'][-1])
+
+            # Min/Max Returns
+            min_return_x, max_return_x = min(x_all), max(x_all)
+            min_return_y, max_return_y = min(y_all), max(y_all)
+            min_return_z, max_return_z = min(z_all), max(z_all)
+
+            if hv_3d is not None and sparsity_3d is not None:
+                # Store Hypervolume and Sparsity in the hv_metrics dictionary
+                hv_metrics["Seed"].append(seed)
+                hv_metrics["Setting"].append(setting)
+                hv_metrics["Metric"].append("Hypervolume")
+                hv_metrics["Value"].append(hv_3d)
+
+                hv_metrics["Seed"].append(seed)
+                hv_metrics["Setting"].append(setting)
+                hv_metrics["Metric"].append("Sparsity")
+                hv_metrics["Value"].append(sparsity_3d)
+
+                # Store Min/Max Returns for X, Y, Z coordinates in return_metrics dictionary
+                # Include seed information
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return X")
+                return_metrics["Value"].append(max_return_x)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return X")
+                return_metrics["Value"].append(min_return_x)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Y")
+                return_metrics["Value"].append(max_return_y)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return Y")
+                return_metrics["Value"].append(min_return_y)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Z")
+                return_metrics["Value"].append(max_return_z)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return Z")
+                return_metrics["Value"].append(min_return_z)
+
+            seed += 1
+
+    # Convert the dictionaries to DataFrames for easier comparison and visualization
+    df_hv_metrics = pd.DataFrame(hv_metrics)
+    df_return_metrics = pd.DataFrame(return_metrics)
+
+    # Add 'Method' and 'Learning' columns based on 'Setting' (from your code)
+    setting_to_method_and_learning = {
+        'Baseline': ('Baseline', 'full training'),
+        'Baseline_reduced': ('Baseline', '75% training'),
+        'Baseline_min': ('Baseline', '50% training'),
+        'Full': ('Full Reuse', 'full training'),
+        'Full_reduced': ('Full Reuse', '75% training'),
+        'Full_min': ('Full Reuse', '50% training'),
+        'Partial': ('Partial Reuse', 'full training'),
+        'Partial_reduced': ('Partial Reuse', '75% training'),
+        'Partial_min': ('Partial Reuse', '50% training'),
+    }
+
+    # For df_hv_metrics
+    df_hv_metrics['Method'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
+    df_hv_metrics['Learning'] = df_hv_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][1])
+
+    # Add 'Method' and 'Learning' columns to df_return_metrics
+    df_return_metrics['Method'] = df_return_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][0])
+    df_return_metrics['Learning'] = df_return_metrics['Setting'].map(lambda x: setting_to_method_and_learning[x][1])
+
+    # --- Adjusted Coloring Starts Here ---
+
+    # Define custom colors for Methods to match the desired color scheme (from your code)
+    method_palette = {
+        'Baseline': 'grey',
+        'Full Reuse': 'red',
+        'Partial Reuse': 'lightcoral',
+    }
+
+    # Separate DataFrames for Hypervolume and Sparsity
+    df_hv = df_hv_metrics[df_hv_metrics['Metric'] == 'Hypervolume'].copy()
+    df_sparsity = df_hv_metrics[df_hv_metrics['Metric'] == 'Sparsity'].copy()
+
+    # Set up matplotlib parameters for a consistent look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (12, 8),
+        'axes.grid': True,
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 14,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'font.family': 'serif',
+    })
+
+    sns.set_style("whitegrid")
+
+    # Create separate boxplots for Hypervolume and Sparsity
+
+    # 1. Hypervolume Boxplot
+    plt.figure(figsize=(12, 8))
+    ax_hv = sns.boxplot(
+        data=df_hv,
+        x='Learning',
+        y='Value',
+        hue='Method',
+        palette=method_palette
+    )
+    ax_hv.set_ylim(top=25)
+    plt.title('Hypervolume Comparison')
+    plt.xlabel('Learning Setting')
+    plt.ylabel('Hypervolume')
+    plt.legend(title='Method', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+
+    # 2. Sparsity Boxplot
+    plt.figure(figsize=(12, 8))
+    ax_sparsity = sns.boxplot(
+        data=df_sparsity,
+        x='Learning',
+        y='Value',
+        hue='Method',
+        palette=method_palette
+    )
+    ax_sparsity.set_ylim(top=25)
+    plt.title('Sparsity Comparison')
+    plt.xlabel('Learning Setting')
+    plt.ylabel('Sparsity')
+    plt.legend(title='Method', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.show()
+
+    # Optionally, return the DataFrames
+    return df_hv, df_sparsity
 
 
 
@@ -3752,6 +3944,7 @@ def main():
         #analysis.in_depth_analysis(seed=0)  # For example, seed 0
         #analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
+        compare_hv_and_sparsity_with_separate_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario)
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario=scenario)
         plot_super_pareto_frontiers_separate_settings(
             os.path.join(base_json_path, "OLS", scenario),
