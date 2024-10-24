@@ -41,7 +41,9 @@ class ExperimentAnalysis:
         # For MC seed (1 seed)
         mc_seed_file = "morl_logs_seed_0.json"
         mc_seed_dir = os.path.join(self.base_json_path, "RS", self.scenario)
+        mc_ex_seed_dir = os.path.join(self.base_json_path, "RS_ex", self.scenario)
         self.mc_seed_path = os.path.join(mc_seed_dir, mc_seed_file)
+        self.mc_ex_seed_path = os.path.join(mc_ex_seed_dir, mc_seed_file)
         
         self.iteration_paths = []
         for iteration in [5, 10, 20]:  # List the iteration counts directly
@@ -88,13 +90,13 @@ class ExperimentAnalysis:
         # For OLS seeds
         if os.path.exists(self.mc_seed_path):
             plot_2d_projections_matplotlib(
-                self.mc_seed_path, self.mc_seed_path, "mc", save_dir=self.output_dir, rewards=rewards
+                self.mc_seed_path, self.mc_seed_path, None,"mc", save_dir=self.output_dir, rewards=rewards
             )
         else:
             print(f"MC seed path not found: {self.mc_seed_path}")
             
         plot_2d_projections_matplotlib(
-            self.seed_paths, self.mc_seed_path, None, "ols", save_dir=self.output_dir, rewards=rewards
+            self.seed_paths, self.mc_seed_path, None, "ols", save_dir=self.output_dir, rewards=rewards, mc_ex_path=self.mc_ex_seed_path
         )
         plot_2d_projections_matplotlib(
             self.seed_paths, self.mc_seed_path, self.iteration_paths, "ols", save_dir=self.output_dir, rewards=rewards, iterations=True
@@ -629,7 +631,7 @@ def process_data(seed_paths, wrapper, output_dir):
 
     if not df_ccs_matching.empty:
         # Save the DataFrame to the constructed path
-        csv_file_path = os.path.join(output_dir, "ccs_matching_data.csv")
+        csv_file_path = os.path.join(output_dir, "ccs_matching_data.csv")  
         if wrapper == "MC":
             csv_file_path = os.path.join(output_dir, "mc_ccs_matching_data.csv")
         df_ccs_matching.to_csv(csv_file_path, index=False)
@@ -640,7 +642,7 @@ def process_data(seed_paths, wrapper, output_dir):
 
 
 def plot_2d_projections_matplotlib(
-    seed_paths,  mc_path, iteration_paths,  wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False
+    seed_paths,  mc_path, iteration_paths,  wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False, mc_ex_path='\\C'
 ):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
@@ -913,6 +915,106 @@ def plot_2d_projections_matplotlib(
 
         #processing RS data
         # Load data
+        if os.path.exists(mc_ex_path):
+            data = load_json_data(json_path=mc_ex_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+            # Get matching weights for each point
+            matching_entries = find_matching_weights_and_agent(ccs_list, data["ccs_data"])
+
+            # Create a mapping from coordinates to weights
+            coord_to_weight = {}
+            for entry in matching_entries:
+                x, y, z = entry["returns"]
+                weight = entry["weights"]
+                coord_to_weight[(x, y, z)] = weight
+
+            # Convert coordinates to tuples for matching
+            coords_all = list(zip(x_all, y_all, z_all))
+
+            # Create an array of weights corresponding to each point
+            weights_all = [coord_to_weight.get(coord, None) for coord in coords_all]
+
+            # Pareto frontiers
+            x_pareto_xy, y_pareto_xy, pareto_indices_xy = pareto_frontier_2d(x_all, y_all)
+            x_pareto_xz, z_pareto_xz, pareto_indices_xz = pareto_frontier_2d(x_all, z_all)
+            y_pareto_yz, z_pareto_yz, pareto_indices_yz = pareto_frontier_2d(y_all, z_all)
+
+            # Sort the Pareto frontier points for plotting lines
+            sorted_indices_xy = np.argsort(x_pareto_xy)
+            x_pareto_xy_sorted = np.array(x_pareto_xy)[sorted_indices_xy]
+            y_pareto_xy_sorted = np.array(y_pareto_xy)[sorted_indices_xy]
+
+            sorted_indices_xz = np.argsort(x_pareto_xz)
+            x_pareto_xz_sorted = np.array(x_pareto_xz)[sorted_indices_xz]
+            z_pareto_xz_sorted = np.array(z_pareto_xz)[sorted_indices_xz]
+
+            sorted_indices_yz = np.argsort(y_pareto_yz)
+            y_pareto_yz_sorted = np.array(y_pareto_yz)[sorted_indices_yz]
+            z_pareto_yz_sorted = np.array(z_pareto_yz)[sorted_indices_yz]
+
+            # Plot color is gray
+            gray_color = "gray"
+
+            # Plot Pareto frontiers with lines
+            # X vs Y
+            axs[0].scatter(
+                x_pareto_xy,
+                y_pareto_xy,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark with extrema",
+            )
+            axs[0].plot(
+                x_pareto_xy_sorted,
+                y_pareto_xy_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )
+            axs[0].set_xlabel(rewards[0])
+            axs[0].set_ylabel(rewards[1])
+
+            # X vs Z
+            axs[1].scatter(
+                x_pareto_xz,
+                z_pareto_xz,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark Pareto with extrema",
+            )
+            axs[1].plot(
+                x_pareto_xz_sorted,
+                z_pareto_xz_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )
+            axs[1].set_xlabel(rewards[0])
+            axs[1].set_ylabel(rewards[2])
+
+            # Y vs Z
+            axs[2].scatter(
+                y_pareto_yz,
+                z_pareto_yz,
+                color=gray_color,
+                edgecolors="black",
+                marker="o",
+                s=100,
+                label="RS-Benchmark Pareto with extrema",
+            )
+            axs[2].plot(
+                y_pareto_yz_sorted,
+                z_pareto_yz_sorted,
+                color=gray_color,
+                linestyle="-",
+                linewidth=2,
+            )   
         if os.path.exists(mc_path):
             data = load_json_data(json_path=mc_path)
             ccs_list = data["ccs_list"][-1]
@@ -964,7 +1066,7 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label="RS-Benchmark Pareto",
+                label="RS-Benchmark",
             )
             axs[0].plot(
                 x_pareto_xy_sorted,
@@ -984,7 +1086,7 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label="RS-Benchmark Pareto",
+                label="RS-Benchmark",
             )
             axs[1].plot(
                 x_pareto_xz_sorted,
@@ -1004,7 +1106,7 @@ def plot_2d_projections_matplotlib(
                 edgecolors="black",
                 marker="o",
                 s=100,
-                label="RS-Benchmark Pareto",
+                label="RS-Benchmark",
             )
             axs[2].plot(
                 y_pareto_yz_sorted,
@@ -3122,12 +3224,12 @@ def compare_policies_weights(base_path, scenario):
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\3rd_trial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "Name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[0]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
