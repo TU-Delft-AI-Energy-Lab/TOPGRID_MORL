@@ -2732,9 +2732,9 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 90%": os.path.join(base_path, 'Rho 90'),
-        "rho 80%": os.path.join(base_path, 'Rho 80'),
-        "rho 70%": os.path.join(base_path, 'Rho 70'),
+        "rho 70%": os.path.join(base_path, 'Rho70'),
+        "rho 50%": os.path.join(base_path, 'Rho50'),
+        "rho 00%": os.path.join(base_path, 'Rho00'),
         # Add more rho settings here if needed
     }
     
@@ -2748,7 +2748,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         paths = time_paths
         title = 'Single- and Multi-Objective Solutions under time constraints'
     elif scenario == "Max_rho":
-        settings = ['Baseline', 'rho 90%', 'rho 80%','rho 70%']
+        settings = ['Baseline', 'rho 70%', 'rho 50%','rho 00%']
         paths = rho_paths
         title = 'Single- and Multi-Objective Solutions for unknown max line loading'
     else:
@@ -2762,7 +2762,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         path = paths[setting]
         seed_paths = []
         print(path)
-        for seed in range(20):  # Adjust the range as needed
+        for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
@@ -2927,223 +2927,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     return df_results
 
-def compare_policies_weights_all_seeds(base_path, scenario):
-    """
-    Compares policies across all seeds for different scenarios and plots the results.
-    Modifications:
-    - Titles and setting descriptions are made dependent on the scenario.
-    - For scenario 'Opponent', title is '... under contingencies', settings are 'Baseline' and 'moderate contingencies'.
-    - For scenario 'Time', title is '... under time constraints', settings are 'Baseline' and 'moderate time constraints'.
-    - For scenario 'max_rho', title is '... for unknown max line loading', settings are 'Baseline' and 'rho 90%'.
-    """
-    
-    # Paths for different scenarios
-    opponent_paths = {
-        "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate contingencies": os.path.join(base_path, "op_normal"),
-        "high contingencies": os.path.join(base_path, "op_hard")
-    }
 
-    time_paths = {
-        "Baseline": os.path.join(base_path, "Baseline"),
-        'moderate learning constraints': os.path.join(base_path, "med_learning_none"), 
-        'high learning constraints': os.path.join(base_path, "min_learning_none")
-    }
-
-    rho_paths = {
-        "Baseline": os.path.join(base_path, "Baseline"),
-        'rho 90%': os.path.join(base_path, 'rho90'),
-        'rho 80%': os.path.join(base_path, 'rho80'),
-        'rho 70%': os.path.join(base_path, 'rho70')
-        
-    }
-
-    # Determine settings and titles based on scenario
-    if scenario == 'Opponent':
-        settings = ['Baseline', 'moderate contingencies', "high contingencies"]
-        paths = opponent_paths
-        title = 'Single- and Multi-Objective Solutions under contingencies'
-    elif scenario == "Time":
-        settings = ['Baseline', 'moderate learning constraints', 'high learning constraints']
-        paths = time_paths
-        title = 'Single- and Multi-Objective Solutions under learning constraints'
-    elif scenario == "Max_rho":
-        settings = ['Baseline', 'rho 90%', 'rho 80%', 'rho 70%']
-        paths = rho_paths
-        title = 'Single- and Multi-Objective Solutions for unknown max line loading'
-    else:
-        raise ValueError("Invalid scenario provided.")
-
-    results = []
-
-    # Loop over each setting
-    for setting in settings:
-        path = paths[setting]
-        seed_paths = []
-        for seed in range(20):  # Adjust the range as needed
-            seed_file = f"morl_logs_seed_{seed}.json"
-            seed_path = os.path.join(path, seed_file)
-            seed_paths.append(seed_path)
-
-        print(f"Processing for setting: {setting} with seed paths. {seed_paths}")
-
-        # Process data for this scenario and setting
-        df_ccs_matching_seeds = process_data(
-            seed_paths=seed_paths, wrapper='ols', output_dir=path)
-
-        # For each seed, process the data
-        for seed, group in df_ccs_matching_seeds.groupby('seed'):
-            # S-O Case [1,0,0]
-            default_runs = group[group['Weights'].apply(
-                lambda w: w == [1.0, 0.0, 0.0])]
-            default_run = default_runs.loc[
-                default_runs['test_chronic_0'].apply(
-                    lambda x: x['test_steps']).idxmax()
-            ]
-
-            # M-O Case (exclude [1.0, 0.0, 0.0])
-            non_default_runs = group[group['Weights'].apply(
-                lambda w: w != [1.0, 0.0, 0.0])]
-
-            # Extract 'test_steps' and 'test_actions' for both chronic_0 and chronic_1
-            non_default_runs['avg_test_steps'] = non_default_runs.apply(
-                lambda row: (row['test_chronic_0']['test_steps'] +
-                             row['test_chronic_1']['test_steps']) / 2, axis=1
-            )
-
-            non_default_runs['test_actions'] = non_default_runs.apply(
-                lambda row: len(row['test_chronic_0']['test_actions']) +
-                len(row['test_chronic_1']['test_actions']), axis=1
-            )
-
-            # Identify the top run with the highest average test_steps,
-            # using fewer actions to break ties
-            best_run = non_default_runs.sort_values(
-                by=['avg_test_steps', 'test_actions'],
-                ascending=[False, True]
-            ).iloc[0]
-
-            # Best run data
-            best_run_actions = best_run['test_actions']
-            best_run_steps = best_run['avg_test_steps']
-
-            # Save the results for the M-O Case
-            results.append({
-                'Seed': seed,
-                'Setting': setting,
-                'Run Type': 'M-O Case',
-                'Switching Actions': best_run_actions,
-                'Steps': best_run_steps
-            })
-
-            # S-O Case data
-            default_run_actions = (
-                len(default_run['test_chronic_0']['test_actions']) +
-                len(default_run['test_chronic_1']['test_actions'])
-            )
-            default_run_steps = (
-                default_run['test_chronic_0']['test_steps'] +
-                default_run['test_chronic_1']['test_steps']
-            ) / 2
-
-            results.append({
-                'Seed': seed,
-                'Setting': setting,
-                'Run Type': 'S-O Case',
-                'Switching Actions': default_run_actions,
-                'Steps': default_run_steps
-            })
-
-    # Convert the results into a DataFrame for plotting
-    df_results = pd.DataFrame(results)
-
-    # Set up matplotlib parameters for a more scientific look
-    plt.rcParams.update({
-        'font.size': 14,
-        'figure.figsize': (14, 8),
-        'axes.grid': True,
-        'axes.labelsize': 16,
-        'axes.titlesize': 18,
-        'legend.fontsize': 12,
-        'xtick.labelsize': 14,
-        'ytick.labelsize': 14,
-        'font.family': 'serif',
-    })
-
-    # Plotting
-    sns.set_style("whitegrid")
-
-    # Define custom colors
-    box_colors = {'S-O Case': 'grey', 'M-O Case': 'lightcoral'}  # light red
-    dot_colors = {'S-O Case': 'black', 'M-O Case': 'red'}
-
-    # Define hue order to ensure consistent ordering
-    hue_order = ['S-O Case', 'M-O Case']
-
-    # Boxplot of Switching Actions
-    plt.figure(figsize=(14, 8))
-    ax1 = sns.boxplot(
-        x='Setting', y='Switching Actions', hue='Run Type',
-        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
-        medianprops={'color': 'black'},
-        whiskerprops={'color': 'black'},
-        capprops={'color': 'black'},
-        flierprops={'color': 'black', 'markeredgecolor': 'black'},
-        showcaps=True
-    )
-
-    # Swarmplot with edge colors
-    sns.swarmplot(
-        x='Setting', y='Switching Actions', hue='Run Type',
-        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
-        edgecolor='black', linewidth=0.5, ax=ax1
-    )
-
-    plt.title(title)
-    plt.ylabel('Number of Switching Actions')
-    plt.xlabel('Setting')
-
-    # Adjust legend to prevent duplicates
-    handles, labels = ax1.get_legend_handles_labels()
-    n = len(hue_order)
-    ax1.legend(handles[:n], labels[:n], title='Run Type',
-               bbox_to_anchor=(1.05, 1), loc='upper left')
-
-    plt.tight_layout()
-    plt.show()
-
-    # Boxplot of Steps
-    plt.figure(figsize=(14, 8))
-    ax2 = sns.boxplot(
-        x='Setting', y='Steps', hue='Run Type',
-        data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
-        medianprops={'color': 'black'},
-        whiskerprops={'color': 'black'},
-        capprops={'color': 'black'},
-        flierprops={'color': 'black', 'markeredgecolor': 'black'},
-        showcaps=True
-    )
-
-    # Swarmplot with edge colors
-    sns.swarmplot(
-        x='Setting', y='Steps', hue='Run Type',
-        data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
-        edgecolor='black', linewidth=0.5, ax=ax2
-    )
-
-    plt.title(title)
-    plt.ylabel('Average Number of Steps')
-    plt.xlabel('Setting')
-
-    # Adjust legend to prevent duplicates
-    handles, labels = ax2.get_legend_handles_labels()
-    ax2.legend(handles[:n], labels[:n], title='Run Type',
-               bbox_to_anchor=(1.05, 1), loc='upper left')
-
-    plt.tight_layout()
-    plt.show()
-
-    return df_results
 
 def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     """
@@ -3173,21 +2957,22 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     # Paths for different scenarios
     opponent_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "op_normal": os.path.join(base_path, "op_normal"),
-        "op_hard": os.path.join(base_path, "op_hard")
+        "moderate contingencies": os.path.join(base_path, "op_normal"),
+        "high contingencies": os.path.join(base_path, "op_hard")
     }
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate learning constraints": os.path.join(base_path, "med_learning_none"),
-        "high learning constraints": os.path.join(base_path, "min_learning_none")
+        "moderate time constraints": os.path.join(base_path, "med_learning_none"),
+        "high time constraints": os.path.join(base_path, "min_time_none")
     }
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 90%": os.path.join(base_path, "rho90"),
-        "rho 80%": os.path.join(base_path, "rho80"),
-        "rho 70%": os.path.join(base_path, "rho70")
+        "rho 70%": os.path.join(base_path, 'Rho70'),
+        "rho 50%": os.path.join(base_path, 'Rho50'),
+        "rho 00%": os.path.join(base_path, 'Rho00'),
+        # Add more rho settings here if needed
     }
 
     # Determine settings and titles based on scenario
@@ -3200,7 +2985,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         paths = time_paths
         scenario_title = 'Learning Constraints'
     elif scenario == "Max_rho":
-        settings = ["Baseline", "rho 90%", "rho 80%", "rho 70%"]
+        settings = ["Baseline", "rho 50%", "rho 00%"]
         paths = rho_paths
         scenario_title = 'Unknown Max Line Loading'
     else:
@@ -3285,7 +3070,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
         # Figure 1: KDE Plots for Each Weight
         weights = ['Weight 1', 'Weight 2', 'Weight 3']
-        weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
+        weight_titles = ['L2RPN', 'Actions', 'Depth']
 
         fig_kde, axes_kde = plt.subplots(1, 3, figsize=(18, 6))
 
@@ -3362,6 +3147,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
             ax.set_title(f'Weight Values of {weight_titles[i]}')
             ax.set_xlim(0, 1)
+            ax.set_ylim(0, 2)
             ax.set_xlabel('Weight Value')
             ax.set_ylabel('Setting')
 
@@ -3400,7 +3186,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 continue
 
             weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['L2RPN', 'Actions', 'Depth']
 
             for weight, weight_title in zip(weights, weight_titles):
                 sns.kdeplot(
@@ -3414,11 +3200,12 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                     ax=axes_kde[i]
                 )
 
-            axes_kde[i].set_title(f'KDE of Weights for Setting: {setting} ({scenario_title})')
+            axes_kde[i].set_title(f'{setting} ')
             axes_kde[i].set_xlabel('Weight Value')
             axes_kde[i].set_ylabel('Density')
             axes_kde[i].set_xlim(0, 1)
-            axes_kde[i].legend(title='Weights')
+            axes_kde[i].set_ylim(0, 2)
+            axes_kde[i].legend(title='Rewards')
 
         plt.tight_layout()
         plt.show()
@@ -4590,7 +4377,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[0]
+    scenario = scenarios[1]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
