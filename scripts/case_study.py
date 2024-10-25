@@ -99,7 +99,7 @@ class ExperimentAnalysis:
             self.df_mean_std = df_mean_std
             print(self.df_all_metrics)
             print(self.df_mean_std)
-    print("Metrics calculation completed.")
+        print("Metrics calculation completed.")
 
     def plot_pareto_frontiers(self, rewards, iterations):
         # Generate the 2D Pareto frontier plots
@@ -303,26 +303,52 @@ def calculate_sparsity(points):
 
 
 def calculate_3d_hypervolume(points, reference_point):
-    """Calculates the hypervolume for 3D points."""
-    # Convert points to a numpy array
+    """Calculates the hypervolume for 3D points manually without using ConvexHull."""
+    # Convert points and reference point to numpy arrays for easier manipulation
     points = np.array(points)
-    # Shift points to the reference point
-    shifted_points = points - reference_point
-    # Ensure all points are in the positive orthant
-    if np.any(shifted_points < 0):
-        print(
-            "Error: Shifted points have negative coordinates after shifting to reference point."
-        )
-        return 0.0
-    # Calculate the hypervolume using ConvexHull
-    try:
-        hull = ConvexHull(shifted_points)
-        hv = hull.volume
-    except Exception as e:
-        print(f"Error calculating 3D hypervolume: {e}")
-        hv = 0.0
+    reference_point = np.array(reference_point)
+
+    # Sort points by the first dimension (x-axis)
+    sorted_points = points[np.argsort(points[:, 0])]
+
+    hv = 0.0
+    for i in range(len(sorted_points)):
+        # Calculate width (difference in x-axis between point and reference point)
+        width = abs(sorted_points[i][0] - reference_point[0])
+
+        if i == 0:
+            # For the first point, use the reference point's height and depth
+            height = abs(sorted_points[i][1] - reference_point[1])
+            depth = abs(sorted_points[i][2] - reference_point[2])
+        else:
+            # For subsequent points, use the difference in height and depth between consecutive points
+            height = abs(sorted_points[i][1] - sorted_points[i - 1][1])
+            depth = abs(sorted_points[i][2] - sorted_points[i - 1][2])
+
+        # Calculate the volume of the current cuboid and add to the total hypervolume
+        hv += width * height * depth
+
     return hv
 
+# Optional 2D Hypervolume Calculation (if applicable)
+def calculate_2d_hypervolume(points_2d, reference_point_2d):
+    """Calculates the 2D hypervolume (area) using a convex hull."""
+    # Shift points to the reference point
+    shifted_points_2d = points_2d - reference_point_2d
+
+    # Ensure all points are in the positive orthant
+    if np.any(shifted_points_2d < 0):
+        print("Error: 2D points have negative coordinates after shifting to reference point.")
+        return 0.0
+
+    try:
+        hull = ConvexHull(shifted_points_2d)
+        area = hull.volume  # In 2D, the volume attribute of ConvexHull is the area
+    except Exception as e:
+        print(f"Error calculating 2D hypervolume: {e}")
+        area = 0.0
+
+    return area
 
 def calculate_3d_sparsity(points):
     """Calculates the sparsity metric for 3D points."""
@@ -336,57 +362,7 @@ def calculate_3d_sparsity(points):
         return 0.0
 
 
-def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iterations=False):
-    """
-    Calculates hypervolume and sparsity metrics for OLS and RS seeds.
-    Returns a DataFrame with per-seed metrics and another DataFrame with mean and std for each method.
-    """
-    if iterations:
-        # Existing code for iterations
-        pass
-    else:
-        import pandas as pd
-        # Process OLS seeds
-        ols_metrics_list = []
-        for idx, seed_path in enumerate(seed_paths_ols):
-            if not os.path.exists(seed_path):
-                print(f"OLS seed path not found: {seed_path}")
-                continue
-            hv_3d_ols, sparsity_3d_ols = calculate_3d_metrics_only_for_mc(seed_path)
-            data = {
-                'Method': 'OLS',
-                'Seed': f'Seed_{idx}',
-                'Hypervolume 3D': hv_3d_ols,
-                'Sparsity 3D': sparsity_3d_ols
-            }
-            ols_metrics_list.append(data)
-        # Process RS seeds
-        rs_metrics_list = []
-        if rs_seed_paths:
-            for idx, seed_path in enumerate(rs_seed_paths):
-                if not os.path.exists(seed_path):
-                    print(f"RS seed path not found: {seed_path}")
-                    continue
-                hv_3d_rs, sparsity_3d_rs = calculate_3d_metrics_only_for_mc(seed_path)
-                data = {
-                    'Method': 'RS',
-                    'Seed': f'Seed_{idx}',
-                    'Hypervolume 3D': hv_3d_rs,
-                    'Sparsity 3D': sparsity_3d_rs
-                }
-                rs_metrics_list.append(data)
-        # Combine the lists
-        all_metrics_list = ols_metrics_list + rs_metrics_list
-        # Convert to DataFrame
-        df_all_metrics = pd.DataFrame(all_metrics_list)
-        # Compute mean and std for each method
-        df_mean_std = df_all_metrics.groupby('Method').agg(
-            {'Hypervolume 3D': ['mean', 'std'], 'Sparsity 3D': ['mean', 'std']}
-        ).reset_index()
-        # Flatten MultiIndex columns
-        df_mean_std.columns = ['Method', 'Hypervolume 3D Mean', 'Hypervolume 3D Std', 'Sparsity 3D Mean', 'Sparsity 3D Std']
-        # Return DataFrames
-        return df_all_metrics, df_mean_std
+
 
 def calculate_hypervolumes_and_sparsities(seed_paths, wrapper, mc_seed_path=None):
     """Calculates hypervolumes and sparsities for each seed and aggregates the results."""
@@ -4470,6 +4446,141 @@ def plot_pareto_frontiers_for_training_settings(base_path, scenario, save_dir=No
         plt.savefig(os.path.join(save_dir, f"pareto_frontiers_50_percent_training.png"))
     plt.show()
 
+
+def calculate_3d_metrics_with_combined_reference(seed_path, combined_reference_point):
+    """
+    Calculates 3D Hypervolume and Sparsity for a single seed path with a provided combined reference point.
+    """
+    # Load seed data
+    data = load_json_data(seed_path)
+    ccs_list = data["ccs_list"][-1]
+    x_all, y_all, z_all = extract_coordinates(ccs_list)
+
+    # Calculate 3D hypervolume and sparsity for the seed
+    pareto_points_3d = np.column_stack((x_all, y_all, z_all))
+    print(pareto_points_3d)
+    hv_3d = calculate_3d_hypervolume(pareto_points_3d, combined_reference_point)
+    sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
+
+    hv_3d = round(hv_3d, 2)
+    sparsity_3d = round(sparsity_3d, 2)
+
+    return hv_3d, sparsity_3d
+
+
+def find_combined_reference_point(ols_paths, rs_paths):
+    """
+    Finds the combined minimum reference point for each seed over OLS and RS paths.
+    The function assumes that ols_paths and rs_paths have the same number of seeds and are aligned by index.
+    """
+    combined_reference_points = []
+
+    # Iterate over seeds based on the index
+    for idx in range(len(ols_paths)):
+        min_x, min_y, min_z = float('inf'), float('inf'), float('inf')
+
+        # Read OLS JSON for the current seed
+        ols_seed_path = ols_paths[idx]
+        if os.path.exists(ols_seed_path):
+            data_ols = load_json_data(ols_seed_path)
+            ccs_list_ols = data_ols["ccs_list"][-1]
+            x_ols, y_ols, z_ols = extract_coordinates(ccs_list_ols)
+            min_x = min(min_x, *x_ols)
+            min_y = min(min_y, *y_ols)
+            min_z = min(min_z, *z_ols)
+        else:
+            print(f"OLS seed path not found: {ols_seed_path}")
+
+        # Read RS JSON for the current seed (if available)
+        if rs_paths and idx < len(rs_paths):
+            rs_seed_path = rs_paths[idx]
+            if os.path.exists(rs_seed_path):
+                data_rs = load_json_data(rs_seed_path)
+                ccs_list_rs = data_rs["ccs_list"][-1]
+                x_rs, y_rs, z_rs = extract_coordinates(ccs_list_rs)
+                min_x = min(min_x, *x_rs)
+                min_y = min(min_y, *y_rs)
+                min_z = min(min_z, *z_rs)
+            else:
+                print(f"RS seed path not found: {rs_seed_path}")
+
+        # Add the combined minimum point for the current seed
+        combined_reference_points.append((min_x, min_y, min_z))
+
+    return combined_reference_points
+
+
+def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iterations=False):
+    """
+    Calculates hypervolume and sparsity metrics for OLS and RS seeds with a combined reference point per seed.
+    Returns a DataFrame with per-seed metrics and another DataFrame with mean and std for each method.
+    """
+    import pandas as pd
+
+    if iterations:
+        # Handle cases when iterations are enabled
+        combined_reference_points = find_combined_reference_point(wrapper.iteration_paths, wrapper.mc_iteration_paths)
+        paths_to_process_ols = wrapper.iteration_paths
+        paths_to_process_rs = wrapper.mc_iteration_paths
+    else:
+        # Find combined reference point for each seed for OLS and RS seeds
+        combined_reference_points = find_combined_reference_point(seed_paths_ols, rs_seed_paths)
+        paths_to_process_ols = seed_paths_ols
+        paths_to_process_rs = rs_seed_paths
+    print(combined_reference_points)
+    # Process OLS seeds
+    ols_metrics_list = []
+    for idx, seed_path in enumerate(paths_to_process_ols):
+        if not os.path.exists(seed_path):
+            print(f"OLS seed path not found: {seed_path}")
+            continue
+        reference_point = combined_reference_points[idx]
+        print(reference_point)
+        
+        hv_3d_ols, sparsity_3d_ols = calculate_3d_metrics_with_combined_reference(seed_path, reference_point)
+        data = {
+            'Method': 'OLS',
+            'Seed': f'Seed_{idx}',
+            'Hypervolume 3D': hv_3d_ols,
+            'Sparsity 3D': sparsity_3d_ols
+        }
+        print(data)
+        ols_metrics_list.append(data)
+    print(combined_reference_points)
+    # Process RS seeds if provided
+    rs_metrics_list = []
+    if paths_to_process_rs:
+        for idx, seed_path in enumerate(paths_to_process_rs):
+            if not os.path.exists(seed_path):
+                print(f"RS seed path not found: {seed_path}")
+                continue
+            reference_point = combined_reference_points[idx]
+            print(reference_point)
+            hv_3d_rs, sparsity_3d_rs = calculate_3d_metrics_with_combined_reference(seed_path, reference_point)
+            data = {
+                'Method': 'RS',
+                'Seed': f'Seed_{idx}',
+                'Hypervolume 3D': hv_3d_rs,
+                'Sparsity 3D': sparsity_3d_rs
+            }
+            print(data)
+            rs_metrics_list.append(data)
+
+    # Combine the lists
+    all_metrics_list = ols_metrics_list + rs_metrics_list
+
+    # Convert to DataFrame
+    df_all_metrics = pd.DataFrame(all_metrics_list)
+
+    # Compute mean and std for each method
+    df_mean_std = df_all_metrics.groupby('Method').agg(
+        {'Hypervolume 3D': ['mean', 'std'], 'Sparsity 3D': ['mean', 'std']}
+    ).reset_index()
+
+    # Flatten MultiIndex columns
+    df_mean_std.columns = ['Method', 'Hypervolume 3D Mean', 'Hypervolume 3D Std', 'Sparsity 3D Mean', 'Sparsity 3D Std']
+
+    return df_all_metrics, df_mean_std
 
 
 # ---- Main Function ----
