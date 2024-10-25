@@ -34,11 +34,17 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(10):
+        for seed in range(5):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
         # For MC seed (1 seed)
+        self.rs_seed_paths = []
+        rs_seed_dir = os.path.join(self.base_json_path, "RS", self.scenario, self.name)
+        for seed in range(5):
+            rs_seed_file = f"morl_logs_seed_{seed}.json"
+            rs_seed_path = os.path.join(rs_seed_dir, rs_seed_file)
+            self.rs_seed_paths.append(rs_seed_path)
         mc_seed_file = "morl_logs_seed_0.json"
         mc_seed_dir = os.path.join(self.base_json_path, "RS", self.scenario, self.name)
         mc_ex_seed_dir = os.path.join(self.base_json_path, "RS_ex", self.scenario, self.name)
@@ -112,13 +118,15 @@ class ExperimentAnalysis:
             )
         else:
             print(f"MC seed path not found: {self.mc_seed_path}")
-            
-        plot_2d_projections_matplotlib(
-            self.seed_paths, self.mc_seed_path, None, None,"ols", save_dir=self.output_dir, rewards=rewards, mc_ex_path=self.mc_ex_seed_path
+        if iterations: 
+              plot_2d_projections_matplotlib(
+            self.seed_paths, self.mc_seed_path, self.iteration_paths, self.mc_iteration_paths,"ols", save_dir=self.output_dir, rewards=rewards, iterations=iterations, benchmark=False
         )
-        plot_2d_projections_matplotlib(
-            self.seed_paths, self.mc_seed_path, self.iteration_paths, self.mc_iteration_paths,"ols", save_dir=self.output_dir, rewards=rewards, iterations=iterations
-        )
+        else: 
+            plot_2d_projections_matplotlib(
+                self.seed_paths, self.mc_seed_path, None, None,"ols", save_dir=self.output_dir, rewards=rewards, mc_ex_path=self.mc_ex_seed_path
+            )
+        
         plot_super_pareto_frontier_2d(seed_paths = self.seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"])
         # For MC seed
         
@@ -673,7 +681,7 @@ def process_data(seed_paths, wrapper, output_dir):
 
 
 def plot_2d_projections_matplotlib(
-    seed_paths,  mc_path, iteration_paths,  mc_iteration_paths, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False, mc_ex_path='\\C'
+    seed_paths,  mc_path, iteration_paths,  mc_iteration_paths, wrapper, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"], iterations=False, mc_ex_path='\\C', benchmark=True
 ):
     """
     Plots X vs Y, X vs Z, and Y vs Z using matplotlib, highlighting Pareto frontier points.
@@ -827,7 +835,7 @@ def plot_2d_projections_matplotlib(
 
         #processing RS data
         # Load data
-        if os.path.exists(mc_path):
+        if os.path.exists(mc_path) and benchmark:
             if iterations: 
                 seed_paths = mc_iteration_paths
             else: 
@@ -961,7 +969,207 @@ def plot_2d_projections_matplotlib(
         if save_dir:
             plt.savefig(os.path.join(save_dir, "ols_pareto_frontiers.png"))
         plt.show()
-        
+
+def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
+    ols_seed_paths,
+    rs_seed_paths,
+    save_dir=None,
+    rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
+):
+    """
+    Plots the 2D projections of the 3D convex coverage set (CCS) over all seeds from both OLS and RS.
+    Highlights the OLS points that are in the CCS, indicating they dominate the RS benchmark.
+    
+    Parameters:
+    - ols_seed_paths: List of file paths to OLS JSON data.
+    - rs_seed_paths: List of file paths to RS JSON data.
+    - save_dir: Directory to save the plot image (optional).
+    - rewards: List of reward names for labeling axes.
+    """
+    import matplotlib.pyplot as plt
+    import os
+    import numpy as np
+
+    # --- Plotting starts here ---
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3, figsize=(20, 6))
+
+    # Initialize lists to collect all data points and labels
+    all_coords = []
+    labels = []  # 'OLS' or 'RS' for each point
+
+    # Function to load data from seed paths
+    def load_data(seed_paths, label):
+        coords_list = []
+        for seed_path in seed_paths:
+            if not os.path.exists(seed_path):
+                print(f"File not found: {seed_path}")
+                continue
+
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            coords = np.column_stack((x_all, y_all, z_all))
+            coords_list.append(coords)
+            labels.extend([label] * len(coords))
+        if coords_list:
+            return np.vstack(coords_list)
+        else:
+            return np.array([])
+
+    # Load OLS data
+    ols_coords = load_data(ols_seed_paths, 'OLS')
+
+    # Load RS data
+    rs_coords = load_data(rs_seed_paths, 'RS')
+
+    # Combine all data
+    if ols_coords.size > 0 and rs_coords.size > 0:
+        all_coords = np.vstack((ols_coords, rs_coords))
+    elif ols_coords.size > 0:
+        all_coords = ols_coords
+    elif rs_coords.size > 0:
+        all_coords = rs_coords
+    else:
+        print("No data available to plot.")
+        return
+
+    labels = np.array(labels)
+
+    # Compute the 3D Convex Coverage Set (CCS) over all points
+    ccs_mask = get_pareto_front(all_coords)
+    ccs_indices = np.where(ccs_mask)[0]
+    ccs_coords = all_coords[ccs_indices]
+    ccs_labels = labels[ccs_indices]
+
+    # Identify which CCS points come from OLS
+    ols_ccs_indices = ccs_indices[ccs_labels == 'OLS']
+    ols_ccs_coords = all_coords[ols_ccs_indices]
+
+    # Plot all points with transparency
+    axs[0].scatter(
+        all_coords[:, 0],
+        all_coords[:, 1],
+        color='grey',
+        alpha=0.3,
+        label='All Points'
+    )
+    axs[1].scatter(
+        all_coords[:, 0],
+        all_coords[:, 2],
+        color='grey',
+        alpha=0.3,
+        label='All Points'
+    )
+    axs[2].scatter(
+        all_coords[:, 1],
+        all_coords[:, 2],
+        color='grey',
+        alpha=0.3,
+        label='All Points'
+    )
+
+    # Plot OLS CCS points in red
+    if ols_ccs_coords.size > 0:
+        axs[0].scatter(
+            ols_ccs_coords[:, 0],
+            ols_ccs_coords[:, 1],
+            color='red',
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+        axs[1].scatter(
+            ols_ccs_coords[:, 0],
+            ols_ccs_coords[:, 2],
+            color='red',
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+        axs[2].scatter(
+            ols_ccs_coords[:, 1],
+            ols_ccs_coords[:, 2],
+            color='red',
+            edgecolors='black',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+
+    # Optionally, plot RS CCS points differently (if needed)
+    rs_ccs_indices = ccs_indices[ccs_labels == 'RS']
+    rs_ccs_coords = all_coords[rs_ccs_indices]
+    if rs_ccs_coords.size > 0:
+        axs[0].scatter(
+            rs_ccs_coords[:, 0],
+            rs_ccs_coords[:, 1],
+            color='blue',
+            edgecolors='black',
+            marker='s',
+            s=100,
+            label='RS CCS Points'
+        )
+        axs[1].scatter(
+            rs_ccs_coords[:, 0],
+            rs_ccs_coords[:, 2],
+            color='blue',
+            edgecolors='black',
+            marker='s',
+            s=100,
+            label='RS CCS Points'
+        )
+        axs[2].scatter(
+            rs_ccs_coords[:, 1],
+            rs_ccs_coords[:, 2],
+            color='blue',
+            edgecolors='black',
+            marker='s',
+            s=100,
+            label='RS CCS Points'
+        )
+
+    # Set labels
+    axs[0].set_xlabel(rewards[0])
+    axs[0].set_ylabel(rewards[1])
+    axs[1].set_xlabel(rewards[0])
+    axs[1].set_ylabel(rewards[2])
+    axs[2].set_xlabel(rewards[1])
+    axs[2].set_ylabel(rewards[2])
+
+    # Remove duplicate legends and adjust
+    for ax in axs:
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+    plt.suptitle("3D CCS Projection: OLS CCS Points Dominating RS Benchmark", fontsize=20)
+    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+    if save_dir:
+        plt.savefig(os.path.join(save_dir, "ccs_ols_vs_rs.png"))
+    plt.show()
+
+
+
+
 def plot_super_pareto_frontier_2d(seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
     """
     Plots the super Pareto frontier across all seeds on the 2D projections (X vs Y, X vs Z, Y vs Z) using matplotlib.
@@ -3656,6 +3864,7 @@ def plot_super_pareto_frontier_2d_multiple_settings_with_3d_pf(base_path, scenar
 def get_pareto_front(points):
     """
     Identify the Pareto-optimal points in a set of points.
+    This function computes the convex coverage set (CCS) in multi-objective optimization.
     Parameters:
     - points: numpy array of shape (n_points, n_dimensions)
     Returns:
@@ -4057,12 +4266,12 @@ def plot_pareto_frontiers_for_training_settings(base_path, scenario, save_dir=No
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\results"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\4th_trial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[0]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -4080,9 +4289,16 @@ def main():
         analysis.analyse_pareto_values_and_plot()
     # Perform the analyses
     if scenario == "Baseline":
+        # Call the updated plotting function
+        plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
+            ols_seed_paths=analysis.seed_paths,
+            rs_seed_paths=analysis.rs_seed_paths,
+            save_dir=analysis.output_dir,
+            rewards=reward_names
+        )
+       
         # Perform in-depth analysis on a selected seed
-        
-        analysis.calculate_metrics()
+        analysis.calculate_metrics(iterations=False)
         analysis.plot_pareto_frontiers(rewards=reward_names, iterations=False)
         plot_2d_projections_all_points(
             analysis.seed_paths, analysis.mc_seed_path, None, None, "ols", save_dir=analysis.output_dir, rewards=reward_names
