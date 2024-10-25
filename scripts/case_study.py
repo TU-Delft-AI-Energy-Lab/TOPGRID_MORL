@@ -74,39 +74,32 @@ class ExperimentAnalysis:
         # Calculate multi-objective metrics like hypervolumes, max/min rewards, sparsities
         print("Calculating metrics...")
         if iterations:
+            # Existing code for iterations
             df_all_metrics_ols = calculate_all_metrics(
-                self.iteration_paths, "ols", self.mc_iteration_paths, iterations=True
+                self.iteration_paths, "ols", rs_seed_paths=self.mc_iteration_paths, iterations=True
             )
             # Save the DataFrame to CSV
             df_all_metrics_ols.to_csv(
                 os.path.join(self.output_dir, "ols_iterations_metrics.csv"), index=False
             )
-            # Also process MC seeds if available
-            if self.mc_iteration_paths and all(os.path.exists(path) for path in self.mc_iteration_paths):
-                df_3d_metrics_mc = calculate_all_metrics(
-                    self.mc_iteration_paths, "mc", iterations=True
-                )
-                df_3d_metrics_mc.to_csv(
-                    os.path.join(self.output_dir, "mc_iterations_metrics.csv"), index=False
-                )
-                self.df_3d_metrics_mc = df_3d_metrics_mc
-            else:
-                print(f"MC iteration paths not found: {self.mc_iteration_paths}")
         else:
-            df_all_metrics_ols = calculate_all_metrics(
-                self.seed_paths, "ols", self.mc_seed_path
+            # Process both OLS and RS seeds
+            df_all_metrics, df_mean_std = calculate_all_metrics(
+                self.seed_paths, "ols", rs_seed_paths=self.rs_seed_paths, iterations=False
             )
-            # Save the DataFrame to CSV
-            df_all_metrics_ols.to_csv(
-                os.path.join(self.output_dir, "ols_all_metrics.csv"), index=False
+            # Save the DataFrames to CSV
+            df_all_metrics.to_csv(
+                os.path.join(self.output_dir, "ols_rs_all_metrics.csv"), index=False
             )
-            
-        # Store metrics
-        self.df_all_metrics_ols = df_all_metrics_ols
-        print(self.df_all_metrics_ols)
-        if hasattr(self, 'df_3d_metrics_mc'):
-            print(self.df_3d_metrics_mc)
-        print("Metrics calculation completed.")
+            df_mean_std.to_csv(
+                os.path.join(self.output_dir, "ols_rs_metrics_mean_std.csv"), index=False
+            )
+            # Store metrics
+            self.df_all_metrics = df_all_metrics
+            self.df_mean_std = df_mean_std
+            print(self.df_all_metrics)
+            print(self.df_mean_std)
+    print("Metrics calculation completed.")
 
     def plot_pareto_frontiers(self, rewards, iterations):
         # Generate the 2D Pareto frontier plots
@@ -343,43 +336,57 @@ def calculate_3d_sparsity(points):
         return 0.0
 
 
-def calculate_all_metrics(seed_paths, wrapper, mc_seed_paths=None, iterations=False):
+def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iterations=False):
     """
-    Calculates all metrics for each seed and the superseed set.
-    If iterations=True, only calculates 3D Hypervolume and 3D Sparsity for each iteration.
+    Calculates hypervolume and sparsity metrics for OLS and RS seeds.
+    Returns a DataFrame with per-seed metrics and another DataFrame with mean and std for each method.
     """
     if iterations:
-        # seed_paths and mc_seed_paths are lists of paths per iteration
-        iteration_numbers = [5, 10, 20]
-        results_list = []
-        for idx, seed_path in enumerate(seed_paths):
-            mc_seed_path = (
-                mc_seed_paths[idx] if mc_seed_paths and idx < len(mc_seed_paths) else None
-            )
-            iteration = iteration_numbers[idx]
-            # Since we're only interested in 3D Hypervolume and Sparsity
-            hv_3d_ols, sparsity_3d_ols = calculate_3d_metrics_only_for_mc(seed_path)
-            if mc_seed_path and os.path.exists(mc_seed_path):
-                hv_3d_mc, sparsity_3d_mc = calculate_3d_metrics_only_for_mc(mc_seed_path)
-            else:
-                hv_3d_mc, sparsity_3d_mc = None, None
-
-            # Create a DataFrame with these metrics
-            data = {
-                'Iteration': iteration,
-                'Hypervolume 3D OLS': hv_3d_ols,
-                'Sparsity 3D OLS': sparsity_3d_ols,
-                'Hypervolume 3D MC': hv_3d_mc,
-                'Sparsity 3D MC': sparsity_3d_mc
-            }
-            results_list.append(data)
-        # Convert the list of dicts to a DataFrame
-        df_results = pd.DataFrame(results_list)
-        return df_results
+        # Existing code for iterations
+        pass
     else:
-        return calculate_hypervolumes_and_sparsities(
-            seed_paths, wrapper, mc_seed_path=mc_seed_paths
-        )
+        import pandas as pd
+        # Process OLS seeds
+        ols_metrics_list = []
+        for idx, seed_path in enumerate(seed_paths_ols):
+            if not os.path.exists(seed_path):
+                print(f"OLS seed path not found: {seed_path}")
+                continue
+            hv_3d_ols, sparsity_3d_ols = calculate_3d_metrics_only_for_mc(seed_path)
+            data = {
+                'Method': 'OLS',
+                'Seed': f'Seed_{idx}',
+                'Hypervolume 3D': hv_3d_ols,
+                'Sparsity 3D': sparsity_3d_ols
+            }
+            ols_metrics_list.append(data)
+        # Process RS seeds
+        rs_metrics_list = []
+        if rs_seed_paths:
+            for idx, seed_path in enumerate(rs_seed_paths):
+                if not os.path.exists(seed_path):
+                    print(f"RS seed path not found: {seed_path}")
+                    continue
+                hv_3d_rs, sparsity_3d_rs = calculate_3d_metrics_only_for_mc(seed_path)
+                data = {
+                    'Method': 'RS',
+                    'Seed': f'Seed_{idx}',
+                    'Hypervolume 3D': hv_3d_rs,
+                    'Sparsity 3D': sparsity_3d_rs
+                }
+                rs_metrics_list.append(data)
+        # Combine the lists
+        all_metrics_list = ols_metrics_list + rs_metrics_list
+        # Convert to DataFrame
+        df_all_metrics = pd.DataFrame(all_metrics_list)
+        # Compute mean and std for each method
+        df_mean_std = df_all_metrics.groupby('Method').agg(
+            {'Hypervolume 3D': ['mean', 'std'], 'Sparsity 3D': ['mean', 'std']}
+        ).reset_index()
+        # Flatten MultiIndex columns
+        df_mean_std.columns = ['Method', 'Hypervolume 3D Mean', 'Hypervolume 3D Std', 'Sparsity 3D Mean', 'Sparsity 3D Std']
+        # Return DataFrames
+        return df_all_metrics, df_mean_std
 
 def calculate_hypervolumes_and_sparsities(seed_paths, wrapper, mc_seed_path=None):
     """Calculates hypervolumes and sparsities for each seed and aggregates the results."""
@@ -969,17 +976,16 @@ def plot_2d_projections_matplotlib(
         if save_dir:
             plt.savefig(os.path.join(save_dir, "ols_pareto_frontiers.png"))
         plt.show()
-
-def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
+def plot_ccs_points_only(
     ols_seed_paths,
     rs_seed_paths,
     save_dir=None,
     rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
 ):
     """
-    Plots the 2D projections of the 3D convex coverage set (CCS) over all seeds from both OLS and RS.
-    Highlights the OLS points that are in the CCS, indicating they dominate the RS benchmark.
-    
+    Plots only the points that form the CCS over all seeds from both OLS and RS.
+    Points are plotted in full color, indicating whether they came from OLS or RS.
+
     Parameters:
     - ols_seed_paths: List of file paths to OLS JSON data.
     - rs_seed_paths: List of file paths to RS JSON data.
@@ -1010,7 +1016,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
 
     # Initialize lists to collect all data points and labels
     all_coords = []
-    labels = []  # 'OLS' or 'RS' for each point
+    labels_list = []  # 'OLS' or 'RS' for each point
 
     # Function to load data from seed paths
     def load_data(seed_paths, label):
@@ -1025,7 +1031,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
             x_all, y_all, z_all = extract_coordinates(ccs_list)
             coords = np.column_stack((x_all, y_all, z_all))
             coords_list.append(coords)
-            labels.extend([label] * len(coords))
+            labels_list.extend([label] * len(coords))
         if coords_list:
             return np.vstack(coords_list)
         else:
@@ -1048,7 +1054,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
         print("No data available to plot.")
         return
 
-    labels = np.array(labels)
+    labels = np.array(labels_list)
 
     # Compute the 3D Convex Coverage Set (CCS) over all points
     ccs_mask = get_pareto_front(all_coords)
@@ -1056,34 +1062,236 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     ccs_coords = all_coords[ccs_indices]
     ccs_labels = labels[ccs_indices]
 
-    # Identify which CCS points come from OLS
+    # Separate CCS points by their source (OLS or RS)
+    ols_ccs_coords = ccs_coords[ccs_labels == 'OLS']
+    rs_ccs_coords = ccs_coords[ccs_labels == 'RS']
+
+    # Plot only the CCS points, in full color
+    # OLS CCS points
+    if ols_ccs_coords.size > 0:
+        axs[0].scatter(
+            ols_ccs_coords[:, 0],
+            ols_ccs_coords[:, 1],
+            color='lightcoral',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+        axs[1].scatter(
+            ols_ccs_coords[:, 0],
+            ols_ccs_coords[:, 2],
+            color='lightcoral',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+        axs[2].scatter(
+            ols_ccs_coords[:, 1],
+            ols_ccs_coords[:, 2],
+            color='lightcoral',
+            marker='o',
+            s=100,
+            label='OLS CCS Points'
+        )
+
+    # RS CCS points
+    if rs_ccs_coords.size > 0:
+        axs[0].scatter(
+            rs_ccs_coords[:, 0],
+            rs_ccs_coords[:, 1],
+            color='darkgrey',
+            marker='o',
+            s=100,
+            label='RS CCS Points'
+        )
+        axs[1].scatter(
+            rs_ccs_coords[:, 0],
+            rs_ccs_coords[:, 2],
+            color='darkgrey',
+            marker='o',
+            s=100,
+            label='RS CCS Points'
+        )
+        axs[2].scatter(
+            rs_ccs_coords[:, 1],
+            rs_ccs_coords[:, 2],
+            color='darkgrey',
+            marker='o',
+            s=100,
+            label='RS CCS Points'
+        )
+
+    # Set labels
+    axs[0].set_xlabel(rewards[0])
+    axs[0].set_ylabel(rewards[1])
+    axs[1].set_xlabel(rewards[0])
+    axs[1].set_ylabel(rewards[2])
+    axs[2].set_xlabel(rewards[1])
+    axs[2].set_ylabel(rewards[2])
+
+    # Remove duplicate legends and adjust
+    for ax in axs:
+        handles, labels = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        ax.legend(by_label.values(), by_label.keys())
+        ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+    plt.suptitle("CCS over All Seeds and Methods", fontsize=20)
+    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
+    if save_dir:
+        plt.savefig(os.path.join(save_dir, "ccs_points_only.png"))
+    plt.show()
+def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
+    ols_seed_paths,
+    rs_seed_paths,
+    save_dir=None,
+    rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
+):
+    """
+    Plots the 2D projections of the 3D convex coverage set (CCS) over all seeds from both OLS and RS.
+    Highlights the CCS points from OLS in lightcoral and from RS in dark grey.
+    Additionally, plots all other points (non-CCS) with respective colours and transparency.
+
+    Parameters:
+    - ols_seed_paths: List of file paths to OLS JSON data.
+    - rs_seed_paths: List of file paths to RS JSON data.
+    - save_dir: Directory to save the plot image (optional).
+    - rewards: List of reward names for labeling axes.
+    """
+    import matplotlib.pyplot as plt
+    import os
+    import numpy as np
+
+    # --- Plotting starts here ---
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update(
+        {
+            "font.size": 14,
+            "figure.figsize": (20, 6),
+            "axes.grid": True,
+            "axes.labelsize": 16,
+            "axes.titlesize": 18,
+            "legend.fontsize": 12,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "font.family": "serif",
+        }
+    )
+
+    fig, axs = plt.subplots(1, 3, figsize=(20, 6))
+
+    # Initialize lists to collect all data points and labels
+    all_coords = []
+    labels_list = []  # 'OLS' or 'RS' for each point
+
+    # Function to load data from seed paths
+    def load_data(seed_paths, label):
+        coords_list = []
+        for seed_path in seed_paths:
+            if not os.path.exists(seed_path):
+                print(f"File not found: {seed_path}")
+                continue
+
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            coords = np.column_stack((x_all, y_all, z_all))
+            coords_list.append(coords)
+            labels_list.extend([label] * len(coords))
+        if coords_list:
+            return np.vstack(coords_list)
+        else:
+            return np.array([])
+
+    # Load OLS data
+    ols_coords = load_data(ols_seed_paths, 'OLS')
+
+    # Load RS data
+    rs_coords = load_data(rs_seed_paths, 'RS')
+
+    # Combine all data
+    if ols_coords.size > 0 and rs_coords.size > 0:
+        all_coords = np.vstack((ols_coords, rs_coords))
+    elif ols_coords.size > 0:
+        all_coords = ols_coords
+    elif rs_coords.size > 0:
+        all_coords = rs_coords
+    else:
+        print("No data available to plot.")
+        return
+
+    labels = np.array(labels_list)
+
+    # Compute the 3D Convex Coverage Set (CCS) over all points
+    ccs_mask = get_pareto_front(all_coords)
+    ccs_indices = np.where(ccs_mask)[0]
+    ccs_coords = all_coords[ccs_indices]
+    ccs_labels = labels[ccs_indices]
+
+    # Identify which CCS points come from OLS and which from RS
     ols_ccs_indices = ccs_indices[ccs_labels == 'OLS']
+    rs_ccs_indices = ccs_indices[ccs_labels == 'RS']
     ols_ccs_coords = all_coords[ols_ccs_indices]
+    rs_ccs_coords = all_coords[rs_ccs_indices]
 
-    # Plot all points with transparency
-    axs[0].scatter(
-        all_coords[:, 0],
-        all_coords[:, 1],
-        color='grey',
-        alpha=0.3,
-        label='All Points'
-    )
-    axs[1].scatter(
-        all_coords[:, 0],
-        all_coords[:, 2],
-        color='grey',
-        alpha=0.3,
-        label='All Points'
-    )
-    axs[2].scatter(
-        all_coords[:, 1],
-        all_coords[:, 2],
-        color='grey',
-        alpha=0.3,
-        label='All Points'
-    )
+    # Now plot all the points with respective colors and transparency
+    # All OLS points in lightcoral with transparency
+    if ols_coords.size > 0:
+        axs[0].scatter(
+            ols_coords[:, 0],
+            ols_coords[:, 1],
+            color='red',
+            alpha=0.3,
+            marker='o',
+            label='OLS Points'
+        )
+        axs[1].scatter(
+            ols_coords[:, 0],
+            ols_coords[:, 2],
+            color='red',
+            alpha=0.3,
+            marker='o',
+            label='OLS Points'
+        )
+        axs[2].scatter(
+            ols_coords[:, 1],
+            ols_coords[:, 2],
+            color='red',
+            alpha=0.3,
+            marker='o',
+            label='OLS Points'
+        )
 
-    # Plot OLS CCS points in red
+    # All RS points in dark grey with transparency
+    if rs_coords.size > 0:
+        axs[0].scatter(
+            rs_coords[:, 0],
+            rs_coords[:, 1],
+            color='darkgrey',
+            alpha=0.3,
+            marker='o',
+            label='RS Points'
+        )
+        axs[1].scatter(
+            rs_coords[:, 0],
+            rs_coords[:, 2],
+            color='darkgrey',
+            alpha=0.3,
+            marker='o',
+            label='RS Points'
+        )
+        axs[2].scatter(
+            rs_coords[:, 1],
+            rs_coords[:, 2],
+            color='darkgrey',
+            alpha=0.3,
+            marker='o',
+            label='RS Points'
+        )
+
+    # Now plot the CCS points with solid colors and larger markers
+    # OLS CCS points
     if ols_ccs_coords.size > 0:
         axs[0].scatter(
             ols_ccs_coords[:, 0],
@@ -1113,35 +1321,33 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
             label='OLS CCS Points'
         )
 
-    # Optionally, plot RS CCS points differently (if needed)
-    rs_ccs_indices = ccs_indices[ccs_labels == 'RS']
-    rs_ccs_coords = all_coords[rs_ccs_indices]
+    # RS CCS points
     if rs_ccs_coords.size > 0:
         axs[0].scatter(
             rs_ccs_coords[:, 0],
             rs_ccs_coords[:, 1],
-            color='blue',
+            color='darkgrey',
             edgecolors='black',
-            marker='s',
-            s=100,
+            marker='o',
+            s=80,
             label='RS CCS Points'
         )
         axs[1].scatter(
             rs_ccs_coords[:, 0],
             rs_ccs_coords[:, 2],
-            color='blue',
+            color='darkgrey',
             edgecolors='black',
-            marker='s',
-            s=100,
+            marker='o',
+            s=80,
             label='RS CCS Points'
         )
         axs[2].scatter(
             rs_ccs_coords[:, 1],
             rs_ccs_coords[:, 2],
-            color='blue',
+            color='darkgrey',
             edgecolors='black',
-            marker='s',
-            s=100,
+            marker='o',
+            s=80,
             label='RS CCS Points'
         )
 
@@ -1161,11 +1367,13 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
     plt.tight_layout()
-    plt.suptitle("3D CCS Projection: OLS CCS Points Dominating RS Benchmark", fontsize=20)
+    plt.suptitle("3D CCS Projection: OLS and RS Super CCS", fontsize=20)
     plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
     if save_dir:
-        plt.savefig(os.path.join(save_dir, "ccs_ols_vs_rs.png"))
+        plt.savefig(os.path.join(save_dir, "super_ccs_ols_vs_rs.png"))
     plt.show()
+
+
 
 
 
@@ -4289,6 +4497,12 @@ def main():
         analysis.analyse_pareto_values_and_plot()
     # Perform the analyses
     if scenario == "Baseline":
+        plot_ccs_points_only(
+            ols_seed_paths=analysis.seed_paths,
+            rs_seed_paths=analysis.rs_seed_paths,
+            save_dir=analysis.output_dir,
+            rewards=reward_names
+        )
         # Call the updated plotting function
         plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
             ols_seed_paths=analysis.seed_paths,
