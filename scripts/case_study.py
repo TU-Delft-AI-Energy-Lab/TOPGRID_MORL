@@ -34,7 +34,7 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(5):
+        for seed in range(20):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
@@ -2676,7 +2676,7 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
         hue='Method',
         palette=method_palette
     )
-    ax_hv.set_ylim(top=25)
+    ax_hv.set_ylim(top=100, bottom=0)
     plt.title('Hypervolume Comparison')
     plt.xlabel('Learning Setting')
     plt.ylabel('Hypervolume')
@@ -2762,7 +2762,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         path = paths[setting]
         seed_paths = []
         print(path)
-        for seed in range(5):  # Adjust the range as needed
+        for seed in range(20):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
@@ -2977,7 +2977,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ["Baseline", "op_normal", "op_hard"]
+        settings = ["Baseline", "moderate contingencies", "high contingencies"]
         paths = opponent_paths
         scenario_title = 'Contingencies'
     elif scenario == "Time":
@@ -3179,11 +3179,27 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         if num_settings == 1:
             axes_kde = [axes_kde]  # Ensure axes_kde is iterable when there's only one setting
 
+        unique_weights_all_settings = []  # To store unique weights for line plot
+
         for i, setting in enumerate(settings):
             df_setting = df_results[df_results['Setting'] == setting]
             if df_setting.empty:
                 print(f"No data available for setting: {setting}")
                 continue
+
+            print(setting)
+            unique_weights = df_setting[['Weight 1', 'Weight 2', 'Weight 3']].drop_duplicates()
+            print("Unique successful weight vectors:")
+            print(np.round(unique_weights, decimals=2))
+
+            # Store unique weights with setting information for line plot
+            for _, row in unique_weights.iterrows():
+                unique_weights_all_settings.append({
+                    'Setting': setting,
+                    'Weight 1': row['Weight 1'],
+                    'Weight 2': row['Weight 2'],
+                    'Weight 3': row['Weight 3']
+                })
 
             weights = ['Weight 1', 'Weight 2', 'Weight 3']
             weight_titles = ['L2RPN', 'Actions', 'Depth']
@@ -3210,11 +3226,37 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         plt.tight_layout()
         plt.show()
 
-    else:
-        print("Invalid plot_option. Please choose 'combined' or 'separate'.")
+        # Create a DataFrame from unique weights for line plot
+        # Create a DataFrame from unique weights for line plot
+        df_unique_weights = pd.DataFrame(unique_weights_all_settings)
 
-    # Return the DataFrame for further analysis if needed
-    return df_results
+        # Define colors: black for baseline, use a color palette for the others
+        palette = sns.color_palette("husl", len(df_unique_weights['Setting'].unique()))  # Generate a color palette
+        setting_palette = dict(zip(df_unique_weights['Setting'].unique(), palette))      # Map settings to colors
+        setting_palette['Baseline'] = 'black'  # Set baseline to black
+
+        # Plotting unique successful weight vectors as scatter plots
+        plt.figure(figsize=(12, 6))
+
+        # Plot each weight dimension as scatter points, coloring according to the setting
+        for index, row in df_unique_weights.iterrows():
+            plt.scatter(['Weight 1', 'Weight 2', 'Weight 3'],
+                        [row['Weight 1'], row['Weight 2'], row['Weight 3']],
+                        color=setting_palette[row['Setting']],
+                        label=row['Setting'] if row['Setting'] not in plt.gca().get_legend_handles_labels()[1] else "")
+
+        plt.title('Scatter Plot of Weight Vector Values Across Different Settings')
+        plt.xlabel('Weight Dimension')
+        plt.ylabel('Weight Value')
+        plt.ylim(0, 1)
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        # Create a legend and specify unique entries
+        plt.legend(title='Settings', loc='upper right')
+
+        plt.xticks(['Weight 1', 'Weight 2', 'Weight 3'])
+        plt.tight_layout()
+        plt.show()
 
 
 
