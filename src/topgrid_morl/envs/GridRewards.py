@@ -81,7 +81,7 @@ class TopoDepthReward(BaseReward):
             #print(topo_dist)
         
         if topo_dist == 0 : 
-            reward = 0.1
+            reward = 0
         elif topo_dist <=1:
             reward = -0.01
         else: 
@@ -892,7 +892,7 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
             self.switchings_per_day+=1
             
         if self.switchings_per_day ==0:
-            reward = 0.01
+            reward = 0
         elif self.switchings_per_day<=1: 
             reward = -1
         elif self.switchings_per_day <=2:
