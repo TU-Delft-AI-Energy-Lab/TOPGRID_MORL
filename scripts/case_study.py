@@ -3060,6 +3060,81 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     })
 
     sns.set_style("whitegrid")
+    
+    
+    results = []
+    unsuccessful_results = []
+
+    # Loop over each setting
+    for setting in settings:
+        path = paths[setting]
+        seed_paths = []
+        for seed in range(5):  # Adjust the range as needed
+            seed_file = f"morl_logs_seed_{seed}.json"
+            seed_path = os.path.join(path, seed_file)
+            if os.path.exists(seed_path):
+                seed_paths.append(seed_path)
+            else:
+                print(f"Seed file not found: {seed_path}")
+
+        # Process data for this scenario and setting
+        for seed_path in seed_paths:
+            print(f"Processing for setting: {setting} with seed path: {seed_path}")
+            # Load the data (implement your own load function or adjust accordingly)
+            df_ccs_matching_seeds = process_data(
+                seed_paths=[seed_path], wrapper='ols', output_dir=path)
+
+            # For each run in the data
+            for index, row in df_ccs_matching_seeds.iterrows():
+                weights = row['Weights']
+                steps_chronic_0 = row['test_chronic_0']['test_steps']
+                steps_chronic_1 = row['test_chronic_1']['test_steps']
+                avg_steps = (steps_chronic_0 + steps_chronic_1) / 2
+
+                if weights != [1.0, 0.0, 0.0]:
+                    if steps_chronic_0 == 2016 and steps_chronic_1 == 2016:
+                        results.append({
+                            'Seed': row['seed'],
+                            'Setting': setting,
+                            'Weights': weights,
+                            'Average Steps': avg_steps
+                        })
+                    else:
+                        unsuccessful_results.append({
+                            'Seed': row['seed'],
+                            'Setting': setting,
+                            'Weights': weights,
+                            'Average Steps': avg_steps,
+                            'Steps Chronic 0': steps_chronic_0,
+                            'Steps Chronic 1': steps_chronic_1
+                        })
+
+    # Convert the results into DataFrames
+    df_results = pd.DataFrame(results)
+    df_unsuccessful = pd.DataFrame(unsuccessful_results)
+
+    if df_results.empty:
+        print("No successful M-O policies found for the given scenario.")
+        return
+
+    if df_unsuccessful.empty:
+        print("No unsuccessful M-O policies found for the given scenario.")
+    else:
+        print("Unsuccessful M-O policies found for the given scenario.")
+
+    # Convert the list of weights to columns for easier plotting in successful policies
+    weights_array = np.array(df_results['Weights'].tolist())
+    df_results['Weight 1'] = weights_array[:, 0]
+    df_results['Weight 2'] = weights_array[:, 1]
+    df_results['Weight 3'] = weights_array[:, 2]
+
+    # Convert the list of weights to columns for easier plotting in unsuccessful policies
+    if not df_unsuccessful.empty:
+        weights_array_unsuccessful = np.array(df_unsuccessful['Weights'].tolist())
+        df_unsuccessful['Weight 1'] = weights_array_unsuccessful[:, 0]
+        df_unsuccessful['Weight 2'] = weights_array_unsuccessful[:, 1]
+        df_unsuccessful['Weight 3'] = weights_array_unsuccessful[:, 2]
+        
 
     if plot_option == 'combined':
         # Option 1: Combined KDE and Strip Plots by Weight
@@ -3173,60 +3248,85 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
     elif plot_option == 'separate':
         # Option 2: Separate KDE Plots by Setting
-        # For each setting, plot the KDE distributions of the weights
+        # For each setting, plot the KDE distributions of the weights for both successful and unsuccessful cases
         num_settings = len(settings)
-        fig_kde, axes_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        fig_kde, axes_kde = plt.subplots(2, num_settings, figsize=(6 * num_settings, 12), sharex=True, sharey=True)
         if num_settings == 1:
             axes_kde = [axes_kde]  # Ensure axes_kde is iterable when there's only one setting
 
         unique_weights_all_settings = []  # To store unique weights for line plot
 
         for i, setting in enumerate(settings):
-            df_setting = df_results[df_results['Setting'] == setting]
-            if df_setting.empty:
-                print(f"No data available for setting: {setting}")
+            df_setting_successful = df_results[df_results['Setting'] == setting]
+            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
+
+            if df_setting_successful.empty:
+                print(f"No successful data available for setting: {setting}")
+            else:
+                print(setting)
+                unique_weights = df_setting_successful[['Weight 1', 'Weight 2', 'Weight 3']].drop_duplicates()
+                print("Unique successful weight vectors:")
+                print(np.round(unique_weights, decimals=2))
+
+                # Store unique weights with setting information for line plot
+                for _, row in unique_weights.iterrows():
+                    unique_weights_all_settings.append({
+                        'Setting': setting,
+                        'Weight 1': row['Weight 1'],
+                        'Weight 2': row['Weight 2'],
+                        'Weight 3': row['Weight 3']
+                    })
+
+                weights = ['Weight 1', 'Weight 2', 'Weight 3']
+                weight_titles = ['L2RPN', 'Actions', 'Depth']
+
+                # Plot successful KDE
+                for weight, weight_title in zip(weights, weight_titles):
+                    sns.kdeplot(
+                        data=df_setting_successful,
+                        x=weight,
+                        label=f'Successful - {weight_title}',
+                        fill=True,
+                        clip=(0, 1),
+                        common_norm=False,
+                        alpha=0.5,
+                        ax=axes_kde[0][i]
+                    )
+
+                axes_kde[0][i].set_title(f'{setting} - Successful')
+                axes_kde[0][i].set_xlabel('Weight Value')
+                axes_kde[0][i].set_ylabel('Density')
+                axes_kde[0][i].set_xlim(0, 1)
+                axes_kde[0][i].set_ylim(0, 2)
+                axes_kde[0][i].legend(title='Rewards')
+
+            if df_setting_unsuccessful.empty:
+                print(f"No unsuccessful data available for setting: {setting}")
                 continue
 
-            print(setting)
-            unique_weights = df_setting[['Weight 1', 'Weight 2', 'Weight 3']].drop_duplicates()
-            print("Unique successful weight vectors:")
-            print(np.round(unique_weights, decimals=2))
-
-            # Store unique weights with setting information for line plot
-            for _, row in unique_weights.iterrows():
-                unique_weights_all_settings.append({
-                    'Setting': setting,
-                    'Weight 1': row['Weight 1'],
-                    'Weight 2': row['Weight 2'],
-                    'Weight 3': row['Weight 3']
-                })
-
-            weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['L2RPN', 'Actions', 'Depth']
-
+            # Plot unsuccessful KDE
             for weight, weight_title in zip(weights, weight_titles):
                 sns.kdeplot(
-                    data=df_setting,
+                    data=df_setting_unsuccessful,
                     x=weight,
-                    label=weight_title,
+                    label=f'Unsuccessful - {weight_title}',
                     fill=True,
                     clip=(0, 1),
                     common_norm=False,
                     alpha=0.5,
-                    ax=axes_kde[i]
+                    ax=axes_kde[1][i]
                 )
 
-            axes_kde[i].set_title(f'{setting} ')
-            axes_kde[i].set_xlabel('Weight Value')
-            axes_kde[i].set_ylabel('Density')
-            axes_kde[i].set_xlim(0, 1)
-            axes_kde[i].set_ylim(0, 2)
-            axes_kde[i].legend(title='Rewards')
+            axes_kde[1][i].set_title(f'{setting} - Unsuccessful')
+            axes_kde[1][i].set_xlabel('Weight Value')
+            axes_kde[1][i].set_ylabel('Density')
+            axes_kde[1][i].set_xlim(0, 1)
+            axes_kde[1][i].set_ylim(0, 2)
+            axes_kde[1][i].legend(title='Rewards')
 
         plt.tight_layout()
         plt.show()
 
-        # Create a DataFrame from unique weights for line plot
         # Create a DataFrame from unique weights for line plot
         df_unique_weights = pd.DataFrame(unique_weights_all_settings)
 
@@ -3257,7 +3357,84 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         plt.xticks(['Weight 1', 'Weight 2', 'Weight 3'])
         plt.tight_layout()
         plt.show()
+        # Call the function with the DataFrames
+        #plot_weight_distributions(df_results, df_unsuccessful)
+        plot_steps_vs_weights_by_scenario(df_results, df_unsuccessful)
 
+
+
+
+def plot_steps_vs_weights_by_scenario(df_results, df_unsuccessful):
+    """
+    Creates 3x3 scatter plots to show the relationship between the average number of steps and each weight dimension
+    (Weight 1, Weight 2, and Weight 3) across different scenarios (Baseline, moderate contingencies, high contingencies).
+    Each weight dimension corresponds to a reward: L2RPN, Actions, and Depth.
+
+    Parameters:
+    - df_results: A DataFrame containing successful policies, with columns for each weight dimension
+                  and the average number of steps.
+    - df_unsuccessful: A DataFrame containing unsuccessful policies, with columns for each weight dimension
+                       and the average number of steps.
+    """
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Define weight columns and their corresponding reward names
+    weights = ['Weight 1', 'Weight 2', 'Weight 3']
+    reward_titles = ['L2RPN', 'Actions', 'Depth']
+
+    # Define scenarios
+    scenarios = ['Baseline', 'moderate contingencies', 'high contingencies']
+
+    # Set up a figure with a 3x3 grid of subplots
+    fig, axes = plt.subplots(3, 3, figsize=(18, 18), sharex=True, sharey=True)
+    
+    for row, scenario in enumerate(scenarios):
+        # Filter successful and unsuccessful data for each scenario
+        df_results_scenario = df_results[df_results['Setting'] == scenario]
+        df_unsuccessful_scenario = df_unsuccessful[df_unsuccessful['Setting'] == scenario]
+
+        for col, (weight, reward_title) in enumerate(zip(weights, reward_titles)):
+            # Plot successful policies
+            sns.scatterplot(
+                data=df_results_scenario,
+                x=weight,
+                y='Average Steps',
+                hue='Setting',
+                palette='viridis',
+                ax=axes[row, col],
+                marker='o',
+                edgecolor='black',
+                s=100,  # Size of successful markers
+                alpha=0.7
+            )
+
+            # Plot unsuccessful policies
+            if not df_unsuccessful_scenario.empty:
+                sns.scatterplot(
+                    data=df_unsuccessful_scenario,
+                    x=weight,
+                    y='Average Steps',
+                    hue='Setting',
+                    palette='coolwarm',
+                    ax=axes[row, col],
+                    marker='X',
+                    edgecolor='red',
+                    s=60,  # Size of unsuccessful markers
+                    alpha=0.7
+                )
+
+            # Titles and labels for each subplot
+            if row == 0:
+                axes[row, col].set_title(f'{reward_title} Weight vs. Average Steps')
+            if col == 0:
+                axes[row, col].set_ylabel(f'{scenario}\nAverage Steps')
+            axes[row, col].set_xlabel(f'{reward_title} Weight')
+
+    # Adjust layout and show plot
+    plt.tight_layout()
+    plt.show()
 
 
 
@@ -4419,7 +4596,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[1]
+    scenario = scenarios[2]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters
@@ -4476,9 +4653,10 @@ def main():
         #plot_super_pareto_frontier_2d_multiple_settings(os.path.join(base_json_path, "OLS", scenario), scenario=scenario, settings = ["Baseline", "Full", "Partial"] )
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        
-        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
+        #visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
         visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
+        # Call the function with the results DataFrames
+        
     if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
