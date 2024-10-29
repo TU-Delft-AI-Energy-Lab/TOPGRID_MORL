@@ -3247,13 +3247,139 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         plt.show()
 
     elif plot_option == 'separate':
-        # Option 2: Separate KDE Plots by Setting
-        # For each setting, plot the KDE distributions of the weights for both successful and unsuccessful cases
+        # Option 2: Separate KDE Plots by Setting - Successful Cases
         num_settings = len(settings)
-        fig_kde, axes_kde = plt.subplots(2, num_settings, figsize=(6 * num_settings, 12), sharex=True, sharey=True)
-        if num_settings == 1:
-            axes_kde = [axes_kde]  # Ensure axes_kde is iterable when there's only one setting
 
+        # Plot for Successful Cases
+        fig_success_kde, axes_success_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_success_kde = [axes_success_kde]  # Ensure axes_success_kde is iterable when there's only one setting
+
+        for i, setting in enumerate(settings):
+            df_setting_successful = df_results[df_results['Setting'] == setting]
+
+            if df_setting_successful.empty:
+                print(f"No successful data available for setting: {setting}")
+                continue
+
+            print(setting)
+            weights = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['L2RPN', 'Actions', 'Depth']
+
+            # Plot successful KDE
+            for weight, weight_title in zip(weights, weight_titles):
+                sns.kdeplot(
+                    data=df_setting_successful,
+                    x=weight,
+                    label=f'Successful - {weight_title}',
+                    fill=True,
+                    clip=(0, 1),
+                    common_norm=False,
+                    alpha=0.5,
+                    ax=axes_success_kde[i]
+                )
+
+            axes_success_kde[i].set_title(f'{setting} - Successful')
+            axes_success_kde[i].set_xlabel('Weight Value')
+            axes_success_kde[i].set_ylabel('Density')
+            axes_success_kde[i].set_xlim(0, 1)
+            axes_success_kde[i].set_ylim(0, 2)
+            axes_success_kde[i].legend(title='Rewards')
+
+        plt.tight_layout()
+        plt.show()
+
+        # Plot for Unsuccessful Cases
+        fig_unsuccess_kde, axes_unsuccess_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_unsuccess_kde = [axes_unsuccess_kde]  # Ensure axes_unsuccess_kde is iterable when there's only one setting
+
+        for i, setting in enumerate(settings):
+            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
+
+            if df_setting_unsuccessful.empty:
+                print(f"No unsuccessful data available for setting: {setting}")
+                continue
+
+            weights = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['L2RPN', 'Actions', 'Depth']
+
+            # Plot unsuccessful KDE
+            for weight, weight_title in zip(weights, weight_titles):
+                sns.kdeplot(
+                    data=df_setting_unsuccessful,
+                    x=weight,
+                    label=f'Unsuccessful - {weight_title}',
+                    fill=True,
+                    clip=(0, 1),
+                    common_norm=False,
+                    alpha=0.5,
+                    ax=axes_unsuccess_kde[i]
+                )
+
+            axes_unsuccess_kde[i].set_title(f'{setting} - Unsuccessful')
+            axes_unsuccess_kde[i].set_xlabel('Weight Value')
+            axes_unsuccess_kde[i].set_ylabel('Density')
+            axes_unsuccess_kde[i].set_xlim(0, 1)
+            axes_unsuccess_kde[i].set_ylim(0, 2)
+            axes_unsuccess_kde[i].legend(title='Rewards')
+
+        plt.tight_layout()
+        plt.show()
+
+        # Separate Histogram Plots by Setting with Parallel Bins for Each Reward
+        fig_hist, axes_hist = plt.subplots(2, num_settings, figsize=(6 * num_settings, 12), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_hist = [axes_hist]  # Ensure axes_hist is iterable when there's only one setting
+
+        for i, setting in enumerate(settings):
+            df_setting_successful = df_results[df_results['Setting'] == setting]
+            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
+
+            if not df_setting_successful.empty:
+                # Plot successful histograms with parallel bins
+                for weight, weight_title in zip(weights, weight_titles):
+                    sns.histplot(
+                        data=df_setting_successful.melt(value_vars=weights, var_name="Weight Type", value_name="Weight Value"),
+                        x="Weight Value",
+                        hue="Weight Type",
+                        multiple="dodge",
+                        bins=5,
+                        palette="Blues",
+                        alpha=0.5,
+                        ax=axes_hist[0][i]
+                    )
+
+                axes_hist[0][i].set_title(f'{setting} - Successful')
+                axes_hist[0][i].set_xlabel('Weight Value')
+                axes_hist[0][i].set_ylabel('Frequency')
+                axes_hist[0][i].set_xlim(0, 1)
+                axes_hist[0][i].legend(title='Weight Types')
+
+            if not df_setting_unsuccessful.empty:
+                # Plot unsuccessful histograms with parallel bins
+                for weight, weight_title in zip(weights, weight_titles):
+                    sns.histplot(
+                        data=df_setting_unsuccessful.melt(value_vars=weights, var_name="Weight Type", value_name="Weight Value"),
+                        x="Weight Value",
+                        hue="Weight Type",
+                        multiple="dodge",
+                        bins=5,
+                        palette="Reds",
+                        alpha=0.5,
+                        ax=axes_hist[1][i]
+                    )
+
+                axes_hist[1][i].set_title(f'{setting} - Unsuccessful')
+                axes_hist[1][i].set_xlabel('Weight Value')
+                axes_hist[1][i].set_ylabel('Frequency')
+                axes_hist[1][i].set_xlim(0, 1)
+                axes_hist[1][i].legend(title='Weight Types')
+
+        plt.tight_layout()
+        plt.show()
+
+        # Existing scatter plot logic remains unchanged
         unique_weights_all_settings = []  # To store unique weights for line plot
 
         for i, setting in enumerate(settings):
@@ -3276,57 +3402,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                         'Weight 2': row['Weight 2'],
                         'Weight 3': row['Weight 3']
                     })
-
-                weights = ['Weight 1', 'Weight 2', 'Weight 3']
-                weight_titles = ['L2RPN', 'Actions', 'Depth']
-
-                # Plot successful KDE
-                for weight, weight_title in zip(weights, weight_titles):
-                    sns.kdeplot(
-                        data=df_setting_successful,
-                        x=weight,
-                        label=f'Successful - {weight_title}',
-                        fill=True,
-                        clip=(0, 1),
-                        common_norm=False,
-                        alpha=0.5,
-                        ax=axes_kde[0][i]
-                    )
-
-                axes_kde[0][i].set_title(f'{setting} - Successful')
-                axes_kde[0][i].set_xlabel('Weight Value')
-                axes_kde[0][i].set_ylabel('Density')
-                axes_kde[0][i].set_xlim(0, 1)
-                axes_kde[0][i].set_ylim(0, 2)
-                axes_kde[0][i].legend(title='Rewards')
-
-            if df_setting_unsuccessful.empty:
-                print(f"No unsuccessful data available for setting: {setting}")
-                continue
-
-            # Plot unsuccessful KDE
-            for weight, weight_title in zip(weights, weight_titles):
-                sns.kdeplot(
-                    data=df_setting_unsuccessful,
-                    x=weight,
-                    label=f'Unsuccessful - {weight_title}',
-                    fill=True,
-                    clip=(0, 1),
-                    common_norm=False,
-                    alpha=0.5,
-                    ax=axes_kde[1][i]
-                )
-
-            axes_kde[1][i].set_title(f'{setting} - Unsuccessful')
-            axes_kde[1][i].set_xlabel('Weight Value')
-            axes_kde[1][i].set_ylabel('Density')
-            axes_kde[1][i].set_xlim(0, 1)
-            axes_kde[1][i].set_ylim(0, 2)
-            axes_kde[1][i].legend(title='Rewards')
-
-        plt.tight_layout()
-        plt.show()
-
+                    
         # Create a DataFrame from unique weights for line plot
         df_unique_weights = pd.DataFrame(unique_weights_all_settings)
 
