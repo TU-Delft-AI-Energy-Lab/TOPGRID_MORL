@@ -3165,7 +3165,8 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                     label=f'{weight_title}',
                     fill=True,
                     clip=(0, 1),
-                    common_norm=False,
+                    bw_adjust=0.5,
+                    common_norm=True,
                     alpha=0.5,
                     ax=axes_success_kde[i],
                     color=color
@@ -3183,7 +3184,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             axes_success_kde[i].set_xlabel('Weight Value')
             axes_success_kde[i].set_ylabel('Frequency')
             axes_success_kde[i].set_xlim(0, 1)
-            axes_success_kde[i].set_ylim(0, 2)
+            #axes_success_kde[i].set_ylim(0, 2)
             axes_success_kde[i].legend(title='Rewards')
 
         plt.tight_layout()
@@ -3213,7 +3214,8 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                     label=f'{weight_title}',
                     fill=True,
                     clip=(0, 1),
-                    common_norm=False,
+                    bw_adjust=0.5,
+                    common_norm=True,
                     alpha=0.5,
                     ax=axes_unsuccess_kde[i],
                     color=color
@@ -3231,7 +3233,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             axes_unsuccess_kde[i].set_xlabel('Weight Value')
             axes_unsuccess_kde[i].set_ylabel('Fequency')
             axes_unsuccess_kde[i].set_xlim(0, 1)
-            axes_unsuccess_kde[i].set_ylim(0, 2)
+            #axes_unsuccess_kde[i].set_ylim(0, 2)
             axes_unsuccess_kde[i].legend(title='Rewards')
 
         plt.tight_layout()
