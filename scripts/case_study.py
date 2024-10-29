@@ -34,7 +34,7 @@ class ExperimentAnalysis:
             print(f"Created directory: {self.output_dir}")
         # For OLS seeds (10 seeds)
         self.seed_paths = []
-        for seed in range(20):
+        for seed in range(5):
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(self.output_dir, seed_file)
             self.seed_paths.append(seed_path)
@@ -4667,12 +4667,12 @@ def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iteration
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\4th_trial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\5th_trial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[0]
     reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
 
     # Loop through scenarios and parameters

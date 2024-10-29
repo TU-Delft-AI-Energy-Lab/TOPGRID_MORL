@@ -7,7 +7,7 @@ template = """#!/bin/bash
 #SBATCH --time=3:30:00
 #SBATCH --partition=compute
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=24
 #SBATCH --mem-per-cpu=1GB
 #SBATCH --account=research-eemcs-ese
 
@@ -39,7 +39,7 @@ config_dir = "configs"  # Update this path if your config files are in a differe
 config_files = [f for f in os.listdir(config_dir) if '_5_op' in f and f.endswith('.json')]
 
 # Number of seeds
-num_seeds = 1  # Change this to the number of seeds you want to use
+num_seeds = 10  # Change this to the number of seeds you want to use
 
 # Create a batch file for each seed and config file, then submit
 for config_file in config_files:
