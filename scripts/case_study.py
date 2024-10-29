@@ -2727,7 +2727,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
         "moderate time constraints": os.path.join(base_path, "med_learning_none"),
-        "high time constraints": os.path.join(base_path, "min_time_none")
+        "high time constraints": os.path.join(base_path, "min_learning_none")
     }
 
     rho_paths = {
@@ -2963,8 +2963,8 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
     time_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "moderate time constraints": os.path.join(base_path, "med_learning_none"),
-        "high time constraints": os.path.join(base_path, "min_time_none")
+        "moderate learning constraints": os.path.join(base_path, "med_learning_none"),
+        "high learning constraints": os.path.join(base_path, "min_learning_none")
     }
 
     rho_paths = {
@@ -3154,7 +3154,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
             print(setting)
             weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['L2RPN', 'Actions', 'Depth']
+            weight_titles = ['R1: LineLoading', 'R2: Switching Frequency', 'R3: Topological Depth']
             colors = ['blue', 'green', 'coral']  # Colors for different weight types
 
             # Plot successful KDE with separate rug plots
@@ -3162,7 +3162,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 sns.kdeplot(
                     data=df_setting_successful,
                     x=weight,
-                    label=f'Successful - {weight_title}',
+                    label=f'{weight_title}',
                     fill=True,
                     clip=(0, 1),
                     common_norm=False,
@@ -3179,9 +3179,9 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                     label=f'Rug - {weight_title}'
                 )
 
-            axes_success_kde[i].set_title(f'{setting} - Successful')
+            axes_success_kde[i].set_title(f'{setting}')
             axes_success_kde[i].set_xlabel('Weight Value')
-            axes_success_kde[i].set_ylabel('Density')
+            axes_success_kde[i].set_ylabel('Frequency')
             axes_success_kde[i].set_xlim(0, 1)
             axes_success_kde[i].set_ylim(0, 2)
             axes_success_kde[i].legend(title='Rewards')
@@ -3202,7 +3202,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 continue
 
             weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['L2RPN', 'Actions', 'Depth']
+            weight_titles = ['R1: LineLoading', 'R2: Switching Frequency', 'R3: Topological Depth']
             colors = ['red', 'orange', 'brown']  # Colors for different weight types
 
             # Plot unsuccessful KDE with separate rug plots
@@ -3210,7 +3210,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 sns.kdeplot(
                     data=df_setting_unsuccessful,
                     x=weight,
-                    label=f'Unsuccessful - {weight_title}',
+                    label=f'{weight_title}',
                     fill=True,
                     clip=(0, 1),
                     common_norm=False,
@@ -3229,7 +3229,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
             axes_unsuccess_kde[i].set_title(f'{setting} - Unsuccessful')
             axes_unsuccess_kde[i].set_xlabel('Weight Value')
-            axes_unsuccess_kde[i].set_ylabel('Density')
+            axes_unsuccess_kde[i].set_ylabel('Fequency')
             axes_unsuccess_kde[i].set_xlim(0, 1)
             axes_unsuccess_kde[i].set_ylim(0, 2)
             axes_unsuccess_kde[i].legend(title='Rewards')
@@ -4663,7 +4663,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[4]
     reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
@@ -4727,12 +4727,12 @@ def main():
     if scenario == 'Time':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='points')
         
     if scenario == "Max_rho": 
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='points')
 
 if __name__ == "__main__":
     main()
