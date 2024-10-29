@@ -887,7 +887,7 @@ class TopoActionHourReward(BaseReward): #for 5bus system the switching per hour 
 
         action_dict = action.as_dict()
         if action_dict == {}:
-            reward = 0.1  # no topo action
+            reward = 0  # no topo action
         else:
             self.switchings_per_day+=1
             
