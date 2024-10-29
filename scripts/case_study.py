@@ -3184,7 +3184,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             axes_success_kde[i].set_xlabel('Weight Value')
             axes_success_kde[i].set_ylabel('Frequency')
             axes_success_kde[i].set_xlim(0, 1)
-            #axes_success_kde[i].set_ylim(0, 2)
+            axes_success_kde[i].set_ylim(0, 5)
             axes_success_kde[i].legend(title='Rewards')
 
         plt.tight_layout()
@@ -3233,7 +3233,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             axes_unsuccess_kde[i].set_xlabel('Weight Value')
             axes_unsuccess_kde[i].set_ylabel('Fequency')
             axes_unsuccess_kde[i].set_xlim(0, 1)
-            #axes_unsuccess_kde[i].set_ylim(0, 2)
+            axes_unsuccess_kde[i].set_ylim(0, 5)
             axes_unsuccess_kde[i].legend(title='Rewards')
 
         plt.tight_layout()
@@ -4665,7 +4665,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[4]
+    scenario = scenarios[2]
     reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
