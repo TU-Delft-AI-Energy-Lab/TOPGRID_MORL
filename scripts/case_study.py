@@ -1122,7 +1122,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     ols_seed_paths,
     rs_seed_paths,
     save_dir=None,
-    rewards=["L2RPN", "TopoDepth", "TopoActionHour"]
+    rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 ):
     """
     Plots the 2D projections of the 3D convex coverage set (CCS) over all seeds from both OLS and RS.
@@ -3136,114 +3136,105 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         df_unsuccessful['Weight 3'] = weights_array_unsuccessful[:, 2]
         
 
-    if plot_option == 'combined':
-        # Option 1: Combined KDE and Strip Plots by Weight
-        # Create a color palette for the settings
-        unique_settings = df_results['Setting'].unique()
-        palette = sns.color_palette("tab10", len(unique_settings))
-        setting_palette = dict(zip(unique_settings, palette))
+    if plot_option == 'points':
+        # Option 2: Separate KDE Plots by Setting - Successful Cases
+        num_settings = len(settings)
 
-        # Figure 1: KDE Plots for Each Weight
-        weights = ['Weight 1', 'Weight 2', 'Weight 3']
-        weight_titles = ['L2RPN', 'Actions', 'Depth']
+        # Plot for Successful Cases
+        fig_success_kde, axes_success_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_success_kde = [axes_success_kde]  # Ensure axes_success_kde is iterable when there's only one setting
 
-        fig_kde, axes_kde = plt.subplots(1, 3, figsize=(18, 6))
+        for i, setting in enumerate(settings):
+            df_setting_successful = df_results[df_results['Setting'] == setting]
 
-        # List to store maximum y-values
-        max_y_values = []
+            if df_setting_successful.empty:
+                print(f"No successful data available for setting: {setting}")
+                continue
 
-        for i, weight in enumerate(weights):
-            ax = axes_kde[i]
-            # Plot KDE
-            sns.kdeplot(
-                data=df_results,
-                x=weight,
-                hue='Setting',
-                palette=setting_palette,
-                ax=ax,
-                common_norm=False,
-                fill=True,
-                clip=(0, 1),
-                legend=False  # We'll add a single legend later
-            )
+            print(setting)
+            weights = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['L2RPN', 'Actions', 'Depth']
+            colors = ['blue', 'green', 'coral']  # Colors for different weight types
 
-            ax.set_title(f'Distribution of {weight_titles[i]}')
-            ax.set_xlim(0, 1)
-            ax.set_xlabel('Weight Value')
-            ax.set_ylabel('Density')
+            # Plot successful KDE with separate rug plots
+            for weight, weight_title, color in zip(weights, weight_titles, colors):
+                sns.kdeplot(
+                    data=df_setting_successful,
+                    x=weight,
+                    label=f'Successful - {weight_title}',
+                    fill=True,
+                    clip=(0, 1),
+                    common_norm=False,
+                    alpha=0.5,
+                    ax=axes_success_kde[i],
+                    color=color
+                )
+                sns.rugplot(
+                    data=df_setting_successful,
+                    x=weight,
+                    height=0.05,
+                    ax=axes_success_kde[i],
+                    color=color,
+                    label=f'Rug - {weight_title}'
+                )
 
-            # Collect the maximum y-value for this subplot
-            y_min, y_max = ax.get_ylim()
-            max_y_values.append(y_max)
+            axes_success_kde[i].set_title(f'{setting} - Successful')
+            axes_success_kde[i].set_xlabel('Weight Value')
+            axes_success_kde[i].set_ylabel('Density')
+            axes_success_kde[i].set_xlim(0, 1)
+            axes_success_kde[i].set_ylim(0, 2)
+            axes_success_kde[i].legend(title='Rewards')
 
-        # Set the same y-limit for all subplots
-        common_y_max = max(max_y_values)
-        for ax in axes_kde:
-            ax.set_ylim(0, common_y_max)
-
-        # Create a common legend
-        handles, labels = axes_kde[-1].get_legend_handles_labels()
-        # Remove duplicates while preserving order
-        legend_data = OrderedDict()
-        for handle, label in zip(handles, labels):
-            if label not in legend_data:
-                legend_data[label] = handle
-
-        fig_kde.legend(
-            legend_data.values(),
-            legend_data.keys(),
-            title='Setting',
-            bbox_to_anchor=(1.05, 1),
-            loc='upper left'
-        )
-
-        fig_kde.suptitle(f'KDE Plots by Weight - {scenario_title}', fontsize=16)
-        fig_kde.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+        plt.tight_layout()
         plt.show()
 
-        # Figure 2: Stripplots for Each Weight
-        fig_strip, axes_strip = plt.subplots(1, 3, figsize=(18, 6))
+        # Plot for Unsuccessful Cases
+        fig_unsuccess_kde, axes_unsuccess_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        if num_settings == 1:
+            axes_unsuccess_kde = [axes_unsuccess_kde]  # Ensure axes_unsuccess_kde is iterable when there's only one setting
 
-        for i, weight in enumerate(weights):
-            ax = axes_strip[i]
-            sns.stripplot(
-                data=df_results,
-                x=weight,
-                y='Setting',  # Plot horizontally grouped by setting
-                hue='Setting',
-                palette=setting_palette,
-                ax=ax,
-                dodge=False,
-                size=8,  # More expressive points
-                alpha=0.7,
-                jitter=True,
-                legend=False  # We'll add a single legend later
-            )
+        for i, setting in enumerate(settings):
+            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
 
-            ax.set_title(f'Weight Values of {weight_titles[i]}')
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 2)
-            ax.set_xlabel('Weight Value')
-            ax.set_ylabel('Setting')
+            if df_setting_unsuccessful.empty:
+                print(f"No unsuccessful data available for setting: {setting}")
+                continue
 
-        # Create a common legend for the stripplots
-        handles, labels = axes_strip[-1].get_legend_handles_labels()
-        # Remove duplicates while preserving order
-        legend_data_strip = OrderedDict()
-        for handle, label in zip(handles, labels):
-            if label not in legend_data_strip:
-                legend_data_strip[label] = handle
+            weights = ['Weight 1', 'Weight 2', 'Weight 3']
+            weight_titles = ['L2RPN', 'Actions', 'Depth']
+            colors = ['red', 'orange', 'brown']  # Colors for different weight types
 
-        fig_strip.legend(
-            legend_data_strip.values(),
-            legend_data_strip.keys(),
-            title='Setting',
-            bbox_to_anchor=(1.05, 1),
-            loc='upper left'
-        )
+            # Plot unsuccessful KDE with separate rug plots
+            for weight, weight_title, color in zip(weights, weight_titles, colors):
+                sns.kdeplot(
+                    data=df_setting_unsuccessful,
+                    x=weight,
+                    label=f'Unsuccessful - {weight_title}',
+                    fill=True,
+                    clip=(0, 1),
+                    common_norm=False,
+                    alpha=0.5,
+                    ax=axes_unsuccess_kde[i],
+                    color=color
+                )
+                sns.rugplot(
+                    data=df_setting_unsuccessful,
+                    x=weight,
+                    height=0.05,
+                    ax=axes_unsuccess_kde[i],
+                    color=color,
+                    label=f'Rug - {weight_title}'
+                )
 
-        fig_strip.suptitle(f'Strip Plots by Weight - {scenario_title}', fontsize=16)
-        fig_strip.tight_layout(rect=[0, 0, 0.85, 0.95])  # Adjust layout to make room for the legend and title
+            axes_unsuccess_kde[i].set_title(f'{setting} - Unsuccessful')
+            axes_unsuccess_kde[i].set_xlabel('Weight Value')
+            axes_unsuccess_kde[i].set_ylabel('Density')
+            axes_unsuccess_kde[i].set_xlim(0, 1)
+            axes_unsuccess_kde[i].set_ylim(0, 2)
+            axes_unsuccess_kde[i].legend(title='Rewards')
+
+        plt.tight_layout()
         plt.show()
 
     elif plot_option == 'separate':
@@ -4667,13 +4658,13 @@ def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iteration
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\5th_trial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\4th_trial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[0]
-    reward_names = ["L2RPN", "TopoDepth", "TopoActionHour"]
+    scenario = scenarios[2]
+    reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
     print(f"Processing scenario: {scenario}")
@@ -4730,7 +4721,7 @@ def main():
     if scenario == 'Opponent':
         compare_policies_weights_all_seeds(os.path.join(base_json_path, 'OLS', scenario), scenario)
         #visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario)
-        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='separate')
+        visualize_successful_weights(os.path.join(base_json_path, 'OLS', scenario), scenario, plot_option='points')
         # Call the function with the results DataFrames
         
     if scenario == 'Time':
