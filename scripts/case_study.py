@@ -8,6 +8,7 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
 from scipy.spatial import ConvexHull
 from itertools import cycle
+import pygmo as pg
 from collections import OrderedDict
 
 
@@ -302,33 +303,17 @@ def calculate_sparsity(points):
         return 0.0
 
 
-def calculate_3d_hypervolume(points, reference_point):
-    """Calculates the hypervolume for 3D points manually without using ConvexHull."""
-    # Convert points and reference point to numpy arrays for easier manipulation
-    points = np.array(points)
-    reference_point = np.array(reference_point)
+def calculate_3D_hypervolume(points, reference_point):
+    """
+    Calculates the hypervolume using pygmo with negated reference point and maximization direction.
+    """
+    # Negate the values to switch from maximization to minimization
+    negated_points = [[-x for x in point] for point in points]
+    negated_reference = [-x for x in reference_point]
 
-    # Sort points by the first dimension (x-axis)
-    sorted_points = points[np.argsort(points[:, 0])]
-
-    hv = 0.0
-    for i in range(len(sorted_points)):
-        # Calculate width (difference in x-axis between point and reference point)
-        width = abs(sorted_points[i][0] - reference_point[0])
-
-        if i == 0:
-            # For the first point, use the reference point's height and depth
-            height = abs(sorted_points[i][1] - reference_point[1])
-            depth = abs(sorted_points[i][2] - reference_point[2])
-        else:
-            # For subsequent points, use the difference in height and depth between consecutive points
-            height = abs(sorted_points[i][1] - sorted_points[i - 1][1])
-            depth = abs(sorted_points[i][2] - sorted_points[i - 1][2])
-
-        # Calculate the volume of the current cuboid and add to the total hypervolume
-        hv += width * height * depth
-
-    return hv
+    # Create a hypervolume object and compute using pygmo
+    hv = pg.hypervolume(negated_points)
+    return hv.compute(negated_reference)
 
 # Optional 2D Hypervolume Calculation (if applicable)
 def calculate_2d_hypervolume(points_2d, reference_point_2d):
@@ -3754,7 +3739,7 @@ def plot_2d_projections_all_points(
             seed_paths = iteration_paths
             iter = [5,10,20]
 
-        for i, seed_path in enumerate(seed_paths[:3]):
+        for i, seed_path in enumerate(seed_paths[:5]):
             data = load_json_data(seed_path)
             ccs_list = data["ccs_list"][-1]
             x_all, y_all, z_all = extract_coordinates(ccs_list)
@@ -3825,11 +3810,11 @@ def plot_2d_projections_all_points(
 
         # Processing RS data
         # Load data
-        if os.path.exists(mc_path):
+        if os.path.exists(mc_path[0]):
             if iterations: 
                 seed_paths = mc_iteration_paths
             else: 
-                seed_paths = [mc_path]
+                seed_paths = mc_path
             for i, seed_path in enumerate(seed_paths):
                 data = load_json_data(seed_path)
                 ccs_list = data["ccs_list"][-1]
@@ -4534,7 +4519,7 @@ def calculate_3d_metrics_with_combined_reference(seed_path, combined_reference_p
     # Calculate 3D hypervolume and sparsity for the seed
     pareto_points_3d = np.column_stack((x_all, y_all, z_all))
     print(pareto_points_3d)
-    hv_3d = calculate_3d_hypervolume(pareto_points_3d, combined_reference_point)
+    hv_3d = calculate_3D_hypervolume(pareto_points_3d, combined_reference_point)
     sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
 
     hv_3d = round(hv_3d, 2)
@@ -4595,11 +4580,13 @@ def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iteration
     if iterations:
         # Handle cases when iterations are enabled
         combined_reference_points = find_combined_reference_point(wrapper.iteration_paths, wrapper.mc_iteration_paths)
+        print(f'the combined reference points {combined_reference_points}')
         paths_to_process_ols = wrapper.iteration_paths
         paths_to_process_rs = wrapper.mc_iteration_paths
     else:
         # Find combined reference point for each seed for OLS and RS seeds
         combined_reference_points = find_combined_reference_point(seed_paths_ols, rs_seed_paths)
+        print(f'the combined reference points {combined_reference_points}')
         paths_to_process_ols = seed_paths_ols
         paths_to_process_rs = rs_seed_paths
     print(combined_reference_points)
@@ -4665,7 +4652,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
+    scenario = scenarios[0]
     reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
@@ -4701,7 +4688,7 @@ def main():
         analysis.calculate_metrics(iterations=False)
         analysis.plot_pareto_frontiers(rewards=reward_names, iterations=False)
         plot_2d_projections_all_points(
-            analysis.seed_paths, analysis.mc_seed_path, None, None, "ols", save_dir=analysis.output_dir, rewards=reward_names
+            analysis.seed_paths, analysis.rs_seed_paths, None, None, "ols", save_dir=analysis.output_dir, rewards=reward_names
         )
         #analysis.in_depth_analysis(seed=0)  # For example, seed 0
         #analysis.analyse_pareto_values_and_plot()
