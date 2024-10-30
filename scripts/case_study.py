@@ -336,16 +336,42 @@ def calculate_2d_hypervolume(points_2d, reference_point_2d):
 
     return area
 
-def calculate_3d_sparsity(points):
-    """Calculates the sparsity metric for 3D points."""
-    distances = []
-    for i in range(len(points)):
-        for j in range(i + 1, len(points)):
-            distances.append(np.linalg.norm(np.array(points[i]) - np.array(points[j])))
-    if distances:
-        return np.mean(distances)
-    else:
-        return 0.0
+def calculate_3d_sparsity(pareto_set):
+    """
+    Calculate the sparsity of a Pareto front approximation set.
+
+    Parameters:
+    - pareto_set (numpy.ndarray): A 2D array of shape (n_points, n_objectives) representing the Pareto front.
+                                  Each row is a solution and each column is an objective.
+
+    Returns:
+    - sparsity (float): The average sparsity across all objectives.
+    """
+    n_points, n_objectives = pareto_set.shape
+
+    if n_points < 2:
+        raise ValueError("The Pareto set must contain at least two points to calculate sparsity.")
+
+    # Normalize each objective to [0, 1] range (optional but recommended for scale consistency)
+    normalized_set = (pareto_set - pareto_set.min(axis=0)) / (pareto_set.max(axis=0) - pareto_set.min(axis=0))
+
+    # Calculate sparsity for each objective
+    sparsity_values = []
+    for j in range(n_objectives):
+        # Sort the values for the j-th objective
+        sorted_values = np.sort(normalized_set[:, j])
+        
+        # Calculate the pairwise differences between consecutive sorted values
+        differences = np.diff(sorted_values)
+        
+        # Calculate the mean difference (sparsity) for this objective
+        sparsity_j = np.mean(differences)
+        sparsity_values.append(sparsity_j)
+    
+    # Calculate the average sparsity across all objectives
+    overall_sparsity = np.mean(sparsity_values)
+    
+    return overall_sparsity
 
 
 
