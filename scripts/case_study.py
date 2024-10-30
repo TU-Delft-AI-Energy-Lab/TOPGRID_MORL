@@ -1225,7 +1225,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     
     print("OLS IGD Results:", ols_igd_results)
     print("RS IGD Results:", rs_igd_results)
-    
+
     
     # Identify which CCS points come from OLS and which from RS
     ols_ccs_indices = ccs_indices[ccs_labels == 'OLS']
@@ -1374,24 +1374,61 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
 
 
 def calculate_igd(seed_paths, method_name, reference_ccs):
-        igd_results = []
-        for seed_path in seed_paths:
-            if not os.path.exists(seed_path):
-                print(f"File not found: {seed_path}")
-                continue
+    """
+    Calculate the IGD for each seed in the seed_paths and return results in a structured format.
+    
+    Parameters:
+    - seed_paths (list): List of file paths for seeds.
+    - method_name (str): Name of the method (e.g., "OLS", "RS").
+    - reference_ccs (numpy.ndarray): The reference CCS points for calculating IGD.
+    
+    Returns:
+    - results (dict): A dictionary containing the IGD results for each seed and the mean and standard deviation for the method.
+    """
+    igd_results = []
+    individual_igd_list = []
 
-            data = load_json_data(seed_path)
-            ccs_list = data["ccs_list"][-1]
-            x_all, y_all, z_all = extract_coordinates(ccs_list)
-            coords = np.column_stack((x_all, y_all, z_all))
+    for seed_path in seed_paths:
+        if not os.path.exists(seed_path):
+            print(f"File not found: {seed_path}")
+            continue
 
-            # Calculate IGD
-            indicator = IGD(reference_ccs)
-            igd_value = indicator(coords)
-            igd_results.append((seed_path, igd_value))
-            print(f"IGD for {method_name} - Seed: {seed_path} -> IGD: {igd_value:.5f}")
+        # Load the data
+        data = load_json_data(seed_path)
+        ccs_list = data["ccs_list"][-1]
+        x_all, y_all, z_all = extract_coordinates(ccs_list)
+        coords = np.column_stack((x_all, y_all, z_all))
+
+        # Calculate IGD using pymoo's GD indicator
+        indicator = IGD(reference_ccs)
+        igd_value = indicator(coords)
         
-        return igd_results
+        # Append the result to the list
+        igd_results.append({
+            "method": method_name,
+            "seed": os.path.basename(seed_path),
+            "IGD": igd_value
+        })
+        
+        # Store individual IGD values to calculate statistics later
+        individual_igd_list.append(igd_value)
+
+    # Calculate mean and standard deviation of IGD for the method
+    mean_igd = np.mean(individual_igd_list) if individual_igd_list else float('nan')
+    std_igd = np.std(individual_igd_list) if individual_igd_list else float('nan')
+
+    # Add the mean and standard deviation to the results
+    summary = {
+        "method": method_name,
+        "mean_GD": mean_igd,
+        "std_IGD": std_igd
+    }
+    print(igd_results)
+    
+    print(summary)
+    
+
+    return igd_results
 
 
 def plot_super_pareto_frontier_2d(seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
@@ -2308,7 +2345,7 @@ def calculate_hypervolume_and_sparsity(json_data):
     pareto_points_3d = np.column_stack((x_all, y_all, z_all))
 
     # Calculate 3D Hypervolume and Sparsity
-    hv_3d = calculate_3d_hypervolume(pareto_points_3d, reference_point_3d)
+    hv_3d = calculate_3D_hypervolume(pareto_points_3d, reference_point_3d)
     sparsity_3d = calculate_3d_sparsity(pareto_points_3d)
 
     return hv_3d, sparsity_3d
@@ -2503,7 +2540,7 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
         ax.set_xlabel('Metric')
 
         # Limit the y-axis to 20
-        ax.set_ylim(0, 20)
+        #ax.set_ylim(0, 20)
 
         # Adjust x-axis labels
         ax.set_xticklabels(data_subset['Metric'].unique(), rotation=0)
@@ -2550,6 +2587,120 @@ def compare_hv_with_combined_boxplots(base_path, scenario):
 
     # Return the DataFrames for further analysis
     return df_hv_metrics, df_return_metrics
+
+
+def compare_hv_and_sparsity_with_combined_reference(base_path, scenario, ols_paths, rs_paths):
+    """
+    Evaluates hypervolume and sparsity across multiple settings using a combined reference point.
+    """
+    # Find the combined reference point
+    combined_reference_points = find_combined_reference_point(ols_paths, rs_paths)
+    
+    # Paths for different scenarios
+    reuse_paths = {
+        "Baseline": os.path.join(base_path, "Baseline"),
+        "Full": os.path.join(base_path, "Full_Reuse"),
+        "Partial": os.path.join(base_path, "Partial_Reuse"),
+        "Baseline_reduced": os.path.join(base_path, "med_learning_none"),
+        "Full_reduced": os.path.join(base_path, "med_learning_full"),
+        "Partial_reduced": os.path.join(base_path, "med_learning_partial"),
+        "Baseline_min": os.path.join(base_path, "min_learning_none"),
+        "Full_min": os.path.join(base_path, "min_learning_full"),
+        "Partial_min": os.path.join(base_path, "min_learning_partial"),
+    }
+
+    settings = ["Baseline", "Full", "Partial",
+                "Baseline_reduced", "Full_reduced", "Partial_reduced",
+                "Baseline_min", "Full_min", "Partial_min"]
+
+    # Initialize dictionaries to store results
+    hv_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
+    return_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
+
+    # Loop through the settings and calculate metrics
+    for setting in settings:
+        if scenario == 'Reuse':
+            path = reuse_paths[setting]
+        else:
+            print(f"Scenario '{scenario}' not recognized.")
+            continue
+
+        # Load the JSON log files for this setting
+        json_files = [f for f in os.listdir(path) if f.startswith("morl_logs")]
+        for seed, json_file in enumerate(json_files):
+            file_path = os.path.join(path, json_file)
+
+            # Get the combined reference point for the current seed
+            combined_reference_point = combined_reference_points[seed]
+
+            # Load and process the JSON data using the provided function
+            hv_3d, sparsity_3d = calculate_3d_metrics_with_combined_reference(file_path, combined_reference_point)
+
+            print(f"Processing file: {file_path} with reference point: {combined_reference_point}")
+
+            # Extract coordinates for calculating Min/Max Returns
+            data = load_json_data(file_path)
+            x_all, y_all, z_all = extract_coordinates(data['ccs_list'][-1])
+
+            # Min/Max Returns
+            min_return_x, max_return_x = min(x_all), max(x_all)
+            min_return_y, max_return_y = min(y_all), max(y_all)
+            min_return_z, max_return_z = min(z_all), max(z_all)
+
+            if hv_3d is not None and sparsity_3d is not None:
+                # Store Hypervolume and Sparsity in the hv_metrics dictionary
+                hv_metrics["Seed"].append(seed)
+                hv_metrics["Setting"].append(setting)
+                hv_metrics["Metric"].append("Hypervolume")
+                hv_metrics["Value"].append(hv_3d)
+
+                hv_metrics["Seed"].append(seed)
+                hv_metrics["Setting"].append(setting)
+                hv_metrics["Metric"].append("Sparsity")
+                hv_metrics["Value"].append(sparsity_3d)
+
+                # Store Min/Max Returns for X, Y, Z coordinates in return_metrics dictionary
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return X")
+                return_metrics["Value"].append(max_return_x)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return X")
+                return_metrics["Value"].append(min_return_x)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Y")
+                return_metrics["Value"].append(max_return_y)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return Y")
+                return_metrics["Value"].append(min_return_y)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Max Return Z")
+                return_metrics["Value"].append(max_return_z)
+
+                return_metrics["Seed"].append(seed)
+                return_metrics["Setting"].append(setting)
+                return_metrics["Metric"].append("Min Return Z")
+                return_metrics["Value"].append(min_return_z)
+
+    # Convert the dictionaries to DataFrames for easier comparison and visualization
+    df_hv_metrics = pd.DataFrame(hv_metrics)
+    df_return_metrics = pd.DataFrame(return_metrics)
+
+    # Plot Hypervolume and Sparsity Boxplots
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(x="Setting", y="Value", hue="Metric", data=df_hv_metrics)
+    plt.title("Hypervolume and Sparsity across different Settings")
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
 
 
 def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
@@ -2716,7 +2867,7 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
         hue='Method',
         palette=method_palette
     )
-    ax_hv.set_ylim(top=100, bottom=0)
+    #ax_hv.set_ylim(top=100, bottom=0)
     plt.title('Hypervolume Comparison')
     plt.xlabel('Learning Setting')
     plt.ylabel('Hypervolume')
@@ -2733,7 +2884,7 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
         hue='Method',
         palette=method_palette
     )
-    ax_sparsity.set_ylim(top=25)
+    #ax_sparsity.set_ylim(top=25)
     plt.title('Sparsity Comparison')
     plt.xlabel('Learning Setting')
     plt.ylabel('Sparsity')
@@ -4707,7 +4858,7 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[0]
+    scenario = scenarios[3]
     reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
@@ -4748,6 +4899,7 @@ def main():
         #analysis.in_depth_analysis(seed=0)  # For example, seed 0
         #analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
+        #compare_hv_and_sparsity_with_combined_reference(base_path= os.path.join(base_json_path, "OLS", scenario), scenario=scenario, ols_paths=analysis.seed_paths, rs_paths=analysis.rs_seed_paths)
         compare_hv_and_sparsity_with_separate_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario)
         compare_hv_with_combined_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario=scenario)
         plot_pareto_frontiers_for_training_settings(
