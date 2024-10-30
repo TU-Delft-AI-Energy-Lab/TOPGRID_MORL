@@ -8,6 +8,7 @@ import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting
 from scipy.spatial import ConvexHull
 from itertools import cycle
+from pymoo.indicators.igd import IGD
 import pygmo as pg
 from collections import OrderedDict
 
@@ -1103,6 +1104,7 @@ def plot_ccs_points_only(
     if save_dir:
         plt.savefig(os.path.join(save_dir, "ccs_points_only.png"))
     plt.show()
+    
 def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     ols_seed_paths,
     rs_seed_paths,
@@ -1189,7 +1191,16 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     ccs_indices = np.where(ccs_mask)[0]
     ccs_coords = all_coords[ccs_indices]
     ccs_labels = labels[ccs_indices]
+    reference_ccs = all_coords[ccs_mask]
 
+    # Calculate IGD for OLS and RS
+    ols_igd_results = calculate_igd(ols_seed_paths, "OLS", reference_ccs)
+    rs_igd_results = calculate_igd(rs_seed_paths, "RS", reference_ccs)
+    
+    print("OLS IGD Results:", ols_igd_results)
+    print("RS IGD Results:", rs_igd_results)
+    
+    
     # Identify which CCS points come from OLS and which from RS
     ols_ccs_indices = ccs_indices[ccs_labels == 'OLS']
     rs_ccs_indices = ccs_indices[ccs_labels == 'RS']
@@ -1336,7 +1347,25 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
 
 
 
+def calculate_igd(seed_paths, method_name, reference_ccs):
+        igd_results = []
+        for seed_path in seed_paths:
+            if not os.path.exists(seed_path):
+                print(f"File not found: {seed_path}")
+                continue
 
+            data = load_json_data(seed_path)
+            ccs_list = data["ccs_list"][-1]
+            x_all, y_all, z_all = extract_coordinates(ccs_list)
+            coords = np.column_stack((x_all, y_all, z_all))
+
+            # Calculate IGD
+            indicator = IGD(reference_ccs)
+            igd_value = indicator(coords)
+            igd_results.append((seed_path, igd_value))
+            print(f"IGD for {method_name} - Seed: {seed_path} -> IGD: {igd_value:.5f}")
+        
+        return igd_results
 
 
 def plot_super_pareto_frontier_2d(seed_paths, save_dir=None, rewards=["L2RPN", "TopoDepth", "TopoActionHour"]):
@@ -4683,7 +4712,7 @@ def main():
             save_dir=analysis.output_dir,
             rewards=reward_names
         )
-       
+        
         # Perform in-depth analysis on a selected seed
         analysis.calculate_metrics(iterations=False)
         analysis.plot_pareto_frontiers(rewards=reward_names, iterations=False)
