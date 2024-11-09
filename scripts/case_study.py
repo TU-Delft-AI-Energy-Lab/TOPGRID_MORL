@@ -647,7 +647,7 @@ def process_data(seed_paths, wrapper, output_dir):
         matching_entries = find_matching_weights_and_agent(ccs_list, data["ccs_data"])
 
         # Collect data for DataFrame
-        print(matching_entries)
+        #print(matching_entries)
         for entry in matching_entries:
             all_data.append(
                 {
@@ -1145,7 +1145,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     Parameters:
     - ols_seed_paths: List of file paths to OLS JSON data.
     - rs_seed_paths: List of file paths to RS JSON data.
-    - save_dir: Directory to save the plot image (optional).
+    - save_dir: Directory to save the plot images (optional).
     - rewards: List of reward names for labeling axes.
     """
     import matplotlib.pyplot as plt
@@ -1157,7 +1157,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     plt.rcParams.update(
         {
             "font.size": 14,
-            "figure.figsize": (20, 6),
+            "figure.figsize": (8, 6),
             "axes.grid": True,
             "axes.labelsize": 16,
             "axes.titlesize": 18,
@@ -1167,8 +1167,6 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
             "font.family": "serif",
         }
     )
-
-    fig, axs = plt.subplots(1, 3, figsize=(20, 6))
 
     # Initialize lists to collect all data points and labels
     all_coords = []
@@ -1226,151 +1224,83 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     print("OLS IGD Results:", ols_igd_results)
     print("RS IGD Results:", rs_igd_results)
 
-    
     # Identify which CCS points come from OLS and which from RS
     ols_ccs_indices = ccs_indices[ccs_labels == 'OLS']
     rs_ccs_indices = ccs_indices[ccs_labels == 'RS']
     ols_ccs_coords = all_coords[ols_ccs_indices]
     rs_ccs_coords = all_coords[rs_ccs_indices]
 
-    # Now plot all the points with respective colors and transparency
-    # All OLS points in lightcoral with transparency
-    if ols_coords.size > 0:
-        axs[0].scatter(
-            ols_coords[:, 0],
-            ols_coords[:, 1],
-            color='red',
-            alpha=0.3,
-            marker='o',
-            label='OLS Points'
-        )
-        axs[1].scatter(
-            ols_coords[:, 0],
-            ols_coords[:, 2],
-            color='red',
-            alpha=0.3,
-            marker='o',
-            label='OLS Points'
-        )
-        axs[2].scatter(
-            ols_coords[:, 1],
-            ols_coords[:, 2],
-            color='red',
-            alpha=0.3,
-            marker='o',
-            label='OLS Points'
-        )
+    # Projections to plot (indices of dimensions)
+    projections = [(0,1), (0,2), (1,2)]
 
-    # All RS points in dark grey with transparency
-    if rs_coords.size > 0:
-        axs[0].scatter(
-            rs_coords[:, 0],
-            rs_coords[:, 1],
-            color='darkgrey',
-            alpha=0.3,
-            marker='o',
-            label='RS Points'
-        )
-        axs[1].scatter(
-            rs_coords[:, 0],
-            rs_coords[:, 2],
-            color='darkgrey',
-            alpha=0.3,
-            marker='o',
-            label='RS Points'
-        )
-        axs[2].scatter(
-            rs_coords[:, 1],
-            rs_coords[:, 2],
-            color='darkgrey',
-            alpha=0.3,
-            marker='o',
-            label='RS Points'
-        )
+    # Loop over projections
+    for i, (x_idx, y_idx) in enumerate(projections):
+        fig, ax = plt.subplots(figsize=(8,6))
 
-    # Now plot the CCS points with solid colors and larger markers
-    # OLS CCS points
-    if ols_ccs_coords.size > 0:
-        axs[0].scatter(
-            ols_ccs_coords[:, 0],
-            ols_ccs_coords[:, 1],
-            color='red',
-            edgecolors='black',
-            marker='o',
-            s=100,
-            label='OLS CCS Points'
-        )
-        axs[1].scatter(
-            ols_ccs_coords[:, 0],
-            ols_ccs_coords[:, 2],
-            color='red',
-            edgecolors='black',
-            marker='o',
-            s=100,
-            label='OLS CCS Points'
-        )
-        axs[2].scatter(
-            ols_ccs_coords[:, 1],
-            ols_ccs_coords[:, 2],
-            color='red',
-            edgecolors='black',
-            marker='o',
-            s=100,
-            label='OLS CCS Points'
-        )
+        # Plot OLS points
+        if ols_coords.size > 0:
+            ax.scatter(
+                ols_coords[:, x_idx],
+                ols_coords[:, y_idx],
+                color='red',
+                alpha=0.3,
+                marker='o',
+                label='OLS Points'
+            )
+        # Plot RS points
+        if rs_coords.size > 0:
+            ax.scatter(
+                rs_coords[:, x_idx],
+                rs_coords[:, y_idx],
+                color='darkgrey',
+                alpha=0.3,
+                marker='o',
+                label='RS Points'
+            )
+        # Plot OLS CCS points
+        if ols_ccs_coords.size > 0:
+            ax.scatter(
+                ols_ccs_coords[:, x_idx],
+                ols_ccs_coords[:, y_idx],
+                color='red',
+                edgecolors='black',
+                marker='o',
+                s=100,
+                label='OLS CCS Points'
+            )
+        # Plot RS CCS points
+        if rs_ccs_coords.size > 0:
+            ax.scatter(
+                rs_ccs_coords[:, x_idx],
+                rs_ccs_coords[:, y_idx],
+                color='darkgrey',
+                edgecolors='black',
+                marker='o',
+                s=80,
+                label='RS CCS Points'
+            )
+        # Set labels
+        ax.set_xlabel(rewards[x_idx])
+        ax.set_ylabel(rewards[y_idx])
 
-    # RS CCS points
-    if rs_ccs_coords.size > 0:
-        axs[0].scatter(
-            rs_ccs_coords[:, 0],
-            rs_ccs_coords[:, 1],
-            color='darkgrey',
-            edgecolors='black',
-            marker='o',
-            s=80,
-            label='RS CCS Points'
-        )
-        axs[1].scatter(
-            rs_ccs_coords[:, 0],
-            rs_ccs_coords[:, 2],
-            color='darkgrey',
-            edgecolors='black',
-            marker='o',
-            s=80,
-            label='RS CCS Points'
-        )
-        axs[2].scatter(
-            rs_ccs_coords[:, 1],
-            rs_ccs_coords[:, 2],
-            color='darkgrey',
-            edgecolors='black',
-            marker='o',
-            s=80,
-            label='RS CCS Points'
-        )
+        # Set title
+        ax.set_title("2D Projection of Super CCS")
 
-    # Set labels
-    axs[0].set_xlabel(rewards[0])
-    axs[0].set_ylabel(rewards[1])
-    axs[1].set_xlabel(rewards[0])
-    axs[1].set_ylabel(rewards[2])
-    axs[2].set_xlabel(rewards[1])
-    axs[2].set_ylabel(rewards[2])
-
-    # Remove duplicate legends and adjust
-    for ax in axs:
-        handles, labels = ax.get_legend_handles_labels()
-        by_label = dict(zip(labels, handles))
+        # Adjust legend
+        handles, labels_legend = ax.get_legend_handles_labels()
+        by_label = dict(zip(labels_legend, handles))
         ax.legend(by_label.values(), by_label.keys())
+
+        # Grid
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
-    plt.tight_layout()
-    plt.suptitle("3D CCS Projection: OLS and RS Super CCS", fontsize=20)
-    plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
-    if save_dir:
-        plt.savefig(os.path.join(save_dir, "super_ccs_ols_vs_rs.png"))
-    plt.show()
+        plt.tight_layout()
 
+        # Save figure
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, f"super_ccs_ols_vs_rs_projection_{i}.png"))
+        # Show figure
+        plt.show()
 
 
 def calculate_igd(seed_paths, method_name, reference_ccs):
@@ -2051,10 +1981,8 @@ def sub_id_process_and_plot(csv_path):
 
 def analyse_pf_values_and_plot_projections(csv_path):
     """
-    Analyzes Pareto frontier values and plots 2D projections in the power system domain.
-    Adjusts the design to have the same color for all points, transparent points for those not reaching 2016 steps,
-    highlights the best result per graph in red, and the single objective point in black.
-    Ensures that red and black points are plotted over blue ones in case of overlapping points.
+    Analyzes Pareto frontier values from the CCS file and plots 2D projections
+    in the power system domain using averaged metrics from all available chronics.
     """
     import pandas as pd
     import matplotlib.pyplot as plt
@@ -2064,96 +1992,119 @@ def analyse_pf_values_and_plot_projections(csv_path):
     # Read the CSV file
     df = pd.read_csv(csv_path)
 
-    # Convert the string representation of dictionaries in 'test_chronic_0' to actual dictionaries
+    # Convert string representations to actual data structures
     df["test_chronic_0"] = df["test_chronic_0"].apply(ast.literal_eval)
+    df["test_chronic_1"] = df["test_chronic_1"].apply(ast.literal_eval)
+    df["eval_chronic_0"] = df["eval_chronic_0"].apply(ast.literal_eval)
+    df["eval_chronic_1"] = df["eval_chronic_1"].apply(ast.literal_eval)
+    df["Returns"] = df["Returns"].apply(ast.literal_eval)
+    df["Weights"] = df["Weights"].apply(ast.literal_eval)
 
     results = []
 
     # Iterate through each row in the dataframe
     for idx, row in df.iterrows():
-        # Extract information from 'test_chronic_0'
-        chronic = "test_chronic_0"
-        seed = row["seed"]
-        test_data = row[chronic]
-        steps = test_data["test_steps"]  # Total steps in the test
-        actions = test_data["test_actions"]  # List of actions taken
-        topo_vects = test_data['test_topo_vect']
-        topo_depths = test_data.get("test_topo_distance")
-        timestamps = test_data.get("test_action_timestamp")
+        # Lists to store metrics for each chronic
+        steps_list = []
+        actions_list = []
+        weighted_depth_list = []
 
-        if timestamps is None or topo_depths is None:
-            print(
-                f"Error: 'Timestamps' or 'Topo Depths' not found in test_chronic_0 for Pareto Point {idx + 1}"
-            )
-            continue  # Skip this row if data is missing
+        # Process all available chronics
+        for chronic in ["eval_chronic_0", "eval_chronic_1", "test_chronic_0", "test_chronic_1"]:
+            test_data = row.get(chronic, {})
 
-        # Ensure that timestamps and topo_depths have the same length
-        if len(timestamps) != len(topo_depths):
-            print(
-                f"Error: Length of 'Timestamps' and 'Topo Depths' do not match for Pareto Point {idx + 1}"
-            )
-            continue
+            if not test_data:
+                print(f"Warning: No data found for {chronic} in Pareto Point {idx + 1}")
+                continue  # Skip if no data is available
 
-        # Initialize cumulative weighted depth time
-        cumulative_weighted_depth_time = 0
+            # Determine the actual prefix by inspecting the keys
+            if any(key.startswith('eval_') for key in test_data.keys()):
+                prefix = 'eval_'
+            elif any(key.startswith('test_') for key in test_data.keys()):
+                prefix = 'test_'
+            else:
+                print(f"Error: Unrecognized keys in {chronic} for Pareto Point {idx + 1}")
+                continue
 
-        # Start from the initial time and depth
-        previous_time = 0
-        previous_depth = 0  # Default topology depth at start is 0
+            steps = test_data.get(f"{prefix}steps", 0)
+            actions = test_data.get(f"{prefix}actions", [])
+            topo_depths = test_data.get(f"{prefix}topo_distance", [])
+            timestamps = test_data.get(f"{prefix}action_timestamp", [])
 
-        # Iterate over the timestamps and topo_depths
-        for current_time, current_depth in zip(timestamps, topo_depths):
-            # Calculate delta_time
-            delta_time = current_time - previous_time
+            if not timestamps or not topo_depths:
+                print(
+                    f"Error: 'Timestamps' or 'Topo Depths' not found in {chronic} for Pareto Point {idx + 1}"
+                )
+                continue  # Skip this chronic if data is missing
 
-            # Calculate weighted depth time for this interval
+            # Ensure that timestamps and topo_depths have the same length
+            if len(timestamps) != len(topo_depths):
+                print(
+                    f"Error: Length of 'Timestamps' and 'Topo Depths' do not match in {chronic} for Pareto Point {idx + 1}"
+                )
+                continue  # Skip this chronic if data is inconsistent
+
+            # Initialize cumulative weighted depth time
+            cumulative_weighted_depth_time = 0
+
+            # Start from the initial time and depth
+            previous_time = 0
+            previous_depth = 0  # Default topology depth at start is 0
+
+            # Iterate over the timestamps and topo_depths
+            for current_time, current_depth in zip(timestamps, topo_depths):
+                # Calculate delta_time
+                delta_time = current_time - previous_time
+
+                # Calculate weighted depth time for this interval
+                weighted_depth_time = previous_depth * delta_time
+
+                # Add to cumulative sum
+                cumulative_weighted_depth_time += weighted_depth_time
+
+                # Update previous time and depth for next iteration
+                previous_time = current_time
+                previous_depth = current_depth
+
+            # Handle the final interval (from last timestamp to end of test)
+            total_test_time = steps  # Assuming time is measured in steps
+            delta_time = total_test_time - previous_time
             weighted_depth_time = previous_depth * delta_time
-
-            # Add to cumulative sum
             cumulative_weighted_depth_time += weighted_depth_time
 
-            # Update previous time and depth for next iteration
-            previous_time = current_time
-            previous_depth = current_depth
+            # Calculate weighted depth metric
+            weighted_depth_metric = (
+                cumulative_weighted_depth_time / steps if steps > 0 else 0
+            )
 
-        # Handle the final interval (from last timestamp to end of test)
-        # Assuming the total test time is equal to the total steps
-        total_test_time = steps  # If time is measured in steps
-        delta_time = total_test_time - previous_time
-        weighted_depth_time = previous_depth * delta_time
-        cumulative_weighted_depth_time += weighted_depth_time
+            # Total number of switching actions
+            total_switching_actions = len(actions)
 
-        # Finally, divide cumulative weighted depth time by number of steps
-        weighted_depth_metric = (
-            cumulative_weighted_depth_time / steps if steps > 0 else 0
-        )
+            # Append metrics to lists
+            steps_list.append(steps)
+            actions_list.append(total_switching_actions)
+            weighted_depth_list.append(weighted_depth_metric)
 
-        # Calculate average steps per chronic (assuming steps are total steps over all chronics)
-        num_chronics = test_data.get(
-            "Num Chronics", 1
-        )  # Adjust if 'Num Chronics' is available
-        avg_steps = steps / num_chronics if num_chronics > 0 else steps
+        # Check if we have metrics from at least one chronic
+        if steps_list:
+            # Calculate average metrics
+            avg_steps = np.mean(steps_list)
+            avg_actions = np.mean(actions_list)
+            avg_weighted_depth = np.mean(weighted_depth_list)
 
-        # Total number of switching actions (average over chronics)
-        total_switching_actions = (
-            len(actions) / num_chronics if num_chronics > 0 else len(actions)
-        )
-
-        # Extract weights
-        weights = ast.literal_eval(row["Weights"])  # Should be list of floats
-
-        # Store the results for the current Pareto point
-        results.append(
-            {
-                "seed": seed,
-                "Pareto Point": idx + 1,
-                "Average Steps": avg_steps,
-                "Total Switching Actions": total_switching_actions,
-                "Weighted Depth Metric": weighted_depth_metric,
-                "Weights": weights,
-                "Steps": steps,
-            }
-        )
+            # Store the results for the current Pareto point
+            results.append(
+                {
+                    "Pareto Point": idx + 1,
+                    "Average Steps": avg_steps,
+                    "Total Switching Actions": avg_actions,
+                    "Weighted Depth Metric": avg_weighted_depth,
+                    "Weights": row["Weights"],
+                    "Max Steps": max(steps_list),
+                }
+            )
+        else:
+            print(f"Skipping Pareto Point {idx + 1} due to incomplete data.")
 
     if not results:
         print("No valid data to plot.")
@@ -2163,31 +2114,18 @@ def analyse_pf_values_and_plot_projections(csv_path):
     results_df = pd.DataFrame(results)
 
     # Prepare data for plotting
-    avg_steps_list = results_df["Average Steps"].values
-    weighted_depth_list = results_df["Weighted Depth Metric"].values
-    total_actions_list = results_df["Total Switching Actions"].values
-    weights_list = results_df["Weights"].values
-    steps_list = results_df["Steps"].values
+    avg_steps_array = results_df["Average Steps"].values
+    weighted_depth_array = results_df["Weighted Depth Metric"].values
+    total_actions_array = results_df["Total Switching Actions"].values
+    max_steps_array = results_df["Max Steps"].values
 
-    # Determine which points reached 2016 steps
-    is_2016_steps = steps_list >= 2016
+    # Determine which points reached the maximum number of steps (assuming 2016)
+    is_max_steps = max_steps_array >= 2016
 
-    # Alpha values: 1 for points reaching 2016 steps, 0.2 for others
-    alpha_values = np.where(is_2016_steps, 1, 0.2)
+    # Alpha values: 1 for points reaching max steps, 0.2 for others
+    alpha_values = np.where(is_max_steps, 1, 0.2)
 
-    # Determine indices of single objective points
-    is_single_objective = [np.allclose(w, [1, 0, 0], atol=1e-2) for w in weights_list]
-    idx_single_objective = np.where(is_single_objective)[0]
-
-    # For plotting best points per graph, find indices
-    # For x (Average Steps), best is max x
-    idx_best_x = np.argmax(np.where(is_2016_steps, avg_steps_list, -np.inf))
-    # For y (Weighted Depth Metric), best is min y
-    idx_best_y = np.argmin(np.where(is_2016_steps, weighted_depth_list, np.inf))
-    # For z (Total Switching Actions), best is min z
-    idx_best_z = np.argmin(np.where(is_2016_steps, total_actions_list, np.inf))
-
-    # --- Set up matplotlib parameters for a more scientific look ---
+    # --- Set up matplotlib parameters ---
     plt.rcParams.update(
         {
             "font.size": 14,
@@ -2204,113 +2142,41 @@ def analyse_pf_values_and_plot_projections(csv_path):
 
     # --- 2D Projections ---
     fig2, axs = plt.subplots(1, 3, figsize=(20, 6))
-    fig2.suptitle("2D Projections of Pareto Frontier in Power System Domain")
+    fig2.suptitle("2D Projections of CCS in Power System Domain")
 
     # General plotting color
     general_color = 'blue'
 
-    # First subplot: x vs y (Average Steps vs Weighted Depth Metric)
-    # Plot blue points first
+    # First subplot: Average Steps vs Weighted Depth Metric
     axs[0].scatter(
-        avg_steps_list,
-        weighted_depth_list,
+        avg_steps_array,
+        weighted_depth_array,
         color=general_color,
         alpha=alpha_values,
-        label="Pareto Points from Return Domain",
-    )
-
-    # Plot single objective points in black over blue points
-    axs[0].scatter(
-        avg_steps_list[idx_single_objective],
-        weighted_depth_list[idx_single_objective],
-        color='black',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='S-O Point',
-    )
-
-    # Plot best point in red over others
-    axs[0].scatter(
-        avg_steps_list[idx_best_x],
-        weighted_depth_list[idx_best_y],
-        color='red',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='Dominating M-O Case',
     )
 
     axs[0].set_xlabel("Average Steps")
     axs[0].set_ylabel("Weighted Depth Metric")
     axs[0].invert_yaxis()
 
-    # Second subplot: x vs z (Average Steps vs Total Switching Actions)
-    # Plot blue points first
+    # Second subplot: Average Steps vs Total Switching Actions
     axs[1].scatter(
-        avg_steps_list,
-        total_actions_list,
+        avg_steps_array,
+        total_actions_array,
         color=general_color,
         alpha=alpha_values,
-        label="Pareto Points from Return Domain",
-    )
-
-    # Plot single objective points in black over blue points
-    axs[1].scatter(
-        avg_steps_list[idx_single_objective],
-        total_actions_list[idx_single_objective],
-        color='black',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='S-O Case',
-    )
-
-    # Plot best point in red over others
-    axs[1].scatter(
-        avg_steps_list[idx_best_z],
-        total_actions_list[idx_best_z],
-        color='red',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='Dominating M-O Case',
     )
 
     axs[1].set_xlabel("Average Steps")
     axs[1].set_ylabel("Total Switching Actions")
     axs[1].invert_yaxis()
 
-    # Third subplot: y vs z (Weighted Depth Metric vs Total Switching Actions)
-    # Plot blue points first
+    # Third subplot: Weighted Depth Metric vs Total Switching Actions
     axs[2].scatter(
-        weighted_depth_list,
-        total_actions_list,
+        weighted_depth_array,
+        total_actions_array,
         color=general_color,
         alpha=alpha_values,
-        label="Pareto Points from Return Domain",
-    )
-
-    # Plot single objective points in black over blue points
-    axs[2].scatter(
-        weighted_depth_list[idx_single_objective],
-        total_actions_list[idx_single_objective],
-        color='black',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='S-O Case',
-    )
-
-    # Plot best point in red over others
-    axs[2].scatter(
-        weighted_depth_list[idx_best_y],
-        total_actions_list[idx_best_y],
-        color='red',
-        edgecolors='black',
-        marker='o',
-        s=100,
-        label='Dominating M-O Case',
     )
 
     axs[2].set_xlabel("Weighted Depth Metric")
@@ -2319,11 +2185,14 @@ def analyse_pf_values_and_plot_projections(csv_path):
     axs[2].invert_yaxis()
 
     for ax in axs:
-        ax.legend()
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
     plt.tight_layout()
     plt.show()
+
+
+
+
 
 
 def calculate_hypervolume_and_sparsity(json_data):
@@ -2709,7 +2578,7 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
     import seaborn as sns
     import matplotlib.pyplot as plt
 
-    # Paths for different scenarios (from your provided code)
+    # Paths for different scenarios
     reuse_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
         "Full": os.path.join(base_path, "Full_Reuse"),
@@ -2726,7 +2595,7 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
                 "Baseline_reduced", "Full_reduced", "Partial_reduced",
                 "Baseline_min", "Full_min", "Partial_min"]
 
-    # Initialize dictionaries to store results (from your code)
+    # Initialize dictionaries to store results
     hv_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
     return_metrics = {"Seed": [], "Setting": [], "Metric": [], "Value": []}
 
@@ -2807,11 +2676,11 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
     df_hv_metrics = pd.DataFrame(hv_metrics)
     df_return_metrics = pd.DataFrame(return_metrics)
 
-    # Add 'Method' and 'Learning' columns based on 'Setting' (from your code)
+    # Add 'Method' and 'Learning' columns based on 'Setting'
     setting_to_method_and_learning = {
-        'Baseline': ('Baseline', 'full training'),
-        'Baseline_reduced': ('Baseline', '75% training'),
-        'Baseline_min': ('Baseline', '50% training'),
+        'Baseline': ('No Reuse (Baseline)', 'full training'),
+        'Baseline_reduced': ('No Reuse (Baseline)', '75% training'),
+        'Baseline_min': ('No Reuse (Baseline)', '50% training'),
         'Full': ('Full Reuse', 'full training'),
         'Full_reduced': ('Full Reuse', '75% training'),
         'Full_min': ('Full Reuse', '50% training'),
@@ -2830,9 +2699,9 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
 
     # --- Adjusted Coloring Starts Here ---
 
-    # Define custom colors for Methods to match the desired color scheme (from your code)
+    # Define custom colors for Methods to match the desired color scheme
     method_palette = {
-        'Baseline': 'grey',
+        'No Reuse (Baseline)': 'grey',
         'Full Reuse': 'red',
         'Partial Reuse': 'lightcoral',
     }
@@ -2867,11 +2736,11 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
         hue='Method',
         palette=method_palette
     )
-    #ax_hv.set_ylim(top=100, bottom=0)
-    plt.title('Hypervolume Comparison')
-    plt.xlabel('Learning Setting')
+    plt.title('Hypervolume Metric for DOL Reuse Settings under constraint learning')
+    plt.ylim(top=150)
+    plt.xlabel('Training constraint')
     plt.ylabel('Hypervolume')
-    plt.legend(title='Method', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(title='Method', loc='best')
     plt.tight_layout()
     plt.show()
 
@@ -2884,16 +2753,26 @@ def compare_hv_and_sparsity_with_separate_boxplots(base_path, scenario):
         hue='Method',
         palette=method_palette
     )
-    #ax_sparsity.set_ylim(top=25)
-    plt.title('Sparsity Comparison')
-    plt.xlabel('Learning Setting')
+    plt.title('Sparsity Metric for DOL Reuse Settings under constraint learning')
+    plt.xlabel('Training constraint')
     plt.ylabel('Sparsity')
-    plt.legend(title='Method', bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend(title='Method', loc='best')
     plt.tight_layout()
     plt.show()
 
+    # Calculate and print summary statistics for Hypervolume
+    df_hv_summary = df_hv.groupby(['Method', 'Learning'])['Value'].agg(['mean', 'std', 'count']).reset_index()
+    print("Hypervolume Metrics Summary:")
+    print(df_hv_summary.to_string(index=False))
+
+    # Calculate and print summary statistics for Sparsity
+    df_sparsity_summary = df_sparsity.groupby(['Method', 'Learning'])['Value'].agg(['mean', 'std', 'count']).reset_index()
+    print("\nSparsity Metrics Summary:")
+    print(df_sparsity_summary.to_string(index=False))
+
     # Optionally, return the DataFrames
     return df_hv, df_sparsity
+
 
 
 
@@ -2902,11 +2781,18 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     Compares policies across all seeds for different scenarios and plots the results.
     Modifications:
     - Titles and setting descriptions are made dependent on the scenario.
-    - For scenario 'Opponent', title is '... under contingencies', settings are 'Baseline' and 'moderate contingencies'.
-    - For scenario 'Time', title is '... under time constraints', settings are 'Baseline' and 'moderate time constraints'.
-    - For scenario 'max_rho', title is '... for unknown max line loading', settings are 'Baseline' and 'rho 90%'.
+    - For scenario 'Opponent', title is 'Single- and Multi-Objective Solutions under contingencies',
+      settings are 'Baseline', 'moderate contingencies', and 'high contingencies'.
+    - For scenario 'Time', title is 'Single- and Multi-Objective Solutions under time constraints',
+      settings are 'Baseline', 'moderate time constraints', and 'high time constraints'.
+    - For scenario 'Max_rho', title is 'Single- and Multi-Objective Solutions for unknown max line loading',
+      settings are 'Baseline', 'rho 70%', 'rho 50%', and 'rho 00%'.
     """
-    
+
+    import os
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
 
     # Paths for different scenarios
     opponent_paths = {
@@ -2928,47 +2814,71 @@ def compare_policies_weights_all_seeds(base_path, scenario):
         "rho 00%": os.path.join(base_path, 'Rho00'),
         # Add more rho settings here if needed
     }
-    
+
     # Determine settings and titles based on scenario
     if scenario == 'Opponent':
-        settings = ['Baseline', 'moderate contingencies',"high contingencies" ]
+        settings = ['Baseline', 'moderate contingencies', "high contingencies"]
         paths = opponent_paths
         title = 'Single- and Multi-Objective Solutions under contingencies'
+        setting_label_map = {
+            'Baseline': 'No Contingency (Baseline)',
+            'moderate contingencies': 'Moderately Frequent Contingencies',
+            'high contingencies': 'Highly Frequent Contingencies'
+        }
     elif scenario == "Time":
         settings = ['Baseline', 'moderate time constraints', "high time constraints"]
         paths = time_paths
         title = 'Single- and Multi-Objective Solutions under time constraints'
+        setting_label_map = {
+            'Baseline': 'No Time Constraint (Baseline)',
+            'moderate time constraints': 'Moderately Frequent Time Constraints',
+            'high time constraints': 'Highly Frequent Time Constraints'
+        }
     elif scenario == "Max_rho":
-        settings = ['Baseline', 'rho 70%', 'rho 50%','rho 00%']
+        settings = ['Baseline', 'rho 70%', 'rho 50%', 'rho 00%']
         paths = rho_paths
         title = 'Single- and Multi-Objective Solutions for unknown max line loading'
+        setting_label_map = {
+            'Baseline': 'No Reuse (Baseline)',
+            'rho 70%': 'Reuse rho 70%',
+            'rho 50%': 'Reuse rho 50%',
+            'rho 00%': 'Reuse rho 00%',
+        }
     else:
         raise ValueError("Invalid scenario provided.")
 
     results = []
-    print('settings')
+    print('Settings:')
     print(settings)
+    
     # Loop over each setting
     for setting in settings:
         path = paths[setting]
         seed_paths = []
-        print(path)
+        print(f"Processing path: {path}")
         for seed in range(20):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
             seed_paths.append(seed_path)
 
-        print(f"Processing for setting: {setting} with seed paths. {seed_paths}")
+        print(f"Processing for setting: {setting} with seed paths.")
+        print(seed_paths)
 
         # Process data for this scenario and setting
         df_ccs_matching_seeds = process_data(
             seed_paths=seed_paths, wrapper='ols', output_dir=path)
+        print("Sample 'test_chronic_0' data:")
+        print(df_ccs_matching_seeds['test_chronic_0'].head())
 
+        print("Sample 'test_chronic_1' data:")
+        print(df_ccs_matching_seeds['test_chronic_1'].head())
         # For each seed, process the data
         for seed, group in df_ccs_matching_seeds.groupby('seed'):
             # S-O Case [1,0,0]
             default_runs = group[group['Weights'].apply(
                 lambda w: w == [1.0, 0.0, 0.0])]
+            if default_runs.empty:
+                continue  # Handle case with no S-O Case runs
             default_run = default_runs.loc[
                 default_runs['test_chronic_0'].apply(
                     lambda x: x['test_steps']).idxmax()
@@ -2977,6 +2887,9 @@ def compare_policies_weights_all_seeds(base_path, scenario):
             # M-O Case (exclude [1.0, 0.0, 0.0])
             non_default_runs = group[group['Weights'].apply(
                 lambda w: w != [1.0, 0.0, 0.0])]
+
+            if non_default_runs.empty:
+                continue  # Handle case with no M-O Case runs
 
             # Extract 'test_steps' and 'test_actions' for both chronic_0 and chronic_1
             non_default_runs['avg_test_steps'] = non_default_runs.apply(
@@ -3030,6 +2943,16 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     # Convert the results into a DataFrame for plotting
     df_results = pd.DataFrame(results)
 
+    # Map 'Run Type' to desired labels
+    run_type_label_map = {
+        'S-O Case': 'SO-LL-Policy',
+        'M-O Case': 'MO Policy'
+    }
+    df_results['Run Type'] = df_results['Run Type'].map(run_type_label_map)
+
+    # Map 'Setting' to desired labels
+    df_results['Setting Label'] = df_results['Setting'].map(setting_label_map)
+
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update({
         'font.size': 14,
@@ -3047,16 +2970,16 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     sns.set_style("whitegrid")
 
     # Define custom colors
-    box_colors = {'S-O Case': 'grey', 'M-O Case': 'lightcoral'}  # light red
-    dot_colors = {'S-O Case': 'black', 'M-O Case': 'red'}
+    box_colors = {'SO-LL-Policy': 'grey', 'MO Policy': 'lightcoral'}
+    dot_colors = {'SO-LL-Policy': 'black', 'MO Policy': 'red'}
 
     # Define hue order to ensure consistent ordering
-    hue_order = ['S-O Case', 'M-O Case']
+    hue_order = ['SO-LL-Policy', 'MO Policy']
 
     # Boxplot of Switching Actions
     plt.figure(figsize=(14, 8))
     ax1 = sns.boxplot(
-        x='Setting', y='Switching Actions', hue='Run Type',
+        x='Setting Label', y='Switching Actions', hue='Run Type',
         data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
         medianprops={'color': 'black'},
         whiskerprops={'color': 'black'},
@@ -3067,7 +2990,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     # Swarmplot with edge colors
     sns.swarmplot(
-        x='Setting', y='Switching Actions', hue='Run Type',
+        x='Setting Label', y='Switching Actions', hue='Run Type',
         data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
         edgecolor='black', linewidth=0.5, ax=ax1
     )
@@ -3076,11 +2999,12 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     plt.ylabel('Number of Switching Actions')
     plt.xlabel('Setting')
 
-    # Adjust legend to prevent duplicates
+    # Adjust legend to prevent duplicates and place within plot
     handles, labels = ax1.get_legend_handles_labels()
+    # To remove duplicate legends caused by swarmplot
     n = len(hue_order)
     ax1.legend(handles[:n], labels[:n], title='Run Type',
-               bbox_to_anchor=(1.05, 1), loc='upper left')
+               loc='upper right')  # Changed loc to 'upper right'
 
     plt.tight_layout()
     plt.show()
@@ -3088,7 +3012,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     # Boxplot of Steps
     plt.figure(figsize=(14, 8))
     ax2 = sns.boxplot(
-        x='Setting', y='Steps', hue='Run Type',
+        x='Setting Label', y='Steps', hue='Run Type',
         data=df_results, hue_order=hue_order, palette=box_colors, width=0.6,
         medianprops={'color': 'black'},
         whiskerprops={'color': 'black'},
@@ -3099,7 +3023,7 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     # Swarmplot with edge colors
     sns.swarmplot(
-        x='Setting', y='Steps', hue='Run Type',
+        x='Setting Label', y='Steps', hue='Run Type',
         data=df_results, hue_order=hue_order, dodge=True, palette=dot_colors, size=6, alpha=0.7,
         edgecolor='black', linewidth=0.5, ax=ax2
     )
@@ -3108,15 +3032,16 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     plt.ylabel('Average Number of Steps')
     plt.xlabel('Setting')
 
-    # Adjust legend to prevent duplicates
+    # Adjust legend to prevent duplicates and place within plot
     handles, labels = ax2.get_legend_handles_labels()
     ax2.legend(handles[:n], labels[:n], title='Run Type',
-               bbox_to_anchor=(1.05, 1), loc='upper left')
+               loc='upper right')  # Changed loc to 'upper right'
 
     plt.tight_layout()
     plt.show()
 
     return df_results
+
 
 
 
@@ -3126,7 +3051,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     complete the episode (steps=2016) for a given scenario.
 
     Display Options:
-    - 'combined': For each weight, plot KDE and strip plots across all settings in one figure.
+    - 'combined': For each weight, plot KDE and rug plots across all settings in one figure.
     - 'separate': For each setting, plot the KDE distributions of all weights in one figure.
 
     Parameters:
@@ -3144,6 +3069,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     import matplotlib.pyplot as plt
     import seaborn as sns
     from collections import OrderedDict
+    from matplotlib.lines import Line2D
 
     # Paths for different scenarios
     opponent_paths = {
@@ -3171,23 +3097,47 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         settings = ["Baseline", "moderate contingencies", "high contingencies"]
         paths = opponent_paths
         scenario_title = 'Contingencies'
+        setting_label_map = {
+            'Baseline': 'No Contingency (Baseline)',
+            'moderate contingencies': 'Moderately Frequent Contingencies',
+            'high contingencies': 'Highly Frequent Contingencies'
+        }
     elif scenario == "Time":
         settings = ["Baseline", "moderate learning constraints", "high learning constraints"]
         paths = time_paths
         scenario_title = 'Learning Constraints'
+        setting_label_map = {
+            'Baseline': 'No Time Constraint (Baseline)',
+            'moderate learning constraints': 'Moderately Frequent Time Constraints',
+            'high learning constraints': 'Highly Frequent Time Constraints'
+        }
     elif scenario == "Max_rho":
-        settings = ["Baseline", "rho 50%", "rho 00%"]
+        settings = ["Baseline", "rho 70%", "rho 50%", "rho 00%"]
         paths = rho_paths
         scenario_title = 'Unknown Max Line Loading'
+        setting_label_map = {
+            'Baseline': 'No Reuse (Baseline)',
+            'rho 70%': 'Reuse rho 70%',
+            'rho 50%': 'Reuse rho 50%',
+            'rho 00%': 'Reuse rho 00%',
+        }
     else:
         raise ValueError("Invalid scenario provided.")
 
     results = []
-
+    unsuccessful_results = []
+    print('Settings:')
+    print(settings)
+    
     # Loop over each setting
     for setting in settings:
-        path = paths[setting]
+        path = paths.get(setting)
+        if not path:
+            print(f"Path for setting '{setting}' not found. Skipping.")
+            continue
+
         seed_paths = []
+        print(f"Processing path: {path}")
         for seed in range(5):  # Adjust the range as needed
             seed_file = f"morl_logs_seed_{seed}.json"
             seed_path = os.path.join(path, seed_file)
@@ -3209,81 +3159,10 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 # Check if it's a multi-objective policy (weights not equal to [1.0, 0.0, 0.0])
                 if weights != [1.0, 0.0, 0.0]:
                     # Check if the policy completes the episode (steps=2016) for both chronic_0 and chronic_1
-                    steps_chronic_0 = row['test_chronic_0']['test_steps']
-                    steps_chronic_1 = row['test_chronic_1']['test_steps']
+                    steps_chronic_0 = row['test_chronic_0'].get('test_steps', 0) if isinstance(row['test_chronic_0'], dict) else 0
+                    steps_chronic_1 = row['test_chronic_1'].get('test_steps', 0) if isinstance(row['test_chronic_1'], dict) else 0
                     if steps_chronic_0 == 2016 and steps_chronic_1 == 2016:
                         avg_steps = (steps_chronic_0 + steps_chronic_1) / 2
-                        results.append({
-                            'Seed': row['seed'],
-                            'Setting': setting,
-                            'Weights': weights,
-                            'Average Steps': avg_steps
-                        })
-
-    # Convert the results into a DataFrame
-    df_results = pd.DataFrame(results)
-
-    if df_results.empty:
-        print("No successful M-O policies found for the given scenario.")
-        return
-
-    # Convert the list of weights to columns for easier plotting
-    weights_array = np.array(df_results['Weights'].tolist())
-    df_results['Weight 1'] = weights_array[:, 0]
-    df_results['Weight 2'] = weights_array[:, 1]
-    df_results['Weight 3'] = weights_array[:, 2]
-
-    # Ensure weights are within the range 0-1
-    df_results['Weight 1'] = df_results['Weight 1'].clip(0, 1)
-    df_results['Weight 2'] = df_results['Weight 2'].clip(0, 1)
-    df_results['Weight 3'] = df_results['Weight 3'].clip(0, 1)
-
-    # Set up matplotlib parameters for a consistent look
-    plt.rcParams.update({
-        'font.size': 12,
-        'axes.grid': True,
-        'axes.labelsize': 14,
-        'axes.titlesize': 16,
-        'legend.fontsize': 12,
-        'xtick.labelsize': 12,
-        'ytick.labelsize': 12,
-        'font.family': 'serif',
-    })
-
-    sns.set_style("whitegrid")
-    
-    
-    results = []
-    unsuccessful_results = []
-
-    # Loop over each setting
-    for setting in settings:
-        path = paths[setting]
-        seed_paths = []
-        for seed in range(5):  # Adjust the range as needed
-            seed_file = f"morl_logs_seed_{seed}.json"
-            seed_path = os.path.join(path, seed_file)
-            if os.path.exists(seed_path):
-                seed_paths.append(seed_path)
-            else:
-                print(f"Seed file not found: {seed_path}")
-
-        # Process data for this scenario and setting
-        for seed_path in seed_paths:
-            print(f"Processing for setting: {setting} with seed path: {seed_path}")
-            # Load the data (implement your own load function or adjust accordingly)
-            df_ccs_matching_seeds = process_data(
-                seed_paths=[seed_path], wrapper='ols', output_dir=path)
-
-            # For each run in the data
-            for index, row in df_ccs_matching_seeds.iterrows():
-                weights = row['Weights']
-                steps_chronic_0 = row['test_chronic_0']['test_steps']
-                steps_chronic_1 = row['test_chronic_1']['test_steps']
-                avg_steps = (steps_chronic_0 + steps_chronic_1) / 2
-
-                if weights != [1.0, 0.0, 0.0]:
-                    if steps_chronic_0 == 2016 and steps_chronic_1 == 2016:
                         results.append({
                             'Seed': row['seed'],
                             'Setting': setting,
@@ -3295,7 +3174,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                             'Seed': row['seed'],
                             'Setting': setting,
                             'Weights': weights,
-                            'Average Steps': avg_steps,
+                            'Average Steps': (steps_chronic_0 + steps_chronic_1) / 2,
                             'Steps Chronic 0': steps_chronic_0,
                             'Steps Chronic 1': steps_chronic_1
                         })
@@ -3306,18 +3185,24 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
     if df_results.empty:
         print("No successful M-O policies found for the given scenario.")
-        return
-
     if df_unsuccessful.empty:
         print("No unsuccessful M-O policies found for the given scenario.")
     else:
         print("Unsuccessful M-O policies found for the given scenario.")
 
+    if df_results.empty and df_unsuccessful.empty:
+        return
+
     # Convert the list of weights to columns for easier plotting in successful policies
-    weights_array = np.array(df_results['Weights'].tolist())
-    df_results['Weight 1'] = weights_array[:, 0]
-    df_results['Weight 2'] = weights_array[:, 1]
-    df_results['Weight 3'] = weights_array[:, 2]
+    if not df_results.empty:
+        weights_array = np.array(df_results['Weights'].tolist())
+        df_results['Weight 1'] = weights_array[:, 0]
+        df_results['Weight 2'] = weights_array[:, 1]
+        df_results['Weight 3'] = weights_array[:, 2]
+        # Ensure weights are within the range 0-1
+        df_results['Weight 1'] = df_results['Weight 1'].clip(0, 1)
+        df_results['Weight 2'] = df_results['Weight 2'].clip(0, 1)
+        df_results['Weight 3'] = df_results['Weight 3'].clip(0, 1)
 
     # Convert the list of weights to columns for easier plotting in unsuccessful policies
     if not df_unsuccessful.empty:
@@ -3325,301 +3210,155 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         df_unsuccessful['Weight 1'] = weights_array_unsuccessful[:, 0]
         df_unsuccessful['Weight 2'] = weights_array_unsuccessful[:, 1]
         df_unsuccessful['Weight 3'] = weights_array_unsuccessful[:, 2]
+        # Ensure weights are within the range 0-1
+        df_unsuccessful['Weight 1'] = df_unsuccessful['Weight 1'].clip(0, 1)
+        df_unsuccessful['Weight 2'] = df_unsuccessful['Weight 2'].clip(0, 1)
+        df_unsuccessful['Weight 3'] = df_unsuccessful['Weight 3'].clip(0, 1)
+
+    # Map 'Setting' to desired labels
+    df_results['Setting Label'] = df_results['Setting'].map(setting_label_map)
+    if not df_unsuccessful.empty:
+        df_unsuccessful['Setting Label'] = df_unsuccessful['Setting'].map(setting_label_map)
+
+    # Set up matplotlib parameters for a more scientific look
+    plt.rcParams.update({
+        'font.size': 14,
+        'figure.figsize': (18, 12),
+        'axes.labelsize': 16,
+        'axes.titlesize': 18,
+        'legend.fontsize': 12,
+        'xtick.labelsize': 14,
+        'ytick.labelsize': 14,
+        'font.family': 'serif',
+    })
+
+    sns.set_style("white")  # Removed grid lines
+
+    # Define custom colors for rewards
+    reward_palette = {
+        'Weight 1': 'gold',        # R1: LineLoading
+        'Weight 2': 'red',         # R2: Topological Depth
+        'Weight 3': 'blue'         # R3: Switching Action
+    }
+
+    # Define labels for rewards
+    reward_labels = ['R1: LineLoading', 'R2: Topological Depth', 'R3: Switching Action']
+
+    # Function to plot KDEs with customized settings for subplots
+    def plot_kde_subplots(df, plot_title):
+        settings_unique = df['Setting Label'].unique()
+        num_settings = len(settings_unique)
         
-
-    if plot_option == 'points':
-        # Option 2: Separate KDE Plots by Setting - Successful Cases
-        num_settings = len(settings)
-
-        # Plot for Successful Cases
-        fig_success_kde, axes_success_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
+        # Create a figure with 1 row and num_settings columns
+        fig, axes = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharey=True)
         if num_settings == 1:
-            axes_success_kde = [axes_success_kde]  # Ensure axes_success_kde is iterable when there's only one setting
+            axes = [axes]  # Ensure axes is iterable when there's only one setting
 
-        for i, setting in enumerate(settings):
-            df_setting_successful = df_results[df_results['Setting'] == setting]
-
-            if df_setting_successful.empty:
-                print(f"No successful data available for setting: {setting}")
-                continue
-
-            print(setting)
-            weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['R1: LineLoading', 'R2: Switching Frequency', 'R3: Topological Depth']
-            colors = ['blue', 'green', 'coral']  # Colors for different weight types
-
-            # Plot successful KDE with separate rug plots
-            for weight, weight_title, color in zip(weights, weight_titles, colors):
+        for ax, setting in zip(axes, settings_unique):
+            df_setting = df[df['Setting Label'] == setting]
+            for weight, color in reward_palette.items():
                 sns.kdeplot(
-                    data=df_setting_successful,
+                    data=df_setting,
                     x=weight,
-                    label=f'{weight_title}',
+                    label=weight.replace('Weight ', 'R'),
                     fill=True,
-                    clip=(0, 1),
-                    bw_adjust=0.5,
-                    common_norm=True,
-                    alpha=0.5,
-                    ax=axes_success_kde[i],
-                    color=color
-                )
-                sns.rugplot(
-                    data=df_setting_successful,
-                    x=weight,
-                    height=0.05,
-                    ax=axes_success_kde[i],
-                    color=color,
-                    label=f'Rug - {weight_title}'
-                )
-
-            axes_success_kde[i].set_title(f'{setting}')
-            axes_success_kde[i].set_xlabel('Weight Value')
-            axes_success_kde[i].set_ylabel('Frequency')
-            axes_success_kde[i].set_xlim(0, 1)
-            axes_success_kde[i].set_ylim(0, 5)
-            axes_success_kde[i].legend(title='Rewards')
-
-        plt.tight_layout()
-        plt.show()
-
-        # Plot for Unsuccessful Cases
-        fig_unsuccess_kde, axes_unsuccess_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
-        if num_settings == 1:
-            axes_unsuccess_kde = [axes_unsuccess_kde]  # Ensure axes_unsuccess_kde is iterable when there's only one setting
-
-        for i, setting in enumerate(settings):
-            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
-
-            if df_setting_unsuccessful.empty:
-                print(f"No unsuccessful data available for setting: {setting}")
-                continue
-
-            weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['R1: LineLoading', 'R2: Switching Frequency', 'R3: Topological Depth']
-            colors = ['red', 'orange', 'brown']  # Colors for different weight types
-
-            # Plot unsuccessful KDE with separate rug plots
-            for weight, weight_title, color in zip(weights, weight_titles, colors):
-                sns.kdeplot(
-                    data=df_setting_unsuccessful,
-                    x=weight,
-                    label=f'{weight_title}',
-                    fill=True,
-                    clip=(0, 1),
-                    bw_adjust=0.5,
-                    common_norm=True,
-                    alpha=0.5,
-                    ax=axes_unsuccess_kde[i],
-                    color=color
-                )
-                sns.rugplot(
-                    data=df_setting_unsuccessful,
-                    x=weight,
-                    height=0.05,
-                    ax=axes_unsuccess_kde[i],
-                    color=color,
-                    label=f'Rug - {weight_title}'
-                )
-
-            axes_unsuccess_kde[i].set_title(f'{setting} - Unsuccessful')
-            axes_unsuccess_kde[i].set_xlabel('Weight Value')
-            axes_unsuccess_kde[i].set_ylabel('Fequency')
-            axes_unsuccess_kde[i].set_xlim(0, 1)
-            axes_unsuccess_kde[i].set_ylim(0, 5)
-            axes_unsuccess_kde[i].legend(title='Rewards')
-
-        plt.tight_layout()
-        plt.show()
-
-    elif plot_option == 'separate':
-        # Option 2: Separate KDE Plots by Setting - Successful Cases
-        num_settings = len(settings)
-
-        # Plot for Successful Cases
-        fig_success_kde, axes_success_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
-        if num_settings == 1:
-            axes_success_kde = [axes_success_kde]  # Ensure axes_success_kde is iterable when there's only one setting
-
-        for i, setting in enumerate(settings):
-            df_setting_successful = df_results[df_results['Setting'] == setting]
-
-            if df_setting_successful.empty:
-                print(f"No successful data available for setting: {setting}")
-                continue
-
-            print(setting)
-            weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['L2RPN', 'Actions', 'Depth']
-
-            # Plot successful KDE
-            for weight, weight_title in zip(weights, weight_titles):
-                sns.kdeplot(
-                    data=df_setting_successful,
-                    x=weight,
-                    label=f'Successful - {weight_title}',
-                    fill=True,
-                    clip=(0, 1),
                     common_norm=False,
                     alpha=0.5,
-                    ax=axes_success_kde[i]
+                    color=color,
+                    linewidth=1.5,
+                    bw_adjust=0.5,
+                    ax=ax
                 )
-
-            axes_success_kde[i].set_title(f'{setting} - Successful')
-            axes_success_kde[i].set_xlabel('Weight Value')
-            axes_success_kde[i].set_ylabel('Density')
-            axes_success_kde[i].set_xlim(0, 1)
-            axes_success_kde[i].set_ylim(0, 2)
-            axes_success_kde[i].legend(title='Rewards')
-
-        plt.tight_layout()
-        plt.show()
-
-        # Plot for Unsuccessful Cases
-        fig_unsuccess_kde, axes_unsuccess_kde = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharex=True, sharey=True)
-        if num_settings == 1:
-            axes_unsuccess_kde = [axes_unsuccess_kde]  # Ensure axes_unsuccess_kde is iterable when there's only one setting
-
-        for i, setting in enumerate(settings):
-            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
-
-            if df_setting_unsuccessful.empty:
-                print(f"No unsuccessful data available for setting: {setting}")
-                continue
-
-            weights = ['Weight 1', 'Weight 2', 'Weight 3']
-            weight_titles = ['L2RPN', 'Actions', 'Depth']
-
-            # Plot unsuccessful KDE
-            for weight, weight_title in zip(weights, weight_titles):
-                sns.kdeplot(
-                    data=df_setting_unsuccessful,
+                sns.rugplot(
+                    data=df_setting,
                     x=weight,
-                    label=f'Unsuccessful - {weight_title}',
-                    fill=True,
-                    clip=(0, 1),
-                    common_norm=False,
-                    alpha=0.5,
-                    ax=axes_unsuccess_kde[i]
+                    height=0.05,
+                    color=color,
+                    linewidth=3,
+                    ax=ax
                 )
+            ax.set_title(setting)
+            ax.set_xlabel('Weight Value Assigned to Reward')
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 4)
+            # Remove individual legends
+            #ax.get_legend().remove()
 
-            axes_unsuccess_kde[i].set_title(f'{setting} - Unsuccessful')
-            axes_unsuccess_kde[i].set_xlabel('Weight Value')
-            axes_unsuccess_kde[i].set_ylabel('Density')
-            axes_unsuccess_kde[i].set_xlim(0, 1)
-            axes_unsuccess_kde[i].set_ylim(0, 2)
-            axes_unsuccess_kde[i].legend(title='Rewards')
+        # Create a single legend for the entire figure
+        handles = [Line2D([0], [0], color=color, lw=4, label=label)
+                   for color, label in zip(reward_palette.values(), reward_labels)]
+        fig.legend(handles=handles, loc='upper right', title='Rewards')
 
-        plt.tight_layout()
+        # Add an overall title
+        fig.suptitle('Weight Value Distribution for Successful Policies', fontsize=20)
+        plt.tight_layout(rect=[0, 0, 0.95, 0.95])
         plt.show()
 
-        # Separate Histogram Plots by Setting with Parallel Bins for Each Reward
-        fig_hist, axes_hist = plt.subplots(2, num_settings, figsize=(6 * num_settings, 12), sharex=True, sharey=True)
+    # Function to plot KDEs for unsuccessful policies with subplots
+    def plot_kde_subplots_unsuccessful(df, plot_title):
+        settings_unique = df['Setting Label'].unique()
+        num_settings = len(settings_unique)
+        
+        # Create a figure with 1 row and num_settings columns
+        fig, axes = plt.subplots(1, num_settings, figsize=(6 * num_settings, 6), sharey=True)
         if num_settings == 1:
-            axes_hist = [axes_hist]  # Ensure axes_hist is iterable when there's only one setting
+            axes = [axes]  # Ensure axes is iterable when there's only one setting
 
-        for i, setting in enumerate(settings):
-            df_setting_successful = df_results[df_results['Setting'] == setting]
-            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
+        for ax, setting in zip(axes, settings_unique):
+            df_setting = df[df['Setting Label'] == setting]
+            for weight, color in reward_palette.items():
+                sns.kdeplot(
+                    data=df_setting,
+                    x=weight,
+                    label=weight.replace('Weight ', 'R'),
+                    fill=True,
+                    common_norm=False,
+                    alpha=0.4,
+                    color=color,
+                    linewidth=1.5,
+                    bw_adjust=0.5,
+                    ax=ax
+                )
+                sns.rugplot(
+                    data=df_setting,
+                    x=weight,
+                    height=0.1,
+                    color=color,
+                    linewidth=3,
+                    ax=ax
+                )
+            ax.set_title(setting)
+            ax.set_xlabel('Weight Value Assigned to Reward')
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 5)
+            # Remove individual legends
+            #ax.get_legend().remove()
 
-            if not df_setting_successful.empty:
-                # Plot successful histograms with parallel bins
-                for weight, weight_title in zip(weights, weight_titles):
-                    sns.histplot(
-                        data=df_setting_successful.melt(value_vars=weights, var_name="Weight Type", value_name="Weight Value"),
-                        x="Weight Value",
-                        hue="Weight Type",
-                        multiple="dodge",
-                        bins=5,
-                        palette="Blues",
-                        alpha=0.5,
-                        ax=axes_hist[0][i]
-                    )
+        # Create a single legend for the entire figure
+        handles = [Line2D([0], [0], color=color, lw=4, label=label)
+                   for color, label in zip(reward_palette.values(), reward_labels)]
+        fig.legend(handles=handles, loc='upper right', title='Rewards')
 
-                axes_hist[0][i].set_title(f'{setting} - Successful')
-                axes_hist[0][i].set_xlabel('Weight Value')
-                axes_hist[0][i].set_ylabel('Frequency')
-                axes_hist[0][i].set_xlim(0, 1)
-                axes_hist[0][i].legend(title='Weight Types')
-
-            if not df_setting_unsuccessful.empty:
-                # Plot unsuccessful histograms with parallel bins
-                for weight, weight_title in zip(weights, weight_titles):
-                    sns.histplot(
-                        data=df_setting_unsuccessful.melt(value_vars=weights, var_name="Weight Type", value_name="Weight Value"),
-                        x="Weight Value",
-                        hue="Weight Type",
-                        multiple="dodge",
-                        bins=5,
-                        palette="Reds",
-                        alpha=0.5,
-                        ax=axes_hist[1][i]
-                    )
-
-                axes_hist[1][i].set_title(f'{setting} - Unsuccessful')
-                axes_hist[1][i].set_xlabel('Weight Value')
-                axes_hist[1][i].set_ylabel('Frequency')
-                axes_hist[1][i].set_xlim(0, 1)
-                axes_hist[1][i].legend(title='Weight Types')
-
-        plt.tight_layout()
+        # Add an overall title
+        fig.suptitle('Weight Value Distribution for Unsuccessful Policies', fontsize=20)
+        plt.tight_layout(rect=[0, 0, 0.95, 0.95])
         plt.show()
 
-        # Existing scatter plot logic remains unchanged
-        unique_weights_all_settings = []  # To store unique weights for line plot
+    # Plot for Successful Policies
+    if not df_results.empty:
+        plot_kde_subplots(
+            df=df_results,
+            plot_title='Weight Value Distribution for Successful Policies'
+        )
 
-        for i, setting in enumerate(settings):
-            df_setting_successful = df_results[df_results['Setting'] == setting]
-            df_setting_unsuccessful = df_unsuccessful[df_unsuccessful['Setting'] == setting]
+    # Plot for Unsuccessful Policies
+    if not df_unsuccessful.empty:
+        plot_kde_subplots_unsuccessful(
+            df=df_unsuccessful,
+            plot_title='Weight Value Distribution for Unsuccessful Policies'
+        )
 
-            if df_setting_successful.empty:
-                print(f"No successful data available for setting: {setting}")
-            else:
-                print(setting)
-                unique_weights = df_setting_successful[['Weight 1', 'Weight 2', 'Weight 3']].drop_duplicates()
-                print("Unique successful weight vectors:")
-                print(np.round(unique_weights, decimals=2))
-
-                # Store unique weights with setting information for line plot
-                for _, row in unique_weights.iterrows():
-                    unique_weights_all_settings.append({
-                        'Setting': setting,
-                        'Weight 1': row['Weight 1'],
-                        'Weight 2': row['Weight 2'],
-                        'Weight 3': row['Weight 3']
-                    })
-                    
-        # Create a DataFrame from unique weights for line plot
-        df_unique_weights = pd.DataFrame(unique_weights_all_settings)
-
-        # Define colors: black for baseline, use a color palette for the others
-        palette = sns.color_palette("husl", len(df_unique_weights['Setting'].unique()))  # Generate a color palette
-        setting_palette = dict(zip(df_unique_weights['Setting'].unique(), palette))      # Map settings to colors
-        setting_palette['Baseline'] = 'black'  # Set baseline to black
-
-        # Plotting unique successful weight vectors as scatter plots
-        plt.figure(figsize=(12, 6))
-
-        # Plot each weight dimension as scatter points, coloring according to the setting
-        for index, row in df_unique_weights.iterrows():
-            plt.scatter(['Weight 1', 'Weight 2', 'Weight 3'],
-                        [row['Weight 1'], row['Weight 2'], row['Weight 3']],
-                        color=setting_palette[row['Setting']],
-                        label=row['Setting'] if row['Setting'] not in plt.gca().get_legend_handles_labels()[1] else "")
-
-        plt.title('Scatter Plot of Weight Vector Values Across Different Settings')
-        plt.xlabel('Weight Dimension')
-        plt.ylabel('Weight Value')
-        plt.ylim(0, 1)
-        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-
-        # Create a legend and specify unique entries
-        plt.legend(title='Settings', loc='upper right')
-
-        plt.xticks(['Weight 1', 'Weight 2', 'Weight 3'])
-        plt.tight_layout()
-        plt.show()
-        # Call the function with the DataFrames
-        #plot_weight_distributions(df_results, df_unsuccessful)
-        plot_steps_vs_weights_by_scenario(df_results, df_unsuccessful)
+    return df_results, df_unsuccessful
 
 
 
@@ -4853,12 +4592,12 @@ def calculate_all_metrics(seed_paths_ols, wrapper, rs_seed_paths=None, iteration
 
 # ---- Main Function ----
 def main():
-    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\4th_trial"  # The base path where the JSON files are stored
+    base_json_path = "C:\\Users\\thoma\MA\\TOPGRID_MORL\\morl_logs\\5th_trial"  # The base path where the JSON files are stored
     scenarios = ["Baseline", "Max_rho", "Opponent", "Reuse", "Time", "name"]
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[3]
+    scenario = scenarios[2]
     reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
@@ -4876,6 +4615,7 @@ def main():
         analysis.analyse_pareto_values_and_plot()
     # Perform the analyses
     if scenario == "Baseline":
+        analysis.analyse_pareto_values_and_plot()
         plot_ccs_points_only(
             ols_seed_paths=analysis.seed_paths,
             rs_seed_paths=analysis.rs_seed_paths,
@@ -4897,7 +4637,7 @@ def main():
             analysis.seed_paths, analysis.rs_seed_paths, None, None, "ols", save_dir=analysis.output_dir, rewards=reward_names
         )
         #analysis.in_depth_analysis(seed=0)  # For example, seed 0
-        #analysis.analyse_pareto_values_and_plot()
+        analysis.analyse_pareto_values_and_plot()
     if scenario == "Reuse":
         #compare_hv_and_sparsity_with_combined_reference(base_path= os.path.join(base_json_path, "OLS", scenario), scenario=scenario, ols_paths=analysis.seed_paths, rs_paths=analysis.rs_seed_paths)
         compare_hv_and_sparsity_with_separate_boxplots(os.path.join(base_json_path, "OLS", scenario), scenario)
