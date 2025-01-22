@@ -144,5 +144,6 @@ ppo_agent = MO_PPO(policy, value_function, optimizer)
 Contributions are welcome Please create an issue or submit a pull request for any changes.
 
 ## License
-
-This project is licensed under the MIT License.
+   
+This work is licensed under a
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
