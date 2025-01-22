@@ -1063,7 +1063,7 @@ def plot_ccs_points_only(
             color='lightcoral',
             marker='o',
             s=100,
-            label='OLS CCS Points'
+            label='DOL CCS Points'
         )
         axs[1].scatter(
             ols_ccs_coords[:, 0],
@@ -1071,7 +1071,7 @@ def plot_ccs_points_only(
             color='lightcoral',
             marker='o',
             s=100,
-            label='OLS CCS Points'
+            label='DOL CCS Points'
         )
         axs[2].scatter(
             ols_ccs_coords[:, 1],
@@ -1079,7 +1079,7 @@ def plot_ccs_points_only(
             color='lightcoral',
             marker='o',
             s=100,
-            label='OLS CCS Points'
+            label='DOL CCS Points'
         )
 
     # RS CCS points
@@ -1125,7 +1125,7 @@ def plot_ccs_points_only(
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
     plt.tight_layout()
-    plt.suptitle("CCS over All Seeds and Methods", fontsize=20)
+    #plt.suptitle("CCS over All Seeds and Methods", fontsize=20)
     plt.subplots_adjust(top=0.88)  # Adjust the top to make room for suptitle
     if save_dir:
         plt.savefig(os.path.join(save_dir, "ccs_points_only.png"))
@@ -1155,17 +1155,22 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
     # --- Plotting starts here ---
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update(
-        {
-            "font.size": 14,
-            "figure.figsize": (8, 6),
-            "axes.grid": True,
-            "axes.labelsize": 16,
-            "axes.titlesize": 18,
-            "legend.fontsize": 12,
-            "xtick.labelsize": 14,
-            "ytick.labelsize": 14,
-            "font.family": "serif",
-        }
+    {
+        "text.usetex": False,
+        "font.family": "serif",
+        #"font.serif": ["Computer Modern"],
+        "font.size": 14,
+        "figure.figsize": (8, 6),
+        "axes.grid": True,
+        "axes.labelsize": 16,
+        "axes.titlesize": 18,
+        "legend.fontsize": 12,
+        "xtick.labelsize": 14,
+        "ytick.labelsize": 14,
+        "grid.alpha": 0.7,
+        "grid.linestyle": "--",
+        "axes.formatter.use_locale": True,
+    }
     )
 
     # Initialize lists to collect all data points and labels
@@ -1245,7 +1250,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
                 color='red',
                 alpha=0.3,
                 marker='o',
-                label='OLS Points'
+                label='DOL Points'
             )
         # Plot RS points
         if rs_coords.size > 0:
@@ -1266,7 +1271,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
                 edgecolors='black',
                 marker='o',
                 s=100,
-                label='OLS CCS Points'
+                label='DOL CCS Points'
             )
         # Plot RS CCS points
         if rs_ccs_coords.size > 0:
@@ -1284,7 +1289,7 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
         ax.set_ylabel(rewards[y_idx])
 
         # Set title
-        ax.set_title("2D Projection of Super CCS")
+        #ax.set_title("2D Projection of Super CCS")
 
         # Adjust legend
         handles, labels_legend = ax.get_legend_handles_labels()
@@ -1295,10 +1300,12 @@ def plot_super_pareto_frontier_2d_ols_vs_rs_ccs(
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.7)
 
         plt.tight_layout()
-
+        print(save_dir)
         # Save figure
         if save_dir:
-            plt.savefig(os.path.join(save_dir, f"super_ccs_ols_vs_rs_projection_{i}.png"))
+            plt.savefig(os.path.join(save_dir, f"super_ccs_ols_vs_rs_projection_{i}.pdf"), format="pdf",bbox_inches="tight",
+                        dpi=300
+                        )
         # Show figure
         plt.show()
 
@@ -2809,7 +2816,6 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 70%": os.path.join(base_path, 'Rho70'),
         "rho 50%": os.path.join(base_path, 'Rho50'),
         "rho 00%": os.path.join(base_path, 'Rho00'),
         # Add more rho settings here if needed
@@ -2828,21 +2834,21 @@ def compare_policies_weights_all_seeds(base_path, scenario):
     elif scenario == "Time":
         settings = ['Baseline', 'moderate time constraints', "high time constraints"]
         paths = time_paths
-        title = 'Single- and Multi-Objective Solutions under time constraints'
+        title = 'Single- and Multi-Objective Solutions under training constraints'
         setting_label_map = {
             'Baseline': 'No Time Constraint (Baseline)',
-            'moderate time constraints': 'Moderately Frequent Time Constraints',
-            'high time constraints': 'Highly Frequent Time Constraints'
+            'moderate time constraints': 'Moderate Training Constraints',
+            'high time constraints': 'High Training Constraints'
         }
     elif scenario == "Max_rho":
-        settings = ['Baseline', 'rho 70%', 'rho 50%', 'rho 00%']
+        settings = ['Baseline', 'rho 50%', 'rho 00%']
         paths = rho_paths
-        title = 'Single- and Multi-Objective Solutions for unknown max line loading'
+        title = 'Single- and Multi-Objective Solutions for different activity thresholds'
         setting_label_map = {
-            'Baseline': 'No Reuse (Baseline)',
-            'rho 70%': 'Reuse rho 70%',
-            'rho 50%': 'Reuse rho 50%',
-            'rho 00%': 'Reuse rho 00%',
+            'Baseline': 'threshold: 95% (Baseline)',
+            'rho 70%': 'threshold: 70%',
+            'rho 50%': 'threshold: 50%',
+            'rho 00%': 'threshold: 00%',
         }
     else:
         raise ValueError("Invalid scenario provided.")
@@ -2952,7 +2958,13 @@ def compare_policies_weights_all_seeds(base_path, scenario):
 
     # Map 'Setting' to desired labels
     df_results['Setting Label'] = df_results['Setting'].map(setting_label_map)
-
+    #df_results_sum = df_results.groupby('Run Type', 'Setting')['Steps']
+    print(df_results)
+    results_sum = df_results.groupby(['Setting', 'Run Type'])['Steps'].mean().reset_index()
+    
+    results_sum['percentages'] = results_sum['Steps']/2016
+    
+    print(results_sum)
     # Set up matplotlib parameters for a more scientific look
     plt.rcParams.update({
         'font.size': 14,
@@ -3086,7 +3098,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
 
     rho_paths = {
         "Baseline": os.path.join(base_path, "Baseline"),
-        "rho 70%": os.path.join(base_path, 'Rho70'),
+       
         "rho 50%": os.path.join(base_path, 'Rho50'),
         "rho 00%": os.path.join(base_path, 'Rho00'),
         # Add more rho settings here if needed
@@ -3107,14 +3119,14 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
         paths = time_paths
         scenario_title = 'Learning Constraints'
         setting_label_map = {
-            'Baseline': 'No Time Constraint (Baseline)',
-            'moderate learning constraints': 'Moderately Frequent Time Constraints',
-            'high learning constraints': 'Highly Frequent Time Constraints'
+            'Baseline': 'No Training Constraint (Baseline)',
+            'moderate learning constraints': 'Moderate Training Constraints',
+            'high learning constraints': 'High Training Constraints'
         }
     elif scenario == "Max_rho":
-        settings = ["Baseline", "rho 70%", "rho 50%", "rho 00%"]
+        settings = ["Baseline",  "rho 50%", "rho 00%"]
         paths = rho_paths
-        scenario_title = 'Unknown Max Line Loading'
+        scenario_title = 'Unknown '
         setting_label_map = {
             'Baseline': 'No Reuse (Baseline)',
             'rho 70%': 'Reuse rho 70%',
@@ -3242,7 +3254,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
     }
 
     # Define labels for rewards
-    reward_labels = ['R1: LineLoading', 'R2: Topological Depth', 'R3: Switching Action']
+    reward_labels = ['R1: LineLoading', 'R2: Topological Depth', 'R3: Switching Frequency']
 
     # Function to plot KDEs with customized settings for subplots
     def plot_kde_subplots(df, plot_title):
@@ -3263,7 +3275,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                     label=weight.replace('Weight ', 'R'),
                     fill=True,
                     common_norm=False,
-                    alpha=0.5,
+                    alpha=0.4,
                     color=color,
                     linewidth=1.5,
                     bw_adjust=0.5,
@@ -3272,7 +3284,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
                 sns.rugplot(
                     data=df_setting,
                     x=weight,
-                    height=0.05,
+                    height=0.1,
                     color=color,
                     linewidth=3,
                     ax=ax
@@ -3281,6 +3293,7 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             ax.set_xlabel('Weight Value Assigned to Reward')
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 4)
+            ax.set_ylabel('Frequency of Weight Values per Reward')
             # Remove individual legends
             #ax.get_legend().remove()
 
@@ -3331,6 +3344,8 @@ def visualize_successful_weights(base_path, scenario, plot_option='combined'):
             ax.set_xlabel('Weight Value Assigned to Reward')
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 5)
+            ax.set_ylabel('Frequency of Weight Values per Reward')
+            
             # Remove individual legends
             #ax.get_legend().remove()
 
@@ -4597,8 +4612,8 @@ def main():
     names = ["Baseline", "rho095", "rho090", "rho080", "rho070", "Opponent", 'name']
 
     name = names[0]
-    scenario = scenarios[2]
-    reward_names = rewards=["R1:LineLoading", "R2: Topological Depth", "R3: Switching Frequency"]
+    scenario = scenarios[0]
+    reward_names = rewards=["R1:LineLoading", "R2: Topological Deviation", "R3: Switching Frequency"]
 
     # Loop through scenarios and parameters
     print(f"Processing scenario: {scenario}")
