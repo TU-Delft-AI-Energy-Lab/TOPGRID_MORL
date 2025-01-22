@@ -5,31 +5,27 @@ This repository contains a collection of modules for implementing Multi-Objectiv
 ## Table of Contents
 - Installation
 - Modules
+  - ols_DOL_exe.py
   - MO_PPO.py
-  - MO_BaselineAgents.py
   - GridRewards.py
   - CustomGymEnv.py
   - EnvSetup.py
   - MO_PPO_train_utils.py
   - MORL_analysis_utils.py
-  - Dataloader.py
   - Grid2op_eval.py
   - env_start_up.py
-  - generate_reward_stats.py
-  - MORL_execution.py
 - Usage
 - Contributing
 - License
 
 ## Installation
 
-To install the required dependencies, run:
-
-```
-pip install -r requirements.txt
-```
 
 ## Modules
+The modules are divided into source and scripts. Source modules are sperated into environment, agent, wrapper and utils. 
+
+### ols_DOL_exe.py 
+Starts and proceeds the experiments including DOL and MOPPO Training and Evaluation. 
 
 ### MO_PPO.py
 Contains the implementation of the Multi-Objective Proximal Policy Optimization (MO-PPO) algorithm, based on the MORL_baseline package
@@ -61,8 +57,7 @@ Contains the evaluation script for Grid2Op environment.
 ### env_start_up.py
 Sets up the environment for power grid topology control experiments.
 
-### ols_DOL_exe.py 
-Starts and proceeds the experiments including DOL and MOPPO Training and Evaluation. 
+
 
 
 ## Contributing
