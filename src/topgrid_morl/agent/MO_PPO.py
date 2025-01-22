@@ -1,8 +1,10 @@
+import json
+import os
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
-import json
-import h5py
+
 import gymnasium as gym
+import h5py
 import mo_gymnasium as mo_gym
 import numpy as np
 import numpy.typing as npt
@@ -17,9 +19,20 @@ from typing_extensions import override
 
 from topgrid_morl.envs.CustomGymEnv import CustomGymEnv
 from topgrid_morl.utils.Dataloader import DataLoader
+from topgrid_morl.utils.Grid2op_eval import evaluate_agent
+
 
 class PPOReplayBuffer:
-    """Replay buffer for single environment."""
+    """
+    Replay buffer for single environment.
+
+    Attributes:
+        size (int): Maximum size of the buffer.
+        obs_shape (Tuple[int, ...]): Shape of the observations.
+        action_shape (Tuple[int, ...]): Shape of the actions.
+        reward_dim (int): Dimension of the rewards.
+        device (Union[th.device, str]): Device to store the buffer.
+    """
 
     def __init__(
         self,
@@ -87,7 +100,8 @@ class PPOReplayBuffer:
             step (int): The index of the step.
 
         Returns:
-            Tuple containing observation, action, log probability, reward, done, and value.
+            Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+            Observation, action, log probability, reward, done, and value.
         """
         return (
             self.obs[step],
@@ -105,8 +119,9 @@ class PPOReplayBuffer:
         Get all experiences in the buffer.
 
         Returns:
-            Tuple containing all observations, actions, log probabilities,
-            rewards, dones, and values up to the current pointer.
+            Tuple[th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor, th.Tensor]:
+            All observations, actions, log probabilities, rewards, dones, and values
+            up to the current pointer.
         """
         return (
             self.obs,
@@ -204,14 +219,23 @@ def _value_init(layer: nn.Module) -> None:
 
 
 class MOPPONet(nn.Module):
-    """Neural network for the MOPPO agent."""
+    """
+    Neural network for the MOPPO agent.
+
+    Attributes:
+        obs_shape (Tuple[int, ...]): Shape of the observations.
+        action_dim (int): Dimension of the action space.
+        reward_dim (int): Dimension of the reward space.
+        net_arch (List[int]): Architecture of the neural network.
+    """
 
     def __init__(
         self,
         obs_shape: Tuple[int, ...],
         action_dim: int,
         reward_dim: int,
-        net_arch: List[int] = [64, 64],
+        net_arch: List[int] = [256, 256, 256, 256],
+        act_fcn=nn.ReLU,
     ) -> None:
         """
         Initialize the neural network.
@@ -227,12 +251,13 @@ class MOPPONet(nn.Module):
         self.action_dim = action_dim
         self.reward_dim = reward_dim
         self.net_arch = net_arch
+        self.act_fcn = act_fcn
 
         self.critic = mlp(
             input_dim=np.prod(self.obs_shape),
             output_dim=self.reward_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.critic.apply(_hidden_layer_init)
         _critic_init(list(self.critic.modules())[-1])
@@ -241,10 +266,13 @@ class MOPPONet(nn.Module):
             input_dim=np.prod(self.obs_shape),
             output_dim=self.action_dim,
             net_arch=net_arch,
-            activation_fn=nn.Tanh,
+            activation_fn=act_fcn,
         )
         self.actor.apply(_hidden_layer_init)
         _value_init(list(self.actor.modules())[-1])
+        
+        print(self.net_arch)
+        print(self.act_fcn)
 
     def get_value(self, obs: th.Tensor) -> th.Tensor:
         """
@@ -278,16 +306,81 @@ class MOPPONet(nn.Module):
             action = probs.sample()
         return action, probs.log_prob(action), probs.entropy(), self.critic(obs)
 
+    def reinitialize_last_layer(self):
+        """
+        Reinitialize the last layers of the actor and critic networks.
+        """
+        # Reinitialize last layer of critic
+        last_critic_layer = self.get_last_linear_layer(self.critic)
+        if last_critic_layer is not None:
+            _critic_init(last_critic_layer)
+            print("Critic's last layer reinitialized.")
+        else:
+            print("No linear layer found in critic network.")
+
+        # Reinitialize last layer of actor
+        last_actor_layer = self.get_last_linear_layer(self.actor)
+        if last_actor_layer is not None:
+            _value_init(last_actor_layer)
+            print("Actor's last layer reinitialized.")
+        else:
+            print("No linear layer found in actor network.")
+
+    def get_last_linear_layer(self, network):
+        """
+        Helper method to get the last nn.Linear layer in a network.
+
+        Args:
+            network (nn.Module): The neural network module to search.
+
+        Returns:
+            nn.Linear or None: The last linear layer if found, else None.
+        """
+        last_linear = None
+        for layer in network.modules():
+            if isinstance(layer, nn.Linear):
+                last_linear = layer
+        return last_linear
 
 class MOPPO(MOPolicy):
-    """Multi-Objective Proximal Policy Optimization algorithm."""
+    """
+    Multi-Objective Proximal Policy Optimization algorithm.
+
+    Attributes:
+        id (int): Identifier for the agent.
+        networks (MOPPONet): Neural network for the agent.
+        weights (npt.NDArray[np.float64]): Weights for the objectives.
+        env (CustomGymEnv): Custom gym environment.
+        log (bool): Whether to log the training process.
+        steps_per_iteration (int): Steps per iteration.
+        num_minibatches (int): Number of minibatches.
+        update_epochs (int): Number of update epochs.
+        learning_rate (float): Learning rate.
+        gamma (float): Discount factor.
+        anneal_lr (bool): Whether to anneal the learning rate.
+        clip_coef (float): Clipping coefficient.
+        ent_coef (float): Entropy coefficient.
+        vf_coef (float): Value function coefficient.
+        clip_vloss (bool): Whether to clip value loss.
+        max_grad_norm (float): Maximum gradient norm.
+        norm_adv (bool): Whether to normalize advantages.
+        target_kl (Optional[float]): Target KL divergence.
+        gae (bool): Whether to use Generalized Advantage Estimation.
+        gae_lambda (float): GAE lambda.
+        device (Union[th.device, str]): Device to use.
+        seed (int): Random seed.
+        rng (Optional[np.random.Generator]): Random number generator.
+    """
 
     def __init__(
         self,
-        id: int,
         networks: MOPPONet,
         weights: npt.NDArray[np.float64],
         env: CustomGymEnv,
+        env_val: CustomGymEnv,
+        g2op_env: Any,
+        g2op_env_val: Any,
+        id: int = 1,
         log: bool = False,
         steps_per_iteration: int = 2048,
         num_minibatches: int = 32,
@@ -296,7 +389,7 @@ class MOPPO(MOPolicy):
         gamma: float = 0.995,
         anneal_lr: bool = False,
         clip_coef: float = 0.2,
-        ent_coef: float = 0.0,
+        ent_coef: float = 0.5,
         vf_coef: float = 0.5,
         clip_vloss: bool = True,
         max_grad_norm: float = 0.5,
@@ -306,7 +399,9 @@ class MOPPO(MOPolicy):
         gae_lambda: float = 0.95,
         device: Union[th.device, str] = "cuda",
         seed: int = 42,
+        generate_reward: bool = False,
         rng: Optional[np.random.Generator] = None,
+        anneal_clip_coef: bool = True,  # New parameter
     ) -> None:
         """
         Initialize the MOPPO agent.
@@ -339,6 +434,9 @@ class MOPPO(MOPolicy):
         super().__init__(id, device)
         self.id = id
         self.env = env
+        self.env_val = env_val
+        self.g2op_env = (g2op_env,)
+        self.g2op_env_val = g2op_env_val
         self.networks = networks
         self.device = device
         self.seed = seed
@@ -363,6 +461,14 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
+        self.debug = False
+        
+        self.anneal_clip_coef = anneal_clip_coef
+        self.clip_coef_initial = clip_coef
+        self.clip_coef_final = 0.1  # Target clip coefficientself.clip_coef_final = 0.1  # Target clip coefficient
+
+        self.training_rewards = []
+        self.evaluation_rewards = []
 
         self.optimizer = optim.Adam(
             networks.parameters(), lr=self.learning_rate, eps=1e-5
@@ -378,6 +484,8 @@ class MOPPO(MOPolicy):
         # Add logs for state-action pairs and rewards
         self.state_action_log = []
         self.rewards_log = []
+
+        self.generate_reward = generate_reward
 
     def __deepcopy__(self, memo: Dict[int, Any]) -> "MOPPO":
         """
@@ -395,6 +503,9 @@ class MOPPO(MOPolicy):
             copied_net,
             self.weights.detach().cpu().numpy(),
             self.env,
+            self.env_val,
+            self.g2op_env,
+            self.g2op_env_val,
             self.log,
             self.steps_per_iteration,
             self.num_minibatches,
@@ -412,9 +523,13 @@ class MOPPO(MOPolicy):
             self.gae,
             self.gae_lambda,
             self.device,
+            self.seed,
+            self.generate_reward,
+            self.np_random,
         )
 
         copied.global_step = self.global_step
+        copied.eval_step = self.eval_step
         copied.optimizer = optim.Adam(
             copied_net.parameters(), lr=self.learning_rate, eps=1e-5
         )
@@ -442,6 +557,7 @@ class MOPPO(MOPolicy):
         Returns:
             th.Tensor: Extended tensor.
         """
+        
         dim_diff = self.networks.reward_dim - tensor.dim()
         if dim_diff > 0:
             return tensor.unsqueeze(-1).expand(*tensor.shape, self.networks.reward_dim)
@@ -450,70 +566,66 @@ class MOPPO(MOPolicy):
         else:
             return tensor
 
-    def __collect_samples(
-        self, obs: th.Tensor, done: bool, grid2op_steps: int
-    ) -> Tuple[th.Tensor, bool, int, int]:
+    def __collect_samples(self, obs: th.Tensor, done: bool) -> Tuple[th.Tensor, bool, int]:
         """
         Collect samples by interacting with the environment.
-
-        Args:
-            obs (th.Tensor): Initial observation.
-            done (bool): Whether the episode is done.
-            max_ep_steps (int): Maximum number of steps per episode.
-
-        Returns:
-            Tuple containing the next observation, whether the episode is
-            done, cumulative reward, and total steps.
         """
-
-        for gym_step in range(self.batch_size):
-            # fill batch
-            if done:
-                self.env.reset()
-
+        batch_size_collected = 0
+        
+        #self.batch.__init__()
+        
+        while batch_size_collected < self.batch_size:
+            #print(batch_size_collected)
             with th.no_grad():
-                action, logprob, _, value = self.networks.get_action_and_value(
-                    obs.to(self.device)
-                )
+                action, logprob, entropy, value = self.networks.get_action_and_value(obs=obs) 
                 value = value.view(self.networks.reward_dim)
 
-            next_obs, reward, next_done, info = self.env.step(action.item())
+            next_obs, reward, next_done, info, terminated_gym = self.env.step(action.item())
             self.global_step += 1
 
             reward = th.tensor(reward).to(self.device).view(self.networks.reward_dim)
+            next_done = float(next_done)
 
-            self.batch.add(obs, action, logprob, reward, done, value)
-            steps_in_gymstep = info["steps"]
-            obs, done = th.Tensor(next_obs).to(self.device), th.tensor(
-                next_done
-            ).float().to(self.device)
-            grid2op_steps += steps_in_gymstep
+            # Add the current transition to the batch (since the episode is ongoing)
             
-            # Log the state-action pair and reward
-            self.state_action_log.append((obs.cpu().numpy().tolist(), action.cpu().numpy().tolist()))
-            self.rewards_log.append(reward.cpu().numpy().tolist())
+            
+            self.batch.add(obs, action, logprob, reward, done, value)
+                
+                
+            batch_size_collected += 1
+            self.chronic_steps += info["steps"]
 
-            # Log the reward for each step
+
+            # Log the training reward for each step
             log_data = {
-                f"step_{self.id}/reward_{i}": reward[i].item()
+                f"train/reward_{self.reward_list_ext[i]}": reward[i].item()
                 for i in range(self.networks.reward_dim)
             }
-            wandb.log(log_data, step=self.global_step)
+            log_data[f"train/grid2opsteps"] = self.chronic_steps
+            log_data[f'train/steps/gymstep'] = info["steps"]
+            if self.log:
+                wandb.log(log_data, step=self.global_step)
+            
+            if next_done:
+                # The episode has ended; reset the environment
+                reset_obs = self.env.reset()
+                next_obs = th.tensor(reset_obs).to(self.device)
+                next_done= float(True)
+                if self.debug: 
+                    print(f'reset env with {self.chronic_steps} and rewards {reward}')
+                self.chronic_steps = 0
+            
+            # Update obs and done for the next iteration
+            obs = th.Tensor(next_obs).to(self.device)
+            done = next_done  # Already a float
 
-        return obs, done, self.batch.rewards.mean().item(), grid2op_steps
+        return obs, done, self.batch.rewards.mean().item()
 
     def __compute_advantages(
         self, next_obs: th.Tensor, next_done: bool
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
-        Compute advantages and returns.
-
-        Args:
-            next_obs (th.Tensor): Next observation.
-            next_done (bool): Whether the next state is done.
-
-        Returns:
-            Tuple[th.Tensor, th.Tensor]: Returns and advantages.
+        Compute advantages and returns
         """
         returns: th.Tensor
         with th.no_grad():
@@ -525,24 +637,44 @@ class MOPPO(MOPolicy):
                     self.device
                 )
                 lastgaelam = 0
+                if self.debug ==True: 
+                    #   Debug: Print the initial next_value and next_done
+                    print(f"Next Value: {next_value}")
+                    print(f"Next Done: {next_done}")
 
                 for t in reversed(range(self.batch_size)):
                     if t == self.steps_per_iteration - 1:
-                        nextnonterminal = 1.0 - next_done
+                        if self.debug: 
+                            print('last iteration within batch')
+                            print(next_done)
+                        nextnonterminal = 1.0 - next_done #last iteration within batch -> next_done
                         nextvalues = next_value
+                        if self.debug: 
+                            print(nextnonterminal)
                     else:
+                                 
                         _, _, _, _, done_t1, value_t1 = self.batch.get(t + 1)
-                        nextnonterminal = 1.0 - done_t1
+                        _, _, _, _, _, value_t_debug = self.batch.get(t)
+                                                   
+                        nextnonterminal = 1.0 - done_t1 #if terminal 0 - if non terminal: value!
+                        if self.debug:
+                            print('all other entries in batch:')
+                            print(done_t1)
+                            print(nextnonterminal)
+                            print(f'Value {value_t_debug}')
+                            print(f'Nextvalue {value_t1}')
+                            
                         nextvalues = value_t1
-
+                    nextnonterminal = th.tensor(nextnonterminal)
+                    
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
+                    
                     _, _, _, reward_t, _, value_t = self.batch.get(t)
                     delta = (
                         reward_t + self.gamma * nextvalues * nextnonterminal - value_t
                     )
                     advantages[t] = lastgaelam = (
-                        delta
-                        + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
+                        delta + self.gamma * self.gae_lambda * nextnonterminal * lastgaelam
                     )
 
                 returns = advantages + self.batch.values
@@ -557,11 +689,18 @@ class MOPPO(MOPolicy):
                         _, _, _, _, done_t1, _ = self.batch.get(t + 1)
                         nextnonterminal = 1.0 - done_t1
                         next_return = returns[t + 1]
-
+                    
                     nextnonterminal = self.__extend_to_reward_dim(nextnonterminal)
+                    
                     _, _, _, reward_t, _, _ = self.batch.get(t)
                     returns[t] = reward_t + self.gamma * nextnonterminal * next_return
+                    
                 advantages = returns - self.batch.values()
+
+        # Debug: Print computed returns and advantages
+        if self.debug ==True: 
+            print(f"Returns: {returns}")
+            print(f"Advantages: {advantages}")
 
         advantages = (
             advantages @ self.weights.float()
@@ -593,9 +732,11 @@ class MOPPO(MOPolicy):
         """
         Update the policy and value function.
         """
+        #eval_done = False
+        #eval_state = self.env_val.reset(options={"max step": 28 * 288})
         obs, actions, logprobs, _, _, values = self.batch.get_all()
-
-        # Flatten the batch (b == batch)
+        if self.debug ==True: 
+            print('in update')
         b_obs = obs.reshape((-1,) + self.networks.obs_shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape(-1)
@@ -603,11 +744,18 @@ class MOPPO(MOPolicy):
         b_returns = self.returns.reshape(-1, self.networks.reward_dim)
         b_values = values.reshape(-1, self.networks.reward_dim)
 
-        # Optimizing the policy and value network
         b_inds = np.arange(self.batch_size)
         clipfracs = []
+        if self.debug ==True: 
+                    # Debug: Print policy and value loss info per minibatch
+                    print(f"Batch obs: {b_obs}")
+                    print(f"Batch actions: {b_actions}")
+                    print(f"b_returns: {b_returns}")
+                    
 
         for epoch in range(self.update_epochs):
+            if self.debug ==True: 
+                print(epoch)
             self.np_random.shuffle(b_inds)
             for start in range(0, self.batch_size, self.minibatch_size):
                 end = start + self.minibatch_size
@@ -625,6 +773,12 @@ class MOPPO(MOPolicy):
                     clipfracs += [
                         ((ratio - 1.0).abs() > self.clip_coef).float().mean().item()
                     ]
+                if self.debug ==True: 
+                    # Debug: Print policy and value loss info per minibatch
+                    print(f"Epoch: {epoch}, Batch Start: {start}, Batch End: {end}, Minibatchs_inds: {mb_inds}")
+                    print(f"LogProbs Ratio: {ratio}")
+                    print(f"Approx KL: {approx_kl}")
+                    print(f"ClipFrac: {clipfracs[-1]}")
 
                 mb_advantages = b_advantages[mb_inds]
                 if self.norm_adv:
@@ -632,14 +786,12 @@ class MOPPO(MOPolicy):
                         mb_advantages.std() + 1e-8
                     )
 
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * th.clamp(
                     ratio, 1 - self.clip_coef, 1 + self.clip_coef
                 )
                 pg_loss = th.max(pg_loss1, pg_loss2).mean()
 
-                # Value loss
                 newvalue = newvalue.view(-1, self.networks.reward_dim)
                 if self.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
@@ -654,6 +806,12 @@ class MOPPO(MOPolicy):
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
+                if self.debug ==True: 
+                    # Debug: Print losses after each minibatch
+                    print(f"Policy Loss: {pg_loss}")
+                    print(f"Value Loss: {v_loss}")
+                    print(f"Entropy Loss: {entropy.mean()}")
+
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
 
@@ -661,14 +819,54 @@ class MOPPO(MOPolicy):
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)
                 self.optimizer.step()
-
+            
             if (
                 self.target_kl is not None
                 and approx_kl is not None
                 and approx_kl > self.target_kl
             ):
                 break
+        if self.debug ==True:     
+            # Debug: Print evaluation rewards after each update
+            print(f"Evaluation Rewards: {self.evaluation_rewards}")
+        
+            # Evaluate and log evaluation rewards
+        chronics = self.g2op_env_val.chronics_handler.available_chronics()
+        #print(chronics)
+        eval_rewards = []
+        eval_steps = []
+        for idx, chronic in enumerate(chronics):
+            eval_data = evaluate_agent(
+                agent=self,
+                env=self.env_val,
+                g2op_env=self.g2op_env_val,
+                g2op_env_val=self.g2op_env_val,
+                weights=self.weights,
+                eval_steps=28 * 288,
+                eval_counter=self.eval_counter,
+                chronic=chronic,
+                idx=idx,
+                reward_list=self.reward_list,
+                seed=self.seed,
+            )
+            eval_rewards.append(th.stack(eval_data["eval_rewards"]).mean(dim=0))
+            eval_steps.append(eval_data["eval_steps"])
 
+        eval_rewards = th.stack(eval_rewards).mean(dim=0)
+        eval_steps = np.array(eval_steps).mean()
+
+        self.evaluation_rewards.append(eval_rewards.cpu().numpy())
+        
+        if self.log:
+            log_rew_data = {
+                f"eval/reward_{self.reward_list_ext[i]}": eval_rewards[i].item()
+                for i in range(self.networks.reward_dim)
+            }
+            log_step_data = {f"eval/steps": eval_steps}
+            wandb.log(log_rew_data, step=self.global_step)
+            wandb.log(log_step_data, step=self.global_step)
+        
+        self.eval_counter += 1
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
@@ -680,6 +878,7 @@ class MOPPO(MOPolicy):
                     f"charts_{self.id}/learning_rate": self.optimizer.param_groups[0][
                         "lr"
                     ],
+                    f"charts_{self.id}/clip_coef": self.clip_coef,
                     f"losses_{self.id}/policy_loss": pg_loss.item(),
                     f"losses_{self.id}/entropy": entropy_loss.item(),
                     f"losses_{self.id}/old_approx_kl": old_approx_kl.item(),
@@ -689,17 +888,13 @@ class MOPPO(MOPolicy):
                     "global_step": self.global_step,
                 }
             )
-        # Anneal the learning rate
-        if self.anneal_lr:
-            frac = 1.0 - (self.global_step / self.max_gym_steps)
-            new_lr = self.learning_rate * frac
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = new_lr         
         
+
     def train(
         self,
         max_gym_steps: int,
-        reward_dim: int
+        reward_dim: int,
+        reward_list: list,
     ) -> None:
         """
         Train the agent.
@@ -708,23 +903,53 @@ class MOPPO(MOPolicy):
             max_gym_steps (int): Total gym steps.
             reward_dim (int): Dimension of the reward.
         """
-        grid2op_steps = 0
-        num_trainings = int(max_gym_steps / self.batch_size)
+        print(self.clip_coef)
+        self.reward_list = reward_list
+        self.reward_list_ext = [
+            "L2RPN",
+            self.reward_list[0],
+            self.reward_list[1],
+        ]
+        state = self.env.reset()
+        self.chronic_steps = 0
+        obs = th.Tensor(state).to(self.device)
+        done = 0
 
+        num_trainings = int(max_gym_steps / self.batch_size)
+        self.eval_step = 0
         self.global_step = 0
+        self.eval_counter = 0
+        
         for trainings in range(num_trainings):
             state = self.env.reset()
-            next_obs = th.Tensor(state).to(self.device)
-            done = False
+            if self.debug ==True: 
+                print('Env Reset in Training Loop')
+            self.chronic_steps = 0
+            obs = th.Tensor(state).to(self.device)
+            done = 0
 
-            next_obs, done, _, grid2op_steps_from_training = self.__collect_samples(
-                next_obs, done, grid2op_steps=grid2op_steps
-            )
+            next_obs, next_done, _ = self.__collect_samples(obs, done)
 
-            grid2op_steps += grid2op_steps_from_training
-            self.returns, self.advantages = self.__compute_advantages(next_obs, done)
+            self.returns, self.advantages = self.__compute_advantages(next_obs, next_done)
             self.update()
+            
+            done = next_done
+            obs = next_obs
 
-        filename_prefix = f"training_logs_seed_{self.seed}_steps_{max_gym_steps}_weights_{'_'.join(map(str, self.weights.cpu().numpy().tolist()))}"
-        dataloader = DataLoader()
-        dataloader.save_logs_json(path=filename_prefix)
+            if self.anneal_lr:
+                frac = 1.0 - (self.global_step / max_gym_steps)
+                new_lr = self.learning_rate * frac
+                for param_group in self.optimizer.param_groups:
+                    param_group["lr"] = new_lr
+            
+            # Anneal clip coefficient if required
+            if self.anneal_clip_coef:
+                frac = float((self.global_step / max_gym_steps))
+                self.clip_coef = self.clip_coef_initial - frac * (self.clip_coef_initial - self.clip_coef_final)
+                self.clip_coef = np.round(self.clip_coef,decimals=2)
+            
+
+            
+            
+                    
+          

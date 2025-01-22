@@ -1,0 +1,1 @@
+{"train/reward_ScaledLinesCapacity": 0.02327943288225646, "train/reward_ScaledDistance": 0.04944444444444434, "train/reward_TopoAction": 0.0, "train/grid2opsteps": 89, "_timestamp": 1722507039.0909758, "_runtime": 9.46373987197876, "_step": 32, "_wandb": {"runtime": 9}}
