@@ -2,6 +2,11 @@
 
 This repository contains a collection of modules for implementing Multi-Objective Reinforcement Learning (MORL) algorithm specifically designed for multi-objective power grid topology control. This framework bases on morl_baselines for the MORL part and on Grid2Op for the power system environment.
 
+## Citation
+This repository contains code for the paper:
+
+*Thomas Lautenbacher, Ali Rajaei, Davide, Jan Viebahn, Jochen L. Cremer, „Multi-Objective Reinforcement Learning for Power Grid Topology Control”, IEEE PES Powertech Kiel, Germany, 2025*
+
 ## Table of Contents
 - Installation
 - Modules
