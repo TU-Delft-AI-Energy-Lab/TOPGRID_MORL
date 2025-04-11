@@ -5,7 +5,7 @@ This repository contains a collection of modules for implementing Multi-Objectiv
 ## Citation
 This repository contains code for the paper:
 
-*Thomas Lautenbacher, Ali Rajaei, Davide, Jan Viebahn, Jochen L. Cremer, „Multi-Objective Reinforcement Learning for Power Grid Topology Control”, IEEE PES Powertech Kiel, Germany, 2025*
+*Thomas Lautenbacher, Ali Rajaei, Davide Barbieri, Jan Viebahn, Jochen L. Cremer, „Multi-Objective Reinforcement Learning for Power Grid Topology Control”, IEEE PES Powertech Kiel, Germany, 2025*
 
 ## Table of Contents
 - Installation
