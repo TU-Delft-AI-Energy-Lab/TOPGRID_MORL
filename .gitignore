@@ -157,3 +157,24 @@ eval_logs/
 morl_logs/ 
 #ignore wandb
 wandb/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Mac
+.DS_Store
+
+# Project specific
+data/
+*.npy
+*.csv
+training_results_*/
